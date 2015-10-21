@@ -33,6 +33,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <sys/types.h> /* ssize_t */
 #include <string.h>
 #include "slab_cache.h"
 #include "lifo.h"

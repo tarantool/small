@@ -35,6 +35,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <unistd.h>
+#include <sys/types.h> /* ssize_t */
 #include "pmatomic.h"
 
 #if defined(__cplusplus)
