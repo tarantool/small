@@ -1,10 +1,8 @@
-small - a collection of Specialized Memory ALLocators
-for small allocations.
+# small - a collection of Specialized Memory ALLocators for small allocations
 
 The library provides the following facilities:
 
-slab_arena
-----------
+## slab_arena
 
 Defines an API with two methods: map() and unmap().
 Map returns a memory area. Unmap returns this area to the arena.
@@ -31,7 +29,6 @@ API:
 Use of instances of slab_arena is thread-safe: multiple
 threads can use the same arena.
   
-slab_cache
-----------
+## slab_cache
 
 
