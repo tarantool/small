@@ -1,0 +1,16 @@
+*~
+*.a
+*.o
+*.so*
+*.dynlib*
+*.user
+*.cbp
+*.log
+obj-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+Makefile
+Doxyfile
+build/
