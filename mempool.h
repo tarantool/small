@@ -228,6 +228,12 @@ mempool_create(struct mempool *pool, struct slab_cache *cache,
 	return mempool_create_with_order(pool, cache, objsize, order);
 }
 
+static inline bool
+mempool_is_initialized(struct mempool *pool)
+{
+	return pool->cache != NULL;
+}
+
 /**
  * Free the memory pool and release all cached memory blocks.
  * @sa mempool_create()
