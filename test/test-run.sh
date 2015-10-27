@@ -14,7 +14,7 @@ TEST                                            RESULT
 EOF
 
 for t in ${TESTS}; do
-    echo -e -n "$t"
+    printf "%-48s" $t
     name="${t%.*}"
     result="${name}.result"
     reject="${name}.reject"
@@ -22,9 +22,9 @@ for t in ${TESTS}; do
     diff -U8 "${result}" "${reject}" > "${tmp}"
     if [ $? -eq 0 ]; then
         rm -f "${reject}"
-        echo -e "\r\t\t\t\t\t\t[ pass ]"
+        echo "[ pass ]"
     else
-        echo -e "\r\t\t\t\t\t\t[ fail ]"
+        echo "[ fail ]"
         cat ${tmp}
     fi
 done
