@@ -251,7 +251,7 @@ small_stats(struct small_alloc *alloc,
 #include "exception.h"
 
 static inline void *
-smalloc(struct small_alloc *alloc, size_t size, const char *where)
+smalloc_ex(struct small_alloc *alloc, size_t size, const char *where)
 {
 	void *ptr = smalloc_nothrow(alloc, size);
 	if (ptr == NULL)
@@ -260,9 +260,9 @@ smalloc(struct small_alloc *alloc, size_t size, const char *where)
 }
 
 static inline void *
-smalloc0(struct small_alloc *alloc, size_t size, const char *where)
+smalloc0_ex(struct small_alloc *alloc, size_t size, const char *where)
 {
-	return memset(smalloc(alloc, size, where), 0, size);
+	return memset(smalloc_ex(alloc, size, where), 0, size);
 }
 
 #endif /* defined(__cplusplus) */

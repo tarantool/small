@@ -236,7 +236,7 @@ region_name(struct region *region)
 #include "exception.h"
 
 static inline void *
-region_alloc(struct region *region, size_t size)
+region_alloc_ex(struct region *region, size_t size)
 {
 	void *ptr = region_alloc_nothrow(region, size);
 	if (ptr == NULL)
@@ -245,7 +245,7 @@ region_alloc(struct region *region, size_t size)
 }
 
 static inline void *
-region_reserve(struct region *region, size_t size)
+region_reserve_ex(struct region *region, size_t size)
 {
 	void *ptr = region_reserve_nothrow(region, size);
 	if (ptr == NULL)
@@ -254,7 +254,7 @@ region_reserve(struct region *region, size_t size)
 }
 
 static inline void *
-region_join(struct region *region, size_t size)
+region_join_ex(struct region *region, size_t size)
 {
 	void *ptr = region_join_nothrow(region, size);
 	if (ptr == NULL)
@@ -263,37 +263,34 @@ region_join(struct region *region, size_t size)
 }
 
 static inline void *
-region_alloc0(struct region *region, size_t size)
+region_alloc0_ex(struct region *region, size_t size)
 {
-	return memset(region_alloc(region, size), 0, size);
+	return memset(region_alloc_ex(region, size), 0, size);
 }
 
 static inline void
-region_dup(struct region *region, const void *ptr, size_t size)
+region_dup_ex(struct region *region, const void *ptr, size_t size)
 {
-	(void) memcpy(region_alloc(region, size), ptr, size);
-}
-
-extern "C" {
-static inline void *
-region_alloc_cb(void *ctx, size_t size)
-{
-	return region_alloc((struct region *) ctx, size);
+	(void) memcpy(region_alloc_ex(region, size), ptr, size);
 }
 
 static inline void *
-region_reserve_cb(void *ctx, size_t *size)
+region_alloc_ex_cb(void *ctx, size_t size)
+{
+	return region_alloc_ex((struct region *) ctx, size);
+}
+
+static inline void *
+region_reserve_ex_cb(void *ctx, size_t *size)
 {
 	struct region *region = (struct region *) ctx;
-	void *ptr = region_reserve(region, *size);
+	void *ptr = region_reserve_ex(region, *size);
 	struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
 					       struct rslab,
 					       slab.next_in_list);
 	*size = rslab_unused(slab);
 	return ptr;
 }
-
-} /* extern "C" */
 
 struct RegionGuard {
 	struct region *region;

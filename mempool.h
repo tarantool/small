@@ -285,7 +285,7 @@ mempool_total(struct mempool *pool)
 #include "exception.h"
 
 static inline void *
-mempool_alloc(struct mempool *pool)
+mempool_alloc_ex(struct mempool *pool)
 {
 	void *ptr = mempool_alloc_nothrow(pool);
 	if (ptr == NULL)
@@ -295,9 +295,9 @@ mempool_alloc(struct mempool *pool)
 }
 
 static inline void *
-mempool_alloc0(struct mempool *pool)
+mempool_alloc0_ex(struct mempool *pool)
 {
-	return memset(mempool_alloc(pool), 0, pool->objsize);
+	return memset(mempool_alloc_ex(pool), 0, pool->objsize);
 }
 
 #endif /* defined(__cplusplus) */

@@ -151,7 +151,7 @@ ibuf_alloc_nothrow(struct ibuf *ibuf, size_t size)
 
 /** Reserve space for sz bytes in the input buffer. */
 static inline void *
-ibuf_reserve(struct ibuf *ibuf, size_t size)
+ibuf_reserve_ex(struct ibuf *ibuf, size_t size)
 {
 	void *ptr = ibuf_reserve_nothrow(ibuf, size);
 	if (ptr == NULL)
@@ -160,18 +160,27 @@ ibuf_reserve(struct ibuf *ibuf, size_t size)
 }
 
 static inline void *
-ibuf_reserve_cb(void *ptr, size_t *size)
+ibuf_alloc_ex(struct ibuf *ibuf, size_t size)
 {
-	struct ibuf *b = (struct ibuf*) ptr;
-	size_t s = *size;
-	return ibuf_reserve(b, s);
+	void *ptr = ibuf_alloc_nothrow(ibuf, size);
+	if (ptr == NULL)
+		tnt_raise(OutOfMemory, size, "ibuf", "alloc");
+	return ptr;
 }
 
 static inline void *
-ibuf_alloc_cb(void *ptr, size_t size)
+ibuf_reserve_ex_cb(void *ptr, size_t *size)
 {
 	struct ibuf *b = (struct ibuf*) ptr;
-	return ibuf_alloc_nothrow(b, size);
+	size_t s = *size;
+	return ibuf_reserve_ex(b, s);
+}
+
+static inline void *
+ibuf_alloc_ex_cb(void *ptr, size_t size)
+{
+	struct ibuf *b = (struct ibuf*) ptr;
+	return ibuf_alloc_ex(b, size);
 }
 
 #endif /* defined(__cplusplus) */
