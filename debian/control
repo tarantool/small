@@ -1,0 +1,36 @@
+Source: small
+Priority: optional
+Section: libdevel
+Maintainer: Eugine Blikh <bigbes@tarantool.org>
+#Build-Depends: debhelper (>= 9), cdbs, dpkg-dev (>= 1.16.1~)
+Build-Depends: debhelper (>= 9), cdbs, cmake (>= 2.8), dpkg-dev (>= 1.16.1~)
+Standards-Version: 3.9.5
+Homepage: https://github.com/tarantool/small
+Vcs-Git: git://github.com/tarantool/small.git
+Vcs-Browser: https://github.com/tarantool/small
+
+Package: libsmall
+Architecture: any
+Depends: tarantool, ${shlibs:Depends}, ${misc:Depends}
+Pre-Depends: ${misc:Pre-Depends}
+Description: specialized memory allocators
+    Collection of Specialized Memory ALLocators for small allocations
+
+Package: libsmall-dbg
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Pre-Depends: ${misc:Pre-Depends}
+Multi-Arch: same
+Description: specialized memory allocators
+    Collection of Specialized Memory ALLocators for small allocations
+    .
+    This package contains debug information
+
+Package: libsmall-dev
+Architecture: any
+Depends: tarantool, ${shlibs:Depends}, ${misc:Depends}
+Pre-Depends: ${misc:Pre-Depends}
+Description: specialized memory allocators
+    Collection of Specialized Memory ALLocators for small allocations
+    .
+    This package contains development files.
