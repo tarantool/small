@@ -138,7 +138,7 @@ obuf_iovcnt(struct obuf *buf)
  * memory and moves data if necessary.
  */
 void *
-obuf_reserve_slow_nothrow(struct obuf *buf, size_t size);
+obuf_reserve_slow(struct obuf *buf, size_t size);
 
 /**
  * \brief Ensure \a buf to have at least \a size bytes of contiguous memory
@@ -150,10 +150,10 @@ obuf_reserve_slow_nothrow(struct obuf *buf, size_t size);
  * \return a pointer to contiguous chunk of memory
  */
 static inline void *
-obuf_reserve_nothrow(struct obuf *buf, size_t size)
+obuf_reserve(struct obuf *buf, size_t size)
 {
 	if (buf->iov[buf->pos].iov_len + size > buf->capacity[buf->pos])
-		return obuf_reserve_slow_nothrow(buf, size);
+		return obuf_reserve_slow(buf, size);
 	struct iovec *iov = &buf->iov[buf->pos];
 	return (char *) iov->iov_base + iov->iov_len;
 }
@@ -165,14 +165,14 @@ obuf_reserve_nothrow(struct obuf *buf, size_t size)
  * \sa obuf_reserve
  */
 static inline void *
-obuf_alloc_nothrow(struct obuf *buf, size_t size)
+obuf_alloc(struct obuf *buf, size_t size)
 {
 	struct iovec *iov = &buf->iov[buf->pos];
 	void *ptr;
 	if (iov->iov_len + size <= buf->capacity[buf->pos]) {
 		ptr = (char *) iov->iov_base + iov->iov_len;
 	} else {
-		ptr = obuf_reserve_slow_nothrow(buf, size);
+		ptr = obuf_reserve_slow(buf, size);
 		if (ptr == NULL)
 			return NULL;
 		iov = &buf->iov[buf->pos];
@@ -185,7 +185,7 @@ obuf_alloc_nothrow(struct obuf *buf, size_t size)
 
 /** Append data to the output buffer. */
 size_t
-obuf_dup_nothrow(struct obuf *buf, const void *data, size_t size);
+obuf_dup(struct obuf *buf, const void *data, size_t size);
 
 static inline size_t
 obuf_capacity(struct obuf *buf)
@@ -223,7 +223,7 @@ obuf_svp_to_ptr(struct obuf *buf, struct obuf_svp *svp)
 static inline void *
 obuf_reserve_ex(struct obuf *buf, size_t size)
 {
-	void *ptr = obuf_reserve_nothrow(buf, size);
+	void *ptr = obuf_reserve(buf, size);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, size, "obuf", "reserve");
 	return ptr;
@@ -232,7 +232,7 @@ obuf_reserve_ex(struct obuf *buf, size_t size)
 static inline void *
 obuf_alloc_ex(struct obuf *buf, size_t size)
 {
-	void *ptr = obuf_alloc_nothrow(buf, size);
+	void *ptr = obuf_alloc(buf, size);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, size, "obuf", "alloc");
 	return ptr;
@@ -241,7 +241,7 @@ obuf_alloc_ex(struct obuf *buf, size_t size)
 static inline void
 obuf_dup_ex(struct obuf *buf, const void *data, size_t size)
 {
-	if (obuf_dup_nothrow(buf, data, size) != size)
+	if (obuf_dup(buf, data, size) != size)
 		tnt_raise(OutOfMemory, size, "obuf", "dup");
 }
 

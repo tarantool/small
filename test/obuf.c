@@ -24,7 +24,7 @@ alloc_checked(struct obuf *buf)
 	if (size < OBJSIZE_MIN || size > OBJSIZE_MAX)
 		size = OBJSIZE_MIN;
 
-	obuf_alloc_nothrow(buf, size);
+	obuf_alloc(buf, size);
 }
 
 static void

@@ -67,7 +67,7 @@ ibuf_reinit(struct ibuf *ibuf)
  * the beginning.
  */
 void *
-ibuf_reserve_nothrow_slow(struct ibuf *ibuf, size_t size)
+ibuf_reserve_slow(struct ibuf *ibuf, size_t size)
 {
 	assert(ibuf->wpos + size > ibuf->end);
 	size_t used = ibuf_used(ibuf);

@@ -18,13 +18,13 @@ region_basic()
 
 	fail_unless(region_used(&region) == 0);
 
-	void *ptr = region_alloc_nothrow(&region, 10);
+	void *ptr = region_alloc(&region, 10);
 
 	fail_unless(ptr);
 
 	fail_unless(region_used(&region) == 10);
 
-	ptr = region_alloc_nothrow(&region, 10000000);
+	ptr = region_alloc(&region, 10000000);
 	fail_unless(ptr);
 
 	fail_unless(region_used(&region) == 10000010);
@@ -57,14 +57,14 @@ region_test_truncate()
 
 	region_create(&region, &cache);
 
-	void *ptr = region_alloc_nothrow(&region, 10);
+	void *ptr = region_alloc(&region, 10);
 
 	fail_unless(ptr);
 
 	size_t used = region_used(&region);
 
-	region_alloc_nothrow(&region, 10000);
-	region_alloc_nothrow(&region, 10000000);
+	region_alloc(&region, 10000);
+	region_alloc(&region, 10000000);
 
 	region_truncate(&region, used);
 

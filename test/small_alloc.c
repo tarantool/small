@@ -50,7 +50,7 @@ alloc_checked()
 	}
 	if (! allocating)
 		return NULL;
-	ptrs[pos] = smalloc_nothrow(&alloc, size);
+	ptrs[pos] = smalloc(&alloc, size);
 	ptrs[pos][0] = pos;
 	ptrs[pos][1] = size;
 	ptrs[pos][size/sizeof(int)-1] = pos;

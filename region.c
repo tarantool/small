@@ -92,11 +92,11 @@ region_truncate(struct region *region, size_t used)
 }
 
 void *
-region_join_nothrow(struct region *region, size_t size)
+region_join(struct region *region, size_t size)
 {
 	if (rlist_empty(&region->slabs.slabs)) {
 		assert(size == 0);
-		return region_alloc_nothrow(region, 0);
+		return region_alloc(region, 0);
 	}
 	struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
 					       struct rslab,
@@ -111,7 +111,7 @@ region_join_nothrow(struct region *region, size_t size)
 	 * changed when the joined region is in the same slab
 	 * as the final chunk.
 	 */
-	char *ptr = region_reserve_nothrow(region, size);
+	char *ptr = region_reserve(region, size);
 	size_t offset = size;
 	if (ptr == NULL)
 		return NULL;
@@ -125,6 +125,6 @@ region_join_nothrow(struct region *region, size_t size)
 	}
 	if (offset > 0)
 		memcpy(ptr, rslab_data(slab) + slab->used - offset, offset);
-	region_alloc_nothrow(region, size);
+	region_alloc(region, size);
 	return ptr;
 }

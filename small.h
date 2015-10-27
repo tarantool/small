@@ -184,7 +184,7 @@ small_alloc_destroy(struct small_alloc *alloc);
  *                or out of memory
  */
 void *
-smalloc_nothrow(struct small_alloc *alloc, size_t size);
+smalloc(struct small_alloc *alloc, size_t size);
 
 /** Free memory chunk allocated by the small allocator. */
 /**
@@ -253,7 +253,7 @@ small_stats(struct small_alloc *alloc,
 static inline void *
 smalloc_ex(struct small_alloc *alloc, size_t size, const char *where)
 {
-	void *ptr = smalloc_nothrow(alloc, size);
+	void *ptr = smalloc(alloc, size);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, size, "slab allocator", where);
 	return ptr;

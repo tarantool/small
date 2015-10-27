@@ -153,7 +153,7 @@ mempool_destroy(struct mempool *pool)
 }
 
 void *
-mempool_alloc_nothrow(struct mempool *pool)
+mempool_alloc(struct mempool *pool)
 {
 	struct mslab *slab = mslab_tree_first(&pool->free_slabs);
 	if (slab == NULL) {

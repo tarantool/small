@@ -104,7 +104,7 @@ obuf_destroy(struct obuf *buf)
 
 /** Add data to the output buffer. Copies the data. */
 size_t
-obuf_dup_nothrow(struct obuf *buf, const void *data, size_t size)
+obuf_dup(struct obuf *buf, const void *data, size_t size)
 {
 	struct iovec *iov = &buf->iov[buf->pos];
 	size_t capacity = buf->capacity[buf->pos];
@@ -168,7 +168,7 @@ obuf_dup_nothrow(struct obuf *buf, const void *data, size_t size)
 }
 
 void *
-obuf_reserve_slow_nothrow(struct obuf *buf, size_t size)
+obuf_reserve_slow(struct obuf *buf, size_t size)
 {
 	struct iovec *iov = &buf->iov[buf->pos];
 	size_t capacity = buf->capacity[buf->pos];

@@ -19,13 +19,13 @@ ibuf_basic()
 
 	fail_unless(ibuf_used(&ibuf) == 0);
 
-	void *ptr = ibuf_alloc_nothrow(&ibuf, 10);
+	void *ptr = ibuf_alloc(&ibuf, 10);
 
 	fail_unless(ptr);
 
 	fail_unless(ibuf_used(&ibuf) == 10);
 
-	ptr = ibuf_alloc_nothrow(&ibuf, 1000000);
+	ptr = ibuf_alloc(&ibuf, 1000000);
 	fail_unless(ptr);
 
 	fail_unless(ibuf_used(&ibuf) == 1000010);

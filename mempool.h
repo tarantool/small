@@ -69,7 +69,7 @@ extern "C" {
  * ----------------
  * The only type of failure which can occur is a failure to
  * allocate memory. In case of such error, an exception
- * (OutOfMemory) is raised. _nothrow()
+ * (OutOfMemory) is raised. ()
  * version of mempool_alloc() returns NULL rather than raises an
  * error in case of failure.
  */
@@ -243,7 +243,7 @@ mempool_destroy(struct mempool *pool);
 
 /** Allocate an object. */
 void *
-mempool_alloc_nothrow(struct mempool *pool);
+mempool_alloc(struct mempool *pool);
 
 void
 mslab_free(struct mempool *pool, struct mslab *slab, void *ptr);
@@ -287,7 +287,7 @@ mempool_total(struct mempool *pool)
 static inline void *
 mempool_alloc_ex(struct mempool *pool)
 {
-	void *ptr = mempool_alloc_nothrow(pool);
+	void *ptr = mempool_alloc(pool);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, pool->objsize,
 			  "mempool", "new slab");

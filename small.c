@@ -199,7 +199,7 @@ smfree_batch(struct small_alloc *alloc)
  * @retval NULL out of memory
  */
 void *
-smalloc_nothrow(struct small_alloc *alloc, size_t size)
+smalloc(struct small_alloc *alloc, size_t size)
 {
 	smfree_batch(alloc);
 
@@ -230,7 +230,7 @@ smalloc_nothrow(struct small_alloc *alloc, size_t size)
 		pool = &upper_bound->pool;
 	}
 	assert(size <= pool->objsize);
-	return mempool_alloc_nothrow(pool);
+	return mempool_alloc(pool);
 }
 
 static void

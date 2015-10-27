@@ -146,7 +146,7 @@ void *
 region_reserve_slow(struct region *region, size_t size);
 
 static inline void *
-region_reserve_nothrow(struct region *region, size_t size)
+region_reserve(struct region *region, size_t size)
 {
 	if (! rlist_empty(&region->slabs.slabs)) {
 		struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
@@ -160,9 +160,9 @@ region_reserve_nothrow(struct region *region, size_t size)
 
 /** Allocate size bytes from a region. */
 static inline void *
-region_alloc_nothrow(struct region *region, size_t size)
+region_alloc(struct region *region, size_t size)
 {
-	void *ptr = region_reserve_nothrow(region, size);
+	void *ptr = region_reserve(region, size);
 	if (ptr != NULL) {
 		struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
 						       struct rslab,
@@ -199,7 +199,7 @@ region_used(struct region *region)
 
 /** Return size bytes allocated last as a single chunk. */
 void *
-region_join_nothrow(struct region *region, size_t size);
+region_join(struct region *region, size_t size);
 
 /** How much memory is held by this region. */
 static inline size_t
@@ -238,7 +238,7 @@ region_name(struct region *region)
 static inline void *
 region_alloc_ex(struct region *region, size_t size)
 {
-	void *ptr = region_alloc_nothrow(region, size);
+	void *ptr = region_alloc(region, size);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, size, "region", "new slab");
 	return ptr;
@@ -247,7 +247,7 @@ region_alloc_ex(struct region *region, size_t size)
 static inline void *
 region_reserve_ex(struct region *region, size_t size)
 {
-	void *ptr = region_reserve_nothrow(region, size);
+	void *ptr = region_reserve(region, size);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, size, "region", "new slab");
 	return ptr;
@@ -256,7 +256,7 @@ region_reserve_ex(struct region *region, size_t size)
 static inline void *
 region_join_ex(struct region *region, size_t size)
 {
-	void *ptr = region_join_nothrow(region, size);
+	void *ptr = region_join(region, size);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, size, "region", "join");
 	return ptr;
