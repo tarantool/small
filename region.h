@@ -236,7 +236,7 @@ region_name(struct region *region)
 #include "exception.h"
 
 static inline void *
-region_alloc_ex(struct region *region, size_t size)
+region_alloc_xc(struct region *region, size_t size)
 {
 	void *ptr = region_alloc(region, size);
 	if (ptr == NULL)
@@ -245,7 +245,7 @@ region_alloc_ex(struct region *region, size_t size)
 }
 
 static inline void *
-region_reserve_ex(struct region *region, size_t size)
+region_reserve_xc(struct region *region, size_t size)
 {
 	void *ptr = region_reserve(region, size);
 	if (ptr == NULL)
@@ -254,7 +254,7 @@ region_reserve_ex(struct region *region, size_t size)
 }
 
 static inline void *
-region_join_ex(struct region *region, size_t size)
+region_join_xc(struct region *region, size_t size)
 {
 	void *ptr = region_join(region, size);
 	if (ptr == NULL)
@@ -263,28 +263,28 @@ region_join_ex(struct region *region, size_t size)
 }
 
 static inline void *
-region_alloc0_ex(struct region *region, size_t size)
+region_alloc0_xc(struct region *region, size_t size)
 {
-	return memset(region_alloc_ex(region, size), 0, size);
+	return memset(region_alloc_xc(region, size), 0, size);
 }
 
 static inline void
-region_dup_ex(struct region *region, const void *ptr, size_t size)
+region_dup_xc(struct region *region, const void *ptr, size_t size)
 {
-	(void) memcpy(region_alloc_ex(region, size), ptr, size);
+	(void) memcpy(region_alloc_xc(region, size), ptr, size);
 }
 
 static inline void *
 region_alloc_ex_cb(void *ctx, size_t size)
 {
-	return region_alloc_ex((struct region *) ctx, size);
+	return region_alloc_xc((struct region *) ctx, size);
 }
 
 static inline void *
 region_reserve_ex_cb(void *ctx, size_t *size)
 {
 	struct region *region = (struct region *) ctx;
-	void *ptr = region_reserve_ex(region, *size);
+	void *ptr = region_reserve_xc(region, *size);
 	struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
 					       struct rslab,
 					       slab.next_in_list);

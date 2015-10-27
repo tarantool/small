@@ -221,7 +221,7 @@ obuf_svp_to_ptr(struct obuf *buf, struct obuf_svp *svp)
 #include "exception.h"
 
 static inline void *
-obuf_reserve_ex(struct obuf *buf, size_t size)
+obuf_reserve_xc(struct obuf *buf, size_t size)
 {
 	void *ptr = obuf_reserve(buf, size);
 	if (ptr == NULL)
@@ -230,7 +230,7 @@ obuf_reserve_ex(struct obuf *buf, size_t size)
 }
 
 static inline void *
-obuf_alloc_ex(struct obuf *buf, size_t size)
+obuf_alloc_xc(struct obuf *buf, size_t size)
 {
 	void *ptr = obuf_alloc(buf, size);
 	if (ptr == NULL)
@@ -239,7 +239,7 @@ obuf_alloc_ex(struct obuf *buf, size_t size)
 }
 
 static inline void
-obuf_dup_ex(struct obuf *buf, const void *data, size_t size)
+obuf_dup_xc(struct obuf *buf, const void *data, size_t size)
 {
 	if (obuf_dup(buf, data, size) != size)
 		tnt_raise(OutOfMemory, size, "obuf", "dup");
@@ -249,7 +249,7 @@ static inline void *
 obuf_reserve_ex_cb(void *ctx, size_t *size)
 {
 	struct obuf *buf = (struct obuf *) ctx;
-	void *ptr = obuf_reserve_ex(buf, *size);
+	void *ptr = obuf_reserve_xc(buf, *size);
 	*size = buf->capacity[buf->pos] - buf->iov[buf->pos].iov_len;
 	return ptr;
 }
@@ -257,7 +257,7 @@ obuf_reserve_ex_cb(void *ctx, size_t *size)
 static inline void *
 obuf_alloc_ex_cb(void *ctx, size_t size)
 {
-	return obuf_alloc_ex((struct obuf *) ctx, size);
+	return obuf_alloc_xc((struct obuf *) ctx, size);
 }
 
 /**
@@ -273,11 +273,11 @@ obuf_alloc_ex_cb(void *ctx, size_t size)
  * memcpy(obuf_svp_to_ptr(&svp), &total, sizeof(total);
  */
 static inline struct obuf_svp
-obuf_book_ex(struct obuf *buf, size_t size)
+obuf_book_xc(struct obuf *buf, size_t size)
 {
-	obuf_reserve_ex(buf, size);
+	obuf_reserve_xc(buf, size);
 	struct obuf_svp svp = obuf_create_svp(buf);
-	obuf_alloc_ex(buf, size);
+	obuf_alloc_xc(buf, size);
 	return svp;
 }
 
