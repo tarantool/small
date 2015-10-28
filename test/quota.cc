@@ -1,4 +1,4 @@
-#include "small/quota.h"
+#include "quota.h"
 
 #include <pthread.h>
 #include <sched.h>

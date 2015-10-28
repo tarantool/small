@@ -1,5 +1,5 @@
-#include "small/slab_arena.h"
-#include "small/quota.h"
+#include "slab_arena.h"
+#include "quota.h"
 #include <stdio.h>
 #include <limits.h>
 #include <stdlib.h>

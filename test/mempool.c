@@ -1,5 +1,5 @@
-#include "small/mempool.h"
-#include "small/quota.h"
+#include "mempool.h"
+#include "quota.h"
 #include "unit.h"
 #include <stdio.h>
 #include <stdlib.h>

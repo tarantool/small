@@ -1,6 +1,6 @@
-#include "small/quota.h"
-#include "small/obuf.h"
-#include "small/slab_cache.h"
+#include "quota.h"
+#include "obuf.h"
+#include "slab_cache.h"
 #include "unit.h"
 #include <stdio.h>
 #include <stdlib.h>

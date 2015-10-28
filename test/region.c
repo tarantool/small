@@ -1,5 +1,5 @@
-#include "small/region.h"
-#include "small/quota.h"
+#include "region.h"
+#include "quota.h"
 #include "unit.h"
 #include <stdio.h>
 
