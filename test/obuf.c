@@ -1,10 +1,10 @@
-#include "quota.h"
-#include "obuf.h"
-#include "slab_cache.h"
-#include "unit.h"
+#include <small/quota.h>
+#include <small/obuf.h>
+#include <small/slab_cache.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "unit.h"
 
 enum {
 	OBJSIZE_MIN = sizeof(int),

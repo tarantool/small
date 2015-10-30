@@ -12,30 +12,30 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -Werror")
 add_definitions("-D_GNU_SOURCE")
 
 set(lib_headers
-    ibuf.h
-    lf_lifo.h
-    lifo.h
-    matras.h
-    mempool.h
-    obuf.h
-    pmatomic.h
-    quota.h
-    rb.h
-    region.h
-    rlist.h
-    slab_arena.h
-    slab_cache.h
-    small.h)
+    small/ibuf.h
+    small/lf_lifo.h
+    small/lifo.h
+    small/matras.h
+    small/mempool.h
+    small/obuf.h
+    small/pmatomic.h
+    small/quota.h
+    small/rb.h
+    small/region.h
+    small/rlist.h
+    small/slab_arena.h
+    small/slab_cache.h
+    small/small.h)
 
 set(lib_sources
-    slab_cache.c
-    region.c
-    mempool.c
-    slab_arena.c
-    small.c
-    matras.c
-    ibuf.c
-    obuf.c)
+    small/slab_cache.c
+    small/region.c
+    small/mempool.c
+    small/slab_arena.c
+    small/small.c
+    small/matras.c
+    small/ibuf.c
+    small/obuf.c)
 
 add_library(${PROJECT_NAME} STATIC ${lib_sources})
 set_target_properties(${PROJECT_NAME} PROPERTIES VERSION 1.0 SOVERSION 1)

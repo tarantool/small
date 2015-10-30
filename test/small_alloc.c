@@ -1,9 +1,9 @@
-#include "small.h"
-#include "quota.h"
-#include "unit.h"
+#include <small/small.h>
+#include <small/quota.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "unit.h"
 
 enum {
 	OBJSIZE_MIN = 3 * sizeof(int),
