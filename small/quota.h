@@ -45,7 +45,8 @@ extern "C" {
 #define QUOTA_UNIT_SIZE 1024ULL
 
 static const size_t QUOTA_MAX = QUOTA_UNIT_SIZE * UINT32_MAX > SIZE_MAX ?
-				SIZE_MAX : QUOTA_UNIT_SIZE * UINT32_MAX;
+				SIZE_MAX - QUOTA_UNIT_SIZE + 1 :
+				QUOTA_UNIT_SIZE * UINT32_MAX;
 
 /** A basic limit on memory usage */
 struct quota {
