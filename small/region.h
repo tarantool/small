@@ -135,6 +135,12 @@ rslab_data(struct rslab *slab)
 	return (char *) slab + rslab_sizeof();
 }
 
+static inline void *
+rslab_data_end(struct rslab *slab)
+{
+	return (char *)rslab_data(slab) + slab->used;
+}
+
 /** How much memory is available in a given block? */
 static inline uint32_t
 rslab_unused(struct rslab *slab)
@@ -171,6 +177,39 @@ region_alloc(struct region *region, size_t size)
 
 		region->slabs.stats.used += size;
 		slab->used += size;
+	}
+	return ptr;
+}
+
+static inline void *
+region_aligned_reserve(struct region *region, size_t size, size_t alignment)
+{
+	/* reserve extra to allow for alignment */
+	void *ptr = region_reserve(region, size + alignment - 1);
+	/* assuming NULL==0, aligned NULL still a NULL */
+	return (void *)small_align((uintptr_t)ptr, alignment);
+}
+
+static inline void *
+region_aligned_alloc(struct region *region, size_t size, size_t alignment)
+{
+	void *ptr = region_aligned_reserve(region, size, alignment);
+	if (ptr != NULL) {
+		struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
+						       struct rslab,
+						       slab.next_in_list);
+
+		/*
+		 * account for optional padding before the allocated
+		 * block (alignment)
+		 */
+		uint32_t effective_size = (uint32_t)(
+			(char *)ptr - (char *)rslab_data_end(slab) + size);
+
+		assert(effective_size <= rslab_unused(slab));
+
+		region->slabs.stats.used += effective_size;
+		slab->used += effective_size;
 	}
 	return ptr;
 }
@@ -292,6 +331,39 @@ region_reserve_ex_cb(void *ctx, size_t *size)
 	return ptr;
 }
 
+static inline void *
+region_aligned_alloc_xc(struct region *region, size_t size, size_t alignment)
+{
+	void *ptr = region_aligned_alloc(region, size, alignment);
+	if (ptr == NULL)
+		tnt_raise(OutOfMemory, size, "region", "new slab");
+	return ptr;
+}
+
+static inline void *
+region_aligned_reserve_xc(struct region *region, size_t size, size_t alignment)
+{
+	void *ptr = region_aligned_reserve(region, size, alignment);
+	if (ptr == NULL)
+		tnt_raise(OutOfMemory, size, "region", "new slab");
+	return ptr;
+}
+
+static inline void *
+region_aligned_calloc_xc(struct region *region, size_t size, size_t align)
+{
+	return memset(region_aligned_alloc_xc(region, size, align), 0, size);
+}
+
+#define region_reserve_object_xc(region, T) \
+	(T *)region_aligned_reserve_xc((region), sizeof(T), alignof(T))
+
+#define region_alloc_object_xc(region, T) \
+	(T *)region_aligned_alloc_xc((region), sizeof(T), alignof(T))
+
+#define region_calloc_object_xc(region, T) \
+	(T *)region_aligned_calloc_xc((region), sizeof(T), alignof(T))
+
 struct RegionGuard {
 	struct region *region;
 	size_t used;
@@ -307,6 +379,12 @@ struct RegionGuard {
 		region_truncate(region, used);
 	}
 };
-#endif
+#endif /* __cplusplus */
+
+#define region_reserve_object(region, T) \
+	(T *)region_aligned_reserve((region), sizeof(T), alignof(T))
+
+#define region_alloc_object(region, T) \
+	(T *)region_aligned_alloc((region), sizeof(T), alignof(T))
 
 #endif /* INCLUDES_TARANTOOL_SMALL_REGION_H */
