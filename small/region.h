@@ -270,6 +270,24 @@ region_name(struct region *region)
 	return region->name;
 }
 
+static inline void *
+region_alloc_cb(void *ctx, size_t size)
+{
+	return region_alloc((struct region *) ctx, size);
+}
+
+static inline void *
+region_reserve_cb(void *ctx, size_t *size)
+{
+	struct region *region = (struct region *) ctx;
+	void *ptr = region_reserve(region, *size);
+	struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
+					       struct rslab,
+					       slab.next_in_list);
+	*size = rslab_unused(slab);
+	return ptr;
+}
+
 #if defined(__cplusplus)
 } /* extern "C" */
 #include "exception.h"
@@ -314,21 +332,9 @@ region_dup_xc(struct region *region, const void *ptr, size_t size)
 }
 
 static inline void *
-region_alloc_ex_cb(void *ctx, size_t size)
+region_alloc_xc_cb(void *ctx, size_t size)
 {
 	return region_alloc_xc((struct region *) ctx, size);
-}
-
-static inline void *
-region_reserve_ex_cb(void *ctx, size_t *size)
-{
-	struct region *region = (struct region *) ctx;
-	void *ptr = region_reserve_xc(region, *size);
-	struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
-					       struct rslab,
-					       slab.next_in_list);
-	*size = rslab_unused(slab);
-	return ptr;
 }
 
 static inline void *
