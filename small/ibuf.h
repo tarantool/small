@@ -148,7 +148,7 @@ static inline void *
 ibuf_reserve_cb(void *ptr, size_t *size)
 {
 	struct ibuf *buf = (struct ibuf *) ptr;
-	void *p = ibuf_reserve(buf, *size);
+	void *p = ibuf_reserve(buf, *size ? *size : buf->start_capacity);
 	*size = ibuf_unused(buf);
 	return p;
 }
