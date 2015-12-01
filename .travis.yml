@@ -4,6 +4,6 @@ compiler:
   - gcc
 
 script:
-  - cmake . -DCMAKE_BUILD_TYPE=RelWithDebugInfo
+  - cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo
   - make -j
   - make test
