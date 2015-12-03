@@ -361,6 +361,12 @@ region_aligned_calloc_xc(struct region *region, size_t size, size_t align)
 	return memset(region_aligned_alloc_xc(region, size, align), 0, size);
 }
 
+static inline void *
+region_aligned_alloc_xc_cb(void *ctx, size_t size)
+{
+	return region_aligned_alloc_xc((struct region *) ctx, size, alignof(uint64_t));
+}
+
 #define region_reserve_object_xc(region, T) \
 	(T *)region_aligned_reserve_xc((region), sizeof(T), alignof(T))
 
