@@ -1,9 +1,58 @@
+sudo: required
+services:
+  - docker
+
 language: c
 compiler:
   - clang
   - gcc
+env:
+    matrix:
+      - OS=el DIST=6 PACK=rpm
+      - OS=el DIST=7 PACK=rpm
+      - OS=fedora DIST=20 PACK=rpm
+      - OS=fedora DIST=21 PACK=rpm
+      - OS=fedora DIST=22 PACK=rpm
+      - OS=fedora DIST=23 PACK=rpm
+      - OS=ubuntu DIST=trusty PACK=deb
+      - OS=ubuntu DIST=precise PACK=deb
+      - OS=ubuntu DIST=vivid PACK=deb
+      - OS=debian DIST=jessie PACK=deb
+      - OS=debian DIST=wheezy PACK=deb
+      - OS=debian DIST=stretch PACK=deb
+      - PACK=none
+
+matrix:
+    exclude:
+      - env: OS=el DIST=6 PACK=rpm
+        compiler: clang
+      - env: OS=el DIST=7 PACK=rpm
+        compiler: clang
+      - env: OS=fedora DIST=20 PACK=rpm
+        compiler: clang
+      - env: OS=fedora DIST=21 PACK=rpm
+        compiler: clang
+      - env: OS=fedora DIST=22 PACK=rpm
+        compiler: clang
+      - env: OS=fedora DIST=23 PACK=rpm
+        compiler: clang
+      - env: OS=ubuntu DIST=trusty PACK=deb
+        compiler: clang
+      - env: OS=ubuntu DIST=precise PACK=deb
+        compiler: clang
+      - env: OS=ubuntu DIST=vivid PACK=deb
+        compiler: clang
+      - env: OS=debian DIST=jessie PACK=deb
+        compiler: clang
+      - env: OS=debian DIST=wheezy PACK=deb
+        compiler: clang
+      - env: OS=debian DIST=stretch PACK=deb
+        compiler: clang
 
 script:
-  - cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo
-  - make -j
-  - make test
+  - git clone https://github.com/tarantool/build.git
+  - bash build/pack/travis.sh
+
+notifications:
+  email: true
+  irc: false

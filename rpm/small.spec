@@ -1,6 +1,9 @@
+%global build_version %(( cat %{SOURCE1} || git describe --long) | sed "s/[0-9]*\.[0-9]*\.[0-9]*-//" | sed "s/-[a-z 0-9]*//")
+%global prod_version %((cat %{SOURCE1} || git describe --long) | sed "s/-[0-9]*-.*//")
+
 Name: small
-Version: 1.0.0
-Release: 1%{?dist}
+Version: %{prod_version}
+Release: %{build_version}
 Summary: Tarantool C connector
 Group: Development/Languages
 License: BSD
@@ -9,7 +12,15 @@ Source0: https://github.com/tarantool/small/archive/%{version}.tar.gz
 # BuildRequires: cmake
 # Strange bug.
 # Fix according to http://www.jethrocarr.com/2012/05/23/bad-packaging-habits/
-BuildRequires: cmake
+%if 0%{?rhel} < 7 && 0%{?rhel} > 0
+BuildRequires: cmake28
+BuildRequires: devtoolset-2-toolchain
+BuildRequires: devtoolset-2-binutils-devel
+%else
+BuildRequires: cmake >= 2.8
+BuildRequires: gcc >= 4.5
+BuildRequires: binutils-devel
+%endif
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Vendor: tarantool.org
 Group: Applications/Databases
@@ -29,8 +40,8 @@ This package contains development files.
 %setup -c -q %{name}-%{version}
 
 %build
-cmake . -DCMAKE_INSTALL_LIBDIR='%{_libdir}' -DCMAKE_INSTALL_INCLUDEDIR='%{_includedir}' -DCMAKE_BUILD_TYPE='Release'
-make
+%cmake . -DCMAKE_INSTALL_LIBDIR='%{_libdir}' -DCMAKE_INSTALL_INCLUDEDIR='%{_includedir}' -DCMAKE_BUILD_TYPE=RelWithDebInfo
+make %{?_smp_mflags}
 
 %install
 make DESTDIR=%{buildroot} install
@@ -44,5 +55,5 @@ make DESTDIR=%{buildroot} install
 "%{_includedir}/small/*.h"
 
 %changelog
-*  Oct 27 2015 Eugine Blikh <bigbes@gmail.com> 1.0.0-1
+* Tue Oct 27 2015 Eugine Blikh <bigbes@gmail.com> 1.0.0-1
 - Initial version of the RPM spec
