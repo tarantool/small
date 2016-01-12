@@ -302,11 +302,26 @@ region_alloc_xc(struct region *region, size_t size)
 }
 
 static inline void *
+region_alloc_xc_cb(void *ctx, size_t size)
+{
+	return region_alloc_xc((struct region *) ctx, size);
+}
+
+static inline void *
 region_reserve_xc(struct region *region, size_t size)
 {
 	void *ptr = region_reserve(region, size);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, size, "region", "new slab");
+	return ptr;
+}
+
+static inline void *
+region_reserve_xc_cb(void *ctx, size_t *size)
+{
+	void *ptr = region_reserve_cb(ctx, size);
+	if (ptr == NULL)
+		tnt_raise(OutOfMemory, *size, "region", "new slab");
 	return ptr;
 }
 
@@ -329,12 +344,6 @@ static inline void
 region_dup_xc(struct region *region, const void *ptr, size_t size)
 {
 	(void) memcpy(region_alloc_xc(region, size), ptr, size);
-}
-
-static inline void *
-region_alloc_xc_cb(void *ctx, size_t size)
-{
-	return region_alloc_xc((struct region *) ctx, size);
 }
 
 static inline void *

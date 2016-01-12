@@ -245,9 +245,27 @@ obuf_reserve_xc(struct obuf *buf, size_t size)
 }
 
 static inline void *
+obuf_reserve_xc_cb(void *ctx, size_t *size)
+{
+	void *ptr = obuf_reserve_cb(ctx, size);
+	if (ptr == NULL)
+		tnt_raise(OutOfMemory, *size, "obuf", "reserve");
+	return ptr;
+}
+
+static inline void *
 obuf_alloc_xc(struct obuf *buf, size_t size)
 {
 	void *ptr = obuf_alloc(buf, size);
+	if (ptr == NULL)
+		tnt_raise(OutOfMemory, size, "obuf", "alloc");
+	return ptr;
+}
+
+static inline void *
+obuf_alloc_xc_cb(void *ctx, size_t size)
+{
+	void *ptr = obuf_alloc_cb(ctx, size);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, size, "obuf", "alloc");
 	return ptr;

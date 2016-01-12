@@ -145,18 +145,18 @@ ibuf_alloc(struct ibuf *ibuf, size_t size)
 }
 
 static inline void *
-ibuf_reserve_cb(void *ptr, size_t *size)
+ibuf_reserve_cb(void *ctx, size_t *size)
 {
-	struct ibuf *buf = (struct ibuf *) ptr;
+	struct ibuf *buf = (struct ibuf *) ctx;
 	void *p = ibuf_reserve(buf, *size ? *size : buf->start_capacity);
 	*size = ibuf_unused(buf);
 	return p;
 }
 
 static inline void *
-ibuf_alloc_cb(void *ptr, size_t size)
+ibuf_alloc_cb(void *ctx, size_t size)
 {
-	return ibuf_alloc((struct ibuf *) ptr, size);
+	return ibuf_alloc((struct ibuf *) ctx, size);
 }
 
 #if defined(__cplusplus)
@@ -178,6 +178,24 @@ static inline void *
 ibuf_alloc_xc(struct ibuf *ibuf, size_t size)
 {
 	void *ptr = ibuf_alloc(ibuf, size);
+	if (ptr == NULL)
+		tnt_raise(OutOfMemory, size, "ibuf", "alloc");
+	return ptr;
+}
+
+static inline void *
+ibuf_reserve_xc_cb(void *ctx, size_t *size)
+{
+	void *ptr = ibuf_reserve_cb(ctx, size);
+	if (ptr == NULL)
+		tnt_raise(OutOfMemory, *size, "ibuf", "reserve");
+	return ptr;
+}
+
+static inline void *
+ibuf_alloc_xc_cb(void *ctx, size_t size)
+{
+	void *ptr = ibuf_alloc_cb(ctx, size);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, size, "ibuf", "alloc");
 	return ptr;
