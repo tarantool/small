@@ -264,9 +264,29 @@ matras_vers_test()
 	std::cout << "Testing matras_version successfully finished" << std::endl;
 }
 
+void
+matras_gh_1145_test()
+{
+	std::cout << "Testing matras gh-1145 test..." << std::endl;
+
+	struct matras local;
+	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea);
+	struct matras_view view;
+	matras_create_read_view(&local, &view);
+	matras_id_t id;
+	matras_alloc(&local, &id);
+	matras_touch(&local, id);
+	matras_destroy_read_view(&local, &view);
+	matras_destroy(&local);
+	check(extents_in_use == 0, "memory leak");
+
+	std::cout << "Testing matras gh-1145 test successfully finished" << std::endl;
+}
+
 int
 main(int, const char **)
 {
 	matras_alloc_test();
 	matras_vers_test();
+	matras_gh_1145_test();
 }
