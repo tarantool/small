@@ -389,6 +389,8 @@ matras_touch(struct matras *m, matras_id_t id)
 		matras_id_t next_last_extent_id = next_last_id >> m->shift2;
 		if (extent_id > next_last_extent_id)
 			return matras_get(m, id);
+	} else {
+		return matras_get(m, id);
 	}
 
 	/* see "Shifts and masks explanation" for details */
@@ -408,7 +410,7 @@ matras_touch(struct matras *m, matras_id_t id)
 	}
 
 	void **extent2 = (void **)extent1[n1];
-	void **extent2p = (void **) extent1p[n1];
+	void **extent2p = (void **)extent1p[n1];
 	if (extent2 == extent2p) {
 		void *new_extent = matras_alloc_extent(m);
 		if (!new_extent)
@@ -419,7 +421,7 @@ matras_touch(struct matras *m, matras_id_t id)
 	}
 
 	char *extent3 = (char *)extent2[n2];
-	char *extent3p = (char *) extent2p[n2];
+	char *extent3p = (char *)extent2p[n2];
 	if (extent3 == extent3p) {
 		void *new_extent = matras_alloc_extent(m);
 		if (!new_extent)

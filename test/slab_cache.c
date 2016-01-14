@@ -1,5 +1,5 @@
-#include "slab_cache.h"
-#include "quota.h"
+#include <small/slab_cache.h>
+#include <small/quota.h>
 #include <stdio.h>
 #include <limits.h>
 #include <stdlib.h>

@@ -1,8 +1,8 @@
-#include "quota.h"
-#include "ibuf.h"
-#include "slab_cache.h"
-#include "unit.h"
+#include <small/quota.h>
+#include <small/ibuf.h>
+#include <small/slab_cache.h>
 #include <stdio.h>
+#include "unit.h"
 
 struct slab_cache cache;
 struct slab_arena arena;

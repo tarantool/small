@@ -1,7 +1,7 @@
-#include "region.h"
-#include "quota.h"
-#include "unit.h"
+#include <small/region.h>
+#include <small/quota.h>
 #include <stdio.h>
+#include "unit.h"
 
 struct slab_cache cache;
 struct slab_arena arena;

@@ -215,6 +215,21 @@ obuf_svp_to_ptr(struct obuf *buf, struct obuf_svp *svp)
 	return (char *) buf->iov[svp->pos].iov_base + svp->iov_len;
 }
 
+static inline void *
+obuf_reserve_cb(void *ctx, size_t *size)
+{
+	struct obuf *buf = (struct obuf *) ctx;
+	void *ptr = obuf_reserve(buf, *size);
+	*size = buf->capacity[buf->pos] - buf->iov[buf->pos].iov_len;
+	return ptr;
+}
+
+static inline void *
+obuf_alloc_cb(void *ctx, size_t size)
+{
+	return obuf_alloc((struct obuf *) ctx, size);
+}
+
 #if defined(__cplusplus)
 } /* extern "C" */
 
@@ -230,9 +245,27 @@ obuf_reserve_xc(struct obuf *buf, size_t size)
 }
 
 static inline void *
+obuf_reserve_xc_cb(void *ctx, size_t *size)
+{
+	void *ptr = obuf_reserve_cb(ctx, size);
+	if (ptr == NULL)
+		tnt_raise(OutOfMemory, *size, "obuf", "reserve");
+	return ptr;
+}
+
+static inline void *
 obuf_alloc_xc(struct obuf *buf, size_t size)
 {
 	void *ptr = obuf_alloc(buf, size);
+	if (ptr == NULL)
+		tnt_raise(OutOfMemory, size, "obuf", "alloc");
+	return ptr;
+}
+
+static inline void *
+obuf_alloc_xc_cb(void *ctx, size_t size)
+{
+	void *ptr = obuf_alloc_cb(ctx, size);
 	if (ptr == NULL)
 		tnt_raise(OutOfMemory, size, "obuf", "alloc");
 	return ptr;
@@ -243,21 +276,6 @@ obuf_dup_xc(struct obuf *buf, const void *data, size_t size)
 {
 	if (obuf_dup(buf, data, size) != size)
 		tnt_raise(OutOfMemory, size, "obuf", "dup");
-}
-
-static inline void *
-obuf_reserve_ex_cb(void *ctx, size_t *size)
-{
-	struct obuf *buf = (struct obuf *) ctx;
-	void *ptr = obuf_reserve_xc(buf, *size);
-	*size = buf->capacity[buf->pos] - buf->iov[buf->pos].iov_len;
-	return ptr;
-}
-
-static inline void *
-obuf_alloc_ex_cb(void *ctx, size_t size)
-{
-	return obuf_alloc_xc((struct obuf *) ctx, size);
 }
 
 /**
