@@ -322,8 +322,22 @@ slab_put(struct slab_cache *cache, struct slab *slab)
 		cache->orders[slab->order].stats.total += slab->size;
 	}
 	slab_poison(slab);
-	rlist_add_entry(&cache->orders[slab->order].slabs, slab,
-			next_in_list);
+	if (slab->order == cache->order_max &&
+	    !rlist_empty(&cache->orders[slab->order].slabs)) {
+		/*
+		 * Largest slab should be returned to arena, but we do so
+		 * only if the slab cache has at least one slab of that size
+		 * in order to avoid oscillations.
+		 */
+		assert(slab->size == cache->arena->slab_size);
+		slab_list_del(&cache->allocated, slab, next_in_cache);
+		cache->orders[slab->order].stats.total -= slab->size;
+		slab_unmap(cache->arena, slab);
+	} else {
+		/* Put the slab to the cache */
+		rlist_add_entry(&cache->orders[slab->order].slabs, slab,
+				next_in_list);
+	}
 }
 
 void

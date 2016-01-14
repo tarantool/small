@@ -37,5 +37,22 @@ int main()
 		i++;
 	}
 
+	/* Put all allocated memory back to cache */
+	for (i = 0; i < NRUNS; i++) {
+		if (runs[i])
+			slab_put(&cache, runs[i]);
+	}
+	slab_cache_check(&cache);
+
+	/*
+	 * It is allowed to hold only one slab of arena.
+	 * If at lest one block was allocated then after freeing
+	 * all memory it must be exactly one slab.
+	 */
+	if (cache.allocated.stats.total != arena.slab_size) {
+		fail("Slab cache returned memory to arena", "false");
+	}
+
 	slab_cache_destroy(&cache);
+	slab_arena_destroy(&arena);
 }
