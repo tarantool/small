@@ -1,14 +1,11 @@
-%global build_version %(( cat %{SOURCE1} || git describe --long) | sed "s/[0-9]*\.[0-9]*\.[0-9]*-//" | sed "s/-[a-z 0-9]*//")
-%global prod_version %((cat %{SOURCE1} || git describe --long) | sed "s/-[0-9]*-.*//")
-
 Name: small
-Version: %{prod_version}
-Release: %{build_version}
+Version: 1.0.0.0
+Release: 1%{?dist}
 Summary: Tarantool C connector
 Group: Development/Languages
 License: BSD
 URL: https://github.com/tarantool/small
-Source0: https://github.com/tarantool/small/archive/%{version}.tar.gz
+Source0: small-%{version}.tar.gz
 # BuildRequires: cmake
 # Strange bug.
 # Fix according to http://www.jethrocarr.com/2012/05/23/bad-packaging-habits/
@@ -37,7 +34,7 @@ This package contains development files.
 ##################################################################
 
 %prep
-%setup -c -q %{name}-%{version}
+%setup -q -n %{name}-%{version}
 
 %build
 %cmake . -DCMAKE_INSTALL_LIBDIR='%{_libdir}' -DCMAKE_INSTALL_INCLUDEDIR='%{_includedir}' -DCMAKE_BUILD_TYPE=RelWithDebInfo
