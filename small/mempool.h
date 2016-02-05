@@ -87,8 +87,6 @@ struct mslab {
 	rb_node(struct mslab) node;
 	/** Set if this slab is a member of free_slabs tree */
 	char in_free_slabs;
-	/* Reference to the owning pool. */
-	struct mempool *pool;
 };
 
 /**
@@ -146,6 +144,11 @@ struct mempool
 	 */
 	struct mslab *first_free_slab;
 	/**
+	 * Slabs with a little of free items count, stagged to 
+	 * add to free_slabs tree. Will be used in case of empty tree.
+	 */
+	struct slab_list stagged_slabs;
+	/**
 	 * A completely empty slab which is not freed only to
 	 * avoid the overhead of slab_cache oscillation around
 	 * a single element allocation.
@@ -169,6 +172,8 @@ struct mempool
 	uint32_t objcount;
 	/** Offset from beginning of slab to the first object */
 	uint32_t objoffset;
+	/** Address mask to translate ptr to slab */
+	intptr_t slab_addr_mask;
 };
 
 /** Allocation statistics. */
@@ -265,7 +270,8 @@ mempool_free(struct mempool *pool, void *ptr)
 	memset(ptr, '#', pool->objsize);
 #endif
 	struct mslab *slab = (struct mslab *)
-		slab_from_ptr(pool->cache, ptr, pool->slab_order);
+		slab_from_ptr(ptr, pool->slab_addr_mask);
+	assert(slab->order == pool->slab_order);
 	pool->slabs.stats.used -= pool->objsize;
 	mslab_free(pool, slab, ptr);
 }

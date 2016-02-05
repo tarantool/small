@@ -53,6 +53,8 @@ struct slab {
 	struct rlist next_in_cache;
 	/** Next slab in slab_list->slabs list. */
 	struct rlist next_in_list;
+	/** Next slab in stagged slabs list in mempool object */
+	struct rlist next_in_stagged;
 	/**
 	 * Allocated size.
 	 * Is different from (SLAB_MIN_SIZE << slab->order)
@@ -188,8 +190,19 @@ slab_cache_used(struct slab_cache *slabc)
 	return slabc->allocated.stats.used;
 }
 
-struct slab *
-slab_from_ptr(struct slab_cache *cache, void *ptr, uint8_t order);
+/**
+ * Given a pointer allocated in a slab, get the handle
+ * of the slab itself.
+ */
+static inline struct slab *
+slab_from_ptr(void *ptr, intptr_t slab_mask)
+{
+	intptr_t addr = (intptr_t) ptr;
+	/** All memory mapped slabs are slab->size aligned. */
+	struct slab *slab = (struct slab *)(addr & slab_mask);
+	assert(slab->magic == slab_magic && slab->order == order);
+	return slab;
+}
 
 /* Aligned size of slab meta. */
 static inline uint32_t

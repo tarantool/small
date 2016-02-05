@@ -48,22 +48,6 @@ static const uint32_t slab_magic = 0xeec0ffee;
 #define MAP_ANONYMOUS MAP_ANON
 #endif /* !defined(MAP_ANONYMOUS) */
 
-/**
- * Given a pointer allocated in a slab, get the handle
- * of the slab itself.
- */
-struct slab *
-slab_from_ptr(struct slab_cache *cache, void *ptr, uint8_t order)
-{
-	assert(order <= cache->order_max);
-	intptr_t addr = (intptr_t) ptr;
-	/** All memory mapped slabs are slab->size aligned. */
-	struct slab *slab = (struct slab *)
-		(addr & ~(slab_order_size(cache, order) - 1));
-	assert(slab->magic == slab_magic && slab->order == order);
-	return slab;
-}
-
 static inline void
 slab_assert(struct slab_cache *cache, struct slab *slab)
 {

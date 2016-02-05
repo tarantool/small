@@ -103,6 +103,7 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 	alloc->cache = cache;
 	/* Align sizes. */
 	objsize_min = small_align(objsize_min, STEP_SIZE);
+	alloc->min_stepped_pool_factor = (objsize_min - 1) >> STEP_SIZE_LB;
 	/* Make sure at least 4 largest objects can fit in a slab. */
 	alloc->objsize_max =
 		mempool_objsize_max(slab_order_size(cache, cache->order_max));
@@ -204,15 +205,10 @@ smalloc(struct small_alloc *alloc, size_t size)
 	smfree_batch(alloc);
 
 	struct mempool *pool;
-	if (size <= alloc->step_pool_objsize_max) {
+	int idx = (size - 1) >> STEP_SIZE_LB;
+	idx = (idx > alloc->min_stepped_pool_factor) ? idx - alloc->min_stepped_pool_factor : 0;
+	if (idx < STEP_POOL_MAX) {
 		/* Allocate in a stepped pool. */
-		int idx;
-		if (size <= alloc->step_pools[0].objsize)
-			idx = 0;
-		else {
-			idx = (size - alloc->step_pools[0].objsize
-			       + STEP_SIZE - 1) >> STEP_SIZE_LB;
-		}
 		pool = &alloc->step_pools[idx];
 		assert(size <= pool->objsize &&
 		       (size + STEP_SIZE > pool->objsize || idx == 0));
@@ -252,16 +248,12 @@ static inline struct mempool *
 mempool_find(struct small_alloc *alloc, size_t size)
 {
 	struct mempool *pool;
-	if (size <= alloc->step_pool_objsize_max) {
+	int idx = (size - 1) >> STEP_SIZE_LB;
+	idx = (idx > alloc->min_stepped_pool_factor) ? idx - alloc->min_stepped_pool_factor : 0;
+	if (idx < STEP_POOL_MAX) {
 		/* Allocated in a stepped pool. */
-		if (size <= alloc->step_pools[0].objsize) {
-			pool = &alloc->step_pools[0];
-		} else {
-			int idx = (size - alloc->step_pools[0].objsize
-				   + STEP_SIZE - 1) >> STEP_SIZE_LB;
 			pool = &alloc->step_pools[idx];
 			assert(size + STEP_SIZE > pool->objsize);
-		}
 	} else {
 		/* Allocated in a factor pool. */
 		struct factor_pool pattern;
