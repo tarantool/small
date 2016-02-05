@@ -79,12 +79,14 @@ struct mslab {
 	struct slab slab;
 	/* Head of a list of used but freed objects */
 	void *free_list;
-	/** Index of an object that has never been allocated in mslab */
-	uint32_t free_idx;
+	/** Offset of an object that has never been allocated in mslab */
+	uint32_t free_ofs;
 	/** Number of available slots in the slab. */
 	uint32_t nfree;
 	/** Used if this slab is a member of free_slabs tree. */
 	rb_node(struct mslab) node;
+	/** Set if this slab is a member of free_slabs tree */
+	char in_free_slabs;
 	/* Reference to the owning pool. */
 	struct mempool *pool;
 };
@@ -139,6 +141,10 @@ struct mempool
 	 * memory fragmentation across many slabs.
 	 */
 	mslab_tree_t free_slabs;
+	/**
+	 * Cached left node of free_slabs tree
+	 */
+	struct mslab *first_free_slab;
 	/**
 	 * A completely empty slab which is not freed only to
 	 * avoid the overhead of slab_cache oscillation around

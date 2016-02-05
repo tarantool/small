@@ -33,6 +33,8 @@
 #include <string.h>
 #include "slab_cache.h"
 
+#define SLAB_FREE_FACTOR	5
+
 static inline int
 mslab_cmp(struct mslab *lhs, struct mslab *rhs)
 {
@@ -50,22 +52,9 @@ mslab_create(struct mslab *slab, struct mempool *pool)
 {
 	slab->nfree = pool->objcount;
 	slab->pool = pool;
-	slab->free_idx = 0;
+	slab->free_ofs = pool->objoffset;
 	slab->free_list = 0;
-}
-
-/** Beginning of object data in the slab. */
-static inline void *
-mslab_offset(struct mslab *slab)
-{
-	return (char *) slab + slab->pool->objoffset;
-}
-
-/** Pointer to an object from object index. */
-static inline void *
-mslab_obj(struct mslab *slab, uint32_t idx)
-{
-	return mslab_offset(slab) + idx * slab->pool->objsize;
+	slab->in_free_slabs = 0;
 }
 
 void *
@@ -79,13 +68,18 @@ mslab_alloc(struct mslab *slab)
 		slab->free_list = *(void **)slab->free_list;
 	} else {
 		/* Use an object from the "untouched" area of the slab. */
-		result = mslab_obj(slab, slab->free_idx++);
+		result = (char *)slab + slab->free_ofs;
+		slab->free_ofs += slab->pool->objsize;
 	}
 
 	/* If the slab is full, remove it from the rb tree. */
-	if (--slab->nfree == 0)
+	if (--slab->nfree == 0) {
+		if (slab == slab->pool->first_free_slab)
+			slab->pool->first_free_slab = 
+				mslab_tree_next(&slab->pool->free_slabs, slab);
 		mslab_tree_remove(&slab->pool->free_slabs, slab);
-
+		slab->in_free_slabs = 0;
+	}
 	return result;
 }
 
@@ -98,15 +92,24 @@ mslab_free(struct mempool *pool, struct mslab *slab, void *ptr)
 
 	slab->nfree++;
 
-	if (slab->nfree == 1) {
+	if (!slab->in_free_slabs && 
+		slab->nfree == (pool->objcount >> SLAB_FREE_FACTOR)) {
 		/**
 		 * Add this slab to the rbtree which contains partially
 		 * populated slabs.
 		 */
 		mslab_tree_insert(&pool->free_slabs, slab);
+		slab->in_free_slabs = 1;
+		if (!pool->first_free_slab || 
+			mslab_cmp(pool->first_free_slab, slab) == 1)
+			pool->first_free_slab = slab;
 	} else if (slab->nfree == pool->objcount) {
 		/** Free the slab. */
+		if (slab == pool->first_free_slab)
+			pool->first_free_slab = 
+				mslab_tree_next(&pool->free_slabs, slab);
 		mslab_tree_remove(&pool->free_slabs, slab);
+		slab->in_free_slabs = 0;
 		if (pool->spare > slab) {
 			slab_list_del(&pool->slabs, &pool->spare->slab,
 				      next_in_list);
@@ -132,6 +135,7 @@ mempool_create_with_order(struct mempool *pool, struct slab_cache *cache,
 	pool->cache = cache;
 	slab_list_create(&pool->slabs);
 	mslab_tree_new(&pool->free_slabs);
+	pool->first_free_slab = NULL;
 	pool->spare = NULL;
 	pool->objsize = objsize;
 	pool->slab_order = order;
@@ -155,7 +159,7 @@ mempool_destroy(struct mempool *pool)
 void *
 mempool_alloc(struct mempool *pool)
 {
-	struct mslab *slab = mslab_tree_first(&pool->free_slabs);
+	struct mslab *slab = pool->first_free_slab;
 	if (slab == NULL) {
 		if (pool->spare == NULL) {
 			slab = (struct mslab *)
@@ -171,6 +175,8 @@ mempool_alloc(struct mempool *pool)
 			pool->spare = NULL;
 		}
 		mslab_tree_insert(&pool->free_slabs, slab);
+		slab->in_free_slabs = 1;
+		pool->first_free_slab = slab;
 	}
 	assert(slab->pool == pool);
 	pool->slabs.stats.used += pool->objsize;
