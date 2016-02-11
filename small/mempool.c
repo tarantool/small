@@ -33,7 +33,8 @@
 #include <string.h>
 #include "slab_cache.h"
 
-#define SLAB_FREE_FACTOR	5
+/* slab fragmentation must reach 1/8 before it's recycled */
+enum { MAX_COLD_FRACTION_LB = 3 };
 
 static inline int
 mslab_cmp(struct mslab *lhs, struct mslab *rhs)
@@ -42,18 +43,18 @@ mslab_cmp(struct mslab *lhs, struct mslab *rhs)
 	return lhs > rhs ? 1 : (lhs < rhs ? -1 : 0);
 }
 
-
 rb_proto(, mslab_tree_, mslab_tree_t, struct mslab)
 
-rb_gen(, mslab_tree_, mslab_tree_t, struct mslab, node, mslab_cmp)
+rb_gen(, mslab_tree_, mslab_tree_t, struct mslab, next_in_hot, mslab_cmp)
 
 static inline void
 mslab_create(struct mslab *slab, struct mempool *pool)
 {
 	slab->nfree = pool->objcount;
-	slab->free_ofs = pool->objoffset;
-	slab->free_list = 0;
-	slab->in_free_slabs = 0;
+	slab->free_offset = pool->offset;
+	slab->free_list = NULL;
+	slab->in_hot_slabs = false;
+	rlist_create(&slab->next_in_cold);
 }
 
 void *
@@ -67,17 +68,18 @@ mslab_alloc(struct mempool *pool, struct mslab *slab)
 		slab->free_list = *(void **)slab->free_list;
 	} else {
 		/* Use an object from the "untouched" area of the slab. */
-		result = (char *)slab + slab->free_ofs;
-		slab->free_ofs += pool->objsize;
+		result = (char *)slab + slab->free_offset;
+		slab->free_offset += pool->objsize;
 	}
 
 	/* If the slab is full, remove it from the rb tree. */
 	if (--slab->nfree == 0) {
-		if (slab == pool->first_free_slab)
-			pool->first_free_slab = 
-				mslab_tree_next(&pool->free_slabs, slab);
-		mslab_tree_remove(&pool->free_slabs, slab);
-		slab->in_free_slabs = 0;
+		if (slab == pool->first_hot_slab) {
+			pool->first_hot_slab = mslab_tree_next(&pool->hot_slabs,
+								slab);
+		}
+		mslab_tree_remove(&pool->hot_slabs, slab);
+		slab->in_hot_slabs = false;
 	}
 	return result;
 }
@@ -91,29 +93,34 @@ mslab_free(struct mempool *pool, struct mslab *slab, void *ptr)
 
 	slab->nfree++;
 
-	if (!slab->in_free_slabs && 
-		slab->nfree == (pool->objcount >> SLAB_FREE_FACTOR)) {
+	if (slab->in_hot_slabs == false &&
+	    slab->nfree >= (pool->objcount >> MAX_COLD_FRACTION_LB)) {
 		/**
-		 * Add this slab to the rbtree which contains partially
-		 * populated slabs.
+		 * Add this slab to the rbtree which contains
+		 * sufficiently fragmented slabs.
 		 */
-		slab_list_del(&pool->stagged_slabs, &slab->slab,
-			next_in_stagged);
-		mslab_tree_insert(&pool->free_slabs, slab);
-		slab->in_free_slabs = 1;
-		if (!pool->first_free_slab || 
-			mslab_cmp(pool->first_free_slab, slab) == 1)
-			pool->first_free_slab = slab;
+		rlist_del_entry(slab, next_in_cold);
+		mslab_tree_insert(&pool->hot_slabs, slab);
+		slab->in_hot_slabs = true;
+		/*
+		 * Update first_hot_slab pointer if the newly
+		 * added tree node is the leftmost.
+		 */
+		if (pool->first_hot_slab == NULL ||
+		    mslab_cmp(pool->first_hot_slab, slab) == 1) {
+
+			pool->first_hot_slab = slab;
+		}
 	} else if (slab->nfree == 1) {
-		slab_list_add(&pool->stagged_slabs, &slab->slab,
-			next_in_stagged);
+		rlist_add_entry(&pool->cold_slabs, slab, next_in_cold);
 	} else if (slab->nfree == pool->objcount) {
 		/** Free the slab. */
-		if (slab == pool->first_free_slab)
-			pool->first_free_slab = 
-				mslab_tree_next(&pool->free_slabs, slab);
-		mslab_tree_remove(&pool->free_slabs, slab);
-		slab->in_free_slabs = 0;
+		if (slab == pool->first_hot_slab) {
+			pool->first_hot_slab =
+				mslab_tree_next(&pool->hot_slabs, slab);
+		}
+		mslab_tree_remove(&pool->hot_slabs, slab);
+		slab->in_hot_slabs = false;
 		if (pool->spare > slab) {
 			slab_list_del(&pool->slabs, &pool->spare->slab,
 				      next_in_list);
@@ -138,9 +145,9 @@ mempool_create_with_order(struct mempool *pool, struct slab_cache *cache,
 	lifo_init(&pool->delayed);
 	pool->cache = cache;
 	slab_list_create(&pool->slabs);
-	mslab_tree_new(&pool->free_slabs);
-	pool->first_free_slab = NULL;
-	slab_list_create(&pool->stagged_slabs);
+	mslab_tree_new(&pool->hot_slabs);
+	pool->first_hot_slab = NULL;
+	rlist_create(&pool->cold_slabs);
 	pool->spare = NULL;
 	pool->objsize = objsize;
 	pool->slab_order = order;
@@ -149,8 +156,8 @@ mempool_create_with_order(struct mempool *pool, struct slab_cache *cache,
 	/* Calculate how many objects will actually fit in a slab. */
 	pool->objcount = (slab_size - mslab_sizeof()) / objsize;
 	assert(pool->objcount);
-	pool->objoffset = slab_size - pool->objcount * pool->objsize;
-	pool->slab_addr_mask = ~(slab_order_size(cache, order) - 1);
+	pool->offset = slab_size - pool->objcount * pool->objsize;
+	pool->slab_ptr_mask = ~(slab_order_size(cache, order) - 1);
 }
 
 void
@@ -162,43 +169,31 @@ mempool_destroy(struct mempool *pool)
 		slab_put(pool->cache, slab);
 }
 
-static inline struct mslab *
-get_stagged_slab(struct mempool *pool)
-{
-	struct mslab *slab;
-	if (rlist_empty(&pool->stagged_slabs.slabs))
-		return NULL;
-	slab = (struct mslab *)
-		rlist_first_entry(&pool->stagged_slabs.slabs,
-			typeof(slab->slab), next_in_stagged);
-	slab_list_del(&pool->stagged_slabs, &slab->slab,
-		next_in_stagged);
-	return slab;
-}
-
 void *
 mempool_alloc(struct mempool *pool)
 {
-	struct mslab *slab = pool->first_free_slab;
+	struct mslab *slab = pool->first_hot_slab;
 	if (slab == NULL) {
 		if (pool->spare) {
 			slab = pool->spare;
 			pool->spare = NULL;
 
 		} else if ((slab = (struct mslab *)
-					slab_get_with_order(pool->cache,
+			    slab_get_with_order(pool->cache,
 						pool->slab_order))) {
 			mslab_create(slab, pool);
-			slab_list_add(&pool->slabs, &slab->slab,
-				      next_in_list);
-		} else if (!(slab = get_stagged_slab(pool))) {
+			slab_list_add(&pool->slabs, &slab->slab, next_in_list);
+		} else if (! rlist_empty(&pool->cold_slabs)) {
+			slab = rlist_shift_entry(&pool->cold_slabs, struct mslab,
+						 next_in_cold);
+		} else {
 			return NULL;
 		}
-		mslab_tree_insert(&pool->free_slabs, slab);
-		slab->in_free_slabs = 1;
-		pool->first_free_slab = slab;
+		assert(slab->in_hot_slabs == false);
+		mslab_tree_insert(&pool->hot_slabs, slab);
+		slab->in_hot_slabs = true;
+		pool->first_hot_slab = slab;
 	}
-	assert(slab->pool == pool);
 	pool->slabs.stats.used += pool->objsize;
 	return mslab_alloc(pool, slab);
 }

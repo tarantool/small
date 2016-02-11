@@ -42,6 +42,8 @@
 extern "C" {
 #endif /* defined(__cplusplus) */
 
+extern const uint32_t slab_magic;
+
 struct slab {
 	/*
 	 * Next slab in the list of allocated slabs. Unused if
@@ -53,8 +55,6 @@ struct slab {
 	struct rlist next_in_cache;
 	/** Next slab in slab_list->slabs list. */
 	struct rlist next_in_list;
-	/** Next slab in stagged slabs list in mempool object */
-	struct rlist next_in_stagged;
 	/**
 	 * Allocated size.
 	 * Is different from (SLAB_MIN_SIZE << slab->order)
@@ -200,7 +200,7 @@ slab_from_ptr(void *ptr, intptr_t slab_mask)
 	intptr_t addr = (intptr_t) ptr;
 	/** All memory mapped slabs are slab->size aligned. */
 	struct slab *slab = (struct slab *)(addr & slab_mask);
-	assert(slab->magic == slab_magic && slab->order == order);
+	assert(slab->magic == slab_magic);
 	return slab;
 }
 

@@ -37,7 +37,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-static const uint32_t slab_magic = 0xeec0ffee;
+const uint32_t slab_magic = 0xeec0ffee;
 
 #if !defined(MAP_ANONYMOUS)
 /*

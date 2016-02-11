@@ -160,10 +160,11 @@ struct small_alloc {
 	 * If true, smfree_delayed puts items to delayed list.
 	 */
 	bool is_delayed_free_mode;
-	/** 
-	 * Count of STEP_SIZE pages in first stepped pool items
+	/**
+	 * Object size of step pool 0 divided by STEP_SIZE, to
+	 * quickly find the right stepped pool given object size.
 	 */
-	uint32_t min_stepped_pool_factor;
+	uint32_t step_pool0_step_count;
 };
 
 /** Initialize a small memory allocator. */

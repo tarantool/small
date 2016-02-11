@@ -77,16 +77,18 @@ extern "C" {
 /** mslab - a standard slab formatted to store objects of equal size. */
 struct mslab {
 	struct slab slab;
-	/* Head of a list of used but freed objects */
+	/* Head of the list of used but freed objects */
 	void *free_list;
 	/** Offset of an object that has never been allocated in mslab */
-	uint32_t free_ofs;
+	uint32_t free_offset;
 	/** Number of available slots in the slab. */
 	uint32_t nfree;
-	/** Used if this slab is a member of free_slabs tree. */
-	rb_node(struct mslab) node;
-	/** Set if this slab is a member of free_slabs tree */
-	char in_free_slabs;
+	/** Used if this slab is a member of hot_slabs tree. */
+	rb_node(struct mslab) next_in_hot;
+	/** Next slab in stagged slabs list in mempool object */
+	struct rlist next_in_cold;
+	/** Set if this slab is a member of hot_slabs tree */
+	bool in_hot_slabs;
 };
 
 /**
@@ -138,16 +140,15 @@ struct mempool
 	 * address is chosen for allocation. This reduces internal
 	 * memory fragmentation across many slabs.
 	 */
-	mslab_tree_t free_slabs;
+	mslab_tree_t hot_slabs;
+	/** Cached leftmost node of hot_slabs tree. */
+	struct mslab *first_hot_slab;
 	/**
-	 * Cached left node of free_slabs tree
+	 * Slabs with a little of free items count, staged to
+	 * be added to hot_slabs tree. Are  used in case the
+	 * tree is empty or the allocator runs out of memory.
 	 */
-	struct mslab *first_free_slab;
-	/**
-	 * Slabs with a little of free items count, stagged to 
-	 * add to free_slabs tree. Will be used in case of empty tree.
-	 */
-	struct slab_list stagged_slabs;
+	struct rlist cold_slabs;
 	/**
 	 * A completely empty slab which is not freed only to
 	 * avoid the overhead of slab_cache oscillation around
@@ -171,9 +172,9 @@ struct mempool
 	/** How many objects can fit in a slab. */
 	uint32_t objcount;
 	/** Offset from beginning of slab to the first object */
-	uint32_t objoffset;
+	uint32_t offset;
 	/** Address mask to translate ptr to slab */
-	intptr_t slab_addr_mask;
+	intptr_t slab_ptr_mask;
 };
 
 /** Allocation statistics. */
@@ -270,8 +271,8 @@ mempool_free(struct mempool *pool, void *ptr)
 	memset(ptr, '#', pool->objsize);
 #endif
 	struct mslab *slab = (struct mslab *)
-		slab_from_ptr(ptr, pool->slab_addr_mask);
-	assert(slab->order == pool->slab_order);
+		slab_from_ptr(ptr, pool->slab_ptr_mask);
+	assert(slab->slab.order == pool->slab_order);
 	pool->slabs.stats.used -= pool->objsize;
 	mslab_free(pool, slab, ptr);
 }
