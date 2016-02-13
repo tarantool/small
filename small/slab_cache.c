@@ -61,7 +61,7 @@ slab_assert(struct slab_cache *cache, struct slab *slab)
 		assert(slab->size == size);
 		intptr_t addr = (intptr_t) slab;
 		(void) addr;
-		assert(addr == (addr & ~(size - 1)));
+		assert(addr == (intptr_t) (addr & ~(size - 1)));
 	}
 }
 
@@ -348,7 +348,8 @@ slab_cache_check(struct slab_cache *cache)
 			used += slab->size;
 			total += slab->size;
 		} else {
-			if (slab->size != slab_order_size(cache, slab->order)) {
+			if ((intptr_t) slab->size !=
+					slab_order_size(cache, slab->order)) {
 				fprintf(stderr, "%s: incorrect slab size,"
 					" expected %zu, got %zu", __func__,
 					slab_order_size(cache, slab->order),

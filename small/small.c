@@ -206,7 +206,7 @@ smalloc(struct small_alloc *alloc, size_t size)
 
 	struct mempool *pool;
 	int idx = (size - 1) >> STEP_SIZE_LB;
-	idx = (idx > alloc->step_pool0_step_count) ? idx - alloc->step_pool0_step_count : 0;
+	idx = (idx > (int) alloc->step_pool0_step_count) ? idx - alloc->step_pool0_step_count : 0;
 	if (idx < STEP_POOL_MAX) {
 		/* Allocate in a stepped pool. */
 		pool = &alloc->step_pools[idx];
@@ -249,7 +249,7 @@ mempool_find(struct small_alloc *alloc, size_t size)
 {
 	struct mempool *pool;
 	int idx = (size - 1) >> STEP_SIZE_LB;
-	idx = (idx > alloc->step_pool0_step_count) ? idx - alloc->step_pool0_step_count : 0;
+	idx = (idx > (int) alloc->step_pool0_step_count) ? idx - alloc->step_pool0_step_count : 0;
 	if (idx < STEP_POOL_MAX) {
 		/* Allocated in a stepped pool. */
 			pool = &alloc->step_pools[idx];

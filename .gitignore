@@ -2,7 +2,7 @@
 *.a
 *.o
 *.so*
-*.dynlib*
+*.dylib*
 *.user
 *.cbp
 *.log
