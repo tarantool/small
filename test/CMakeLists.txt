@@ -42,8 +42,8 @@ if(POLICY CMP0037)
 endif(POLICY CMP0037)
 
 add_custom_target(test
-    WORKING_DIRECTORY "${CURRENT_BINARY_DIR}"
-    COMMAND ./test-run.sh
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}/test"
+    COMMAND "${PROJECT_SOURCE_DIR}/test/test-run.sh"
     DEPENDS slab_cache.test region.test ibuf.test obuf.test mempool.test
             small_alloc.test lf_lifo.test slab_arena.test arena_mt.test
             matras.test quota.test

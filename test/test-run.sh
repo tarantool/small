@@ -1,5 +1,8 @@
 #!/bin/bash
 
+SCRIPT=$(readlink -f $0)
+SCRIPTDIR=$(dirname ${SCRIPT})
+
 TESTS=$@
 if [ "x${TESTS}" = "x" ]; then
     TESTS=*.test
@@ -16,7 +19,7 @@ EOF
 for t in ${TESTS}; do
     printf "%-48s" $t
     name="${t%.*}"
-    result="${name}.result"
+    result="${SCRIPTDIR}/${name}.result"
     reject="${name}.reject"
     ./${t} > "${reject}"
     diff -U8 "${result}" "${reject}" > "${tmp}"
