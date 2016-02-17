@@ -1,56 +1,54 @@
 Name: small
-Version: 1.0.0.0
+Version: 1.0.1
 Release: 1%{?dist}
-Summary: Tarantool C connector
+Summary: Collection of Specialized Memory ALLocators
 Group: Development/Languages
 License: BSD
 URL: https://github.com/tarantool/small
-Source0: small-%{version}.tar.gz
-# BuildRequires: cmake
-# Strange bug.
-# Fix according to http://www.jethrocarr.com/2012/05/23/bad-packaging-habits/
-%if 0%{?rhel} < 7 && 0%{?rhel} > 0
-BuildRequires: cmake28
-BuildRequires: devtoolset-2-toolchain
-BuildRequires: devtoolset-2-binutils-devel
-%else
+Source0: https://github.com/tarantool/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
 BuildRequires: cmake >= 2.8
 BuildRequires: gcc >= 4.5
-BuildRequires: binutils-devel
-%endif
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-Vendor: tarantool.org
-Group: Applications/Databases
 %description
 Collection of Specialized Memory ALLocators for small allocations
 
 %package devel
-Summary: Development files for C libtnt
-Requires: small%{?_isa} = %{version}-%{release}
+Summary: Collection of Specialized Memory ALLocators
+Requires: %{name}%{?_isa} = %{version}-%{release}
+
 %description devel
 Collection of Specialized Memory ALLocators for small allocations
 This package contains development files.
-
-##################################################################
 
 %prep
 %setup -q -n %{name}-%{version}
 
 %build
-%cmake . -DCMAKE_INSTALL_LIBDIR='%{_libdir}' -DCMAKE_INSTALL_INCLUDEDIR='%{_includedir}' -DCMAKE_BUILD_TYPE=RelWithDebInfo
+%cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo
 make %{?_smp_mflags}
 
+%check
+make %{?_smp_mflags} test
+
 %install
-make DESTDIR=%{buildroot} install
+%make_install
+
+%post -p /sbin/ldconfig
+
+%postun -p /sbin/ldconfig
 
 %files
-"%{_libdir}/libsmall.a"
-"%{_libdir}/libsmall.so*"
+%{_libdir}/libsmall.so.1*
 
 %files devel
-%dir "%{_includedir}/small"
-"%{_includedir}/small/*.h"
+%dir %{_includedir}/small
+%{_includedir}/small/*.h
+%{_libdir}/libsmall.a
+# unversioned libraries should belong devel package
+%{_libdir}/libsmall.so
 
 %changelog
+* Wed Feb 17 2016 Roman Tsisyk <roman@tarabtool.org> 1.0.1-1
+- Fix to comply Fedora Package Guidelines
+
 * Tue Oct 27 2015 Eugine Blikh <bigbes@gmail.com> 1.0.0-1
 - Initial version of the RPM spec

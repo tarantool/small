@@ -1,3 +1,13 @@
+small (1.0.1-1) unstable; urgency=medium
+
+  * Renable libsmall to libsmall1 according to policy
+  * Enable MultiArch
+  * Enable tests
+  * Use RelWithDebInfo instead of Release
+  * Update Standards-Version
+
+ -- Roman Tsisyk <roman@tarantool.org>  Wed, 17 Feb 2016 14:54:00 +0300
+
 small (1.0.0-1) unstable; urgency=low
 
   * Initial release

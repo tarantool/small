@@ -1,1 +1,3 @@
-usr/include/small/
+usr/include/small/*.h
+usr/lib/*/libsmall.so
+usr/lib/*/libsmall.a
