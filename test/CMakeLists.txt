@@ -37,14 +37,26 @@ target_link_libraries(quota.test pthread)
 
 include_directories("${PROJECT_SOURCE_DIR}")
 
+add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
+add_test(region ${CMAKE_CURRENT_BUILD_DIR}/region.test)
+add_test(ibuf ${CMAKE_CURRENT_BUILD_DIR}/ibuf.test)
+add_test(obuf ${CMAKE_CURRENT_BUILD_DIR}/obuf.test)
+add_test(mempool ${CMAKE_CURRENT_BUILD_DIR}/mempool.test)
+add_test(small_alloc ${CMAKE_CURRENT_BUILD_DIR}/small_alloc.test)
+add_test(lf_lifo ${CMAKE_CURRENT_BUILD_DIR}/lf_lifo.test)
+add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
+add_test(arena_mt ${CMAKE_CURRENT_BUILD_DIR}/arena_mt.test)
+add_test(matras ${CMAKE_CURRENT_BUILD_DIR}/matras.test)
+add_test(quota ${CMAKE_CURRENT_BUILD_DIR}/quota.test)
+
 if(POLICY CMP0037)
     cmake_policy(SET CMP0037 OLD) # don't blame "test" target name
 endif(POLICY CMP0037)
 
 add_custom_target(test
-    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}/test"
-    COMMAND "${PROJECT_SOURCE_DIR}/test/test-run.sh"
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
+    COMMAND ctest
     DEPENDS slab_cache.test region.test ibuf.test obuf.test mempool.test
             small_alloc.test lf_lifo.test slab_arena.test arena_mt.test
             matras.test quota.test
-    )
+)

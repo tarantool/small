@@ -65,4 +65,5 @@ install(TARGETS ${PROJECT_NAME}_shared
 
 install(FILES ${lib_headers} DESTINATION include/${PROJECT_NAME})
 
+enable_testing()
 add_subdirectory(test)
