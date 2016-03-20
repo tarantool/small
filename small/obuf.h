@@ -191,7 +191,7 @@ static inline size_t
 obuf_capacity(struct obuf *buf)
 {
 	/** This is an approximation, see obuf_alloc_pos() */
-	return buf->capacity[buf->n_iov] * 2;
+	return buf->capacity[buf->n_iov ? buf->n_iov - 1 : 0] * 2;
 }
 
 static inline struct obuf_svp

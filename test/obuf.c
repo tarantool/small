@@ -48,6 +48,7 @@ obuf_basic(struct slab_cache *slabc)
 
 	for (i = 0; i < ITERATIONS_MAX; i++) {
 		basic_alloc_streak(&buf);
+		fail_unless(obuf_capacity(&buf) > 0);
 		obuf_reset(&buf);
 		fail_unless(obuf_used(&buf) == 0);
 	}
