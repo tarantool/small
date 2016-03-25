@@ -178,8 +178,12 @@ rlist_move(struct rlist *to, struct rlist *item)
 static inline void
 rlist_move_tail(struct rlist *to, struct rlist *item)
 {
-	rlist_del(item);
-	rlist_add_tail(to, item);
+	item->prev->next = item->next;
+	item->next->prev = item->prev;
+	item->next = to;
+	item->prev = to->prev;
+	item->prev->next = item;
+	item->next->prev = item;
 }
 
 static inline void
