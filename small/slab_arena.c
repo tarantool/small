@@ -118,8 +118,8 @@ pow2round(size_t size)
 }
 #endif
 
-#define MAX(a, b) (a) > (b) ? (a) : (b)
-#define MIN(a, b) (a) < (b) ? (a) : (b)
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 int
 slab_arena_create(struct slab_arena *arena, struct quota *quota,
