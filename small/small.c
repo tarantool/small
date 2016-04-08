@@ -32,6 +32,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 enum {
 	/** Step size for stepped pools, in bytes */
@@ -107,7 +108,13 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 	/* Make sure at least 4 largest objects can fit in a slab. */
 	alloc->objsize_max =
 		mempool_objsize_max(slab_order_size(cache, cache->order_max));
-	assert(alloc->objsize_max > objsize_min + STEP_POOL_MAX * STEP_SIZE);
+
+	if (!(alloc->objsize_max > objsize_min + STEP_POOL_MAX * STEP_SIZE)) {
+		fprintf(stderr, "Can't create small alloc, small "
+			"object min size should not be greather than %u\n",
+			alloc->objsize_max - (STEP_POOL_MAX + 1) * STEP_SIZE);
+		abort();
+	}
 
 	struct mempool *step_pool;
 	for (step_pool = alloc->step_pools;
@@ -253,7 +260,7 @@ mempool_find(struct small_alloc *alloc, size_t size)
 	if (idx < STEP_POOL_MAX) {
 		/* Allocated in a stepped pool. */
 			pool = &alloc->step_pools[idx];
-			assert(size + STEP_SIZE > pool->objsize);
+			assert((size + STEP_SIZE > pool->objsize) || (idx == 0));
 	} else {
 		/* Allocated in a factor pool. */
 		struct factor_pool pattern;
