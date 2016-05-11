@@ -49,6 +49,10 @@ add_test(arena_mt ${CMAKE_CURRENT_BUILD_DIR}/arena_mt.test)
 add_test(matras ${CMAKE_CURRENT_BUILD_DIR}/matras.test)
 add_test(quota ${CMAKE_CURRENT_BUILD_DIR}/quota.test)
 
+if(DEFINED SMALL_EMBEDDED)
+    return()
+endif()
+
 if(POLICY CMP0037)
     cmake_policy(SET CMP0037 OLD) # don't blame "test" target name
 endif(POLICY CMP0037)

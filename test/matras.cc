@@ -119,7 +119,7 @@ void matras_alloc_test()
 		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free);
 		for (unsigned int j = 0; j < i; j++) {
 			unsigned int res = 0;
-			void *data = matras_alloc(&mat, &res);
+			(void) matras_alloc(&mat, &res);
 		}
 		for (unsigned int j = 0; j < i; j++) {
 			matras_dealloc(&mat);
@@ -196,7 +196,6 @@ matras_vers_test()
 	type_t val = 0;
 	for (int s = 10; s < 8000; s = int(s * 1.5)) {
 		for (int k = 0; k < 800; k++) {
-			bool check_me = false;
 			if (rand() % 16 == 0) {
 				bool add_ver;
 				if (cur_num_or_ver == 1)
@@ -223,15 +222,13 @@ matras_vers_test()
 					comps[del_ver].clear();
 					use_mask &= ~(1 << del_ver);
 				}
-				check_me = true;
 			} else {
-				check_me = rand() % 16 == 0;
 				if (rand() % 8 == 0 && comps[0].size() > 0) {
 					matras_dealloc(&local);
 					comps[0].pop_back();
 				}
-				int p = rand() % s;
-				int mod = 0;
+				size_t p = rand() % s;
+				type_t mod = 0;
 				while (p >= comps[0].size()) {
 					comps[0].push_back(val * 10000 + mod);
 					matras_id_t tmp;
@@ -250,7 +247,7 @@ matras_vers_test()
 				if ((use_mask & (1 << i)) == 0)
 					continue;
 				check(comps[i].size() == views[i].block_count, "size mismatch");
-				for (int j = 0; j < comps[i].size(); j++) {
+				for (size_t j = 0; j < comps[i].size(); j++) {
 					type_t val1 = comps[i][j];
 					type_t val2 = *(type_t *)matras_view_get(&local, views + i, j);
 					check(val1 == val2, "data mismatch");

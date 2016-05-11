@@ -7,6 +7,8 @@ endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall -Wextra")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -Werror")
 
 # Enable GNU glibc extentions.
 add_definitions("-D_GNU_SOURCE")
@@ -38,8 +40,9 @@ set(lib_sources
     small/obuf.c)
 
 add_library(${PROJECT_NAME} STATIC ${lib_sources})
-set_target_properties(${PROJECT_NAME} PROPERTIES VERSION 1.0 SOVERSION 1)
-set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
+
+enable_testing()
+add_subdirectory(test)
 
 if(DEFINED SMALL_EMBEDDED)
     # Don't build shared library and skip INSTALL() targets if this
@@ -64,6 +67,3 @@ install(TARGETS ${PROJECT_NAME}_shared
     COMPONENT library)
 
 install(FILES ${lib_headers} DESTINATION include/${PROJECT_NAME})
-
-enable_testing()
-add_subdirectory(test)
