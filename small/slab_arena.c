@@ -69,8 +69,8 @@ mmap_checked(size_t size, size_t align, int flags)
 	 * be aligned already.  Be optimistic by trying
 	 * to map exactly the requested amount.
 	 */
-	void *map = mmap(NULL, size, PROT_READ | PROT_WRITE,
-			 flags | MAP_ANONYMOUS, -1, 0);
+	char *map = (char *) mmap(NULL, size, PROT_READ | PROT_WRITE,
+				  flags | MAP_ANONYMOUS, -1, 0);
 	if (map == MAP_FAILED)
 		return NULL;
 	if (((intptr_t) map & (align - 1)) == 0)
@@ -83,8 +83,8 @@ mmap_checked(size_t size, size_t align, int flags)
 	 * fragmentation depending on the kernels allocation
 	 * strategy.
 	 */
-	map = mmap(NULL, size + align, PROT_READ | PROT_WRITE,
-		   flags | MAP_ANONYMOUS, -1, 0);
+	map = (char *) mmap(NULL, size + align, PROT_READ | PROT_WRITE,
+			    flags | MAP_ANONYMOUS, -1, 0);
 	if (map == MAP_FAILED)
 		return NULL;
 
@@ -163,7 +163,7 @@ slab_arena_destroy(struct slab_arena *arena)
 	size_t total = 0;
 	while ((ptr = lf_lifo_pop(&arena->cache))) {
 		if (arena->arena == NULL || ptr < arena->arena ||
-		    ptr >= arena->arena + arena->prealloc) {
+		    (char *) ptr >= (char *) arena->arena + arena->prealloc) {
 			munmap_checked(ptr, arena->slab_size);
 		}
 		total += arena->slab_size;
@@ -177,8 +177,8 @@ slab_arena_destroy(struct slab_arena *arena)
 void *
 slab_map(struct slab_arena *arena)
 {
-	void *ptr;
-	if ((ptr = lf_lifo_pop(&arena->cache)))
+	char *ptr;
+	if ((ptr = (char *)lf_lifo_pop(&arena->cache)))
 		return ptr;
 
 	if (quota_use(arena->quota, arena->slab_size) < 0)
@@ -188,10 +188,10 @@ slab_map(struct slab_arena *arena)
 	size_t used = pm_atomic_fetch_add(&arena->used, arena->slab_size);
 	used += arena->slab_size;
 	if (used <= arena->prealloc)
-		return arena->arena + used - arena->slab_size;
+		return (char *)arena->arena + used - arena->slab_size;
 
-	ptr = mmap_checked(arena->slab_size, arena->slab_size,
-			   arena->flags);
+	ptr = (char *) mmap_checked(arena->slab_size, arena->slab_size,
+				    arena->flags);
 	if (!ptr) {
 		__sync_sub_and_fetch(&arena->used, arena->slab_size);
 		quota_release(arena->quota, arena->slab_size);

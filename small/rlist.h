@@ -159,6 +159,15 @@ rlist_empty(struct rlist *item)
 }
 
 /**
+ * return TRUE if list holds one (or zero) element
+ */
+inline static int
+rlist_almost_empty(struct rlist *item)
+{
+	return item->next == item->prev;
+}
+
+/**
 @brief delete from one list and add as another's head
 @param to the head that will precede our entry
 @param item the entry to move
@@ -178,12 +187,8 @@ rlist_move(struct rlist *to, struct rlist *item)
 static inline void
 rlist_move_tail(struct rlist *to, struct rlist *item)
 {
-	item->prev->next = item->next;
-	item->next->prev = item->prev;
-	item->next = to;
-	item->prev = to->prev;
-	item->prev->next = item;
-	item->next->prev = item;
+	rlist_del(item);
+	rlist_add_tail(to, item);
 }
 
 static inline void

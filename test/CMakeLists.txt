@@ -35,6 +35,11 @@ target_link_libraries(matras.test small)
 add_executable(quota.test quota.cc unit.c)
 target_link_libraries(quota.test pthread)
 
+add_executable(veb12s.test veb12s.cc unit.c)
+
+add_executable(lsall.test lsall.cc unit.c)
+target_link_libraries(lsall.test small)
+
 include_directories("${PROJECT_SOURCE_DIR}")
 
 add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
@@ -48,6 +53,8 @@ add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
 add_test(arena_mt ${CMAKE_CURRENT_BUILD_DIR}/arena_mt.test)
 add_test(matras ${CMAKE_CURRENT_BUILD_DIR}/matras.test)
 add_test(quota ${CMAKE_CURRENT_BUILD_DIR}/quota.test)
+add_test(veb12s ${CMAKE_CURRENT_BUILD_DIR}/veb12s.test)
+add_test(lsall ${CMAKE_CURRENT_BUILD_DIR}/lsall.test)
 
 if(POLICY CMP0037)
     cmake_policy(SET CMP0037 OLD) # don't blame "test" target name
