@@ -24,7 +24,7 @@ run(void *p __attribute__((unused)))
 #ifdef __FreeBSD__
 	unsigned int seed = pthread_getthreadid_np();
 #else
-	unsigned int seed = (unsigned int) pthread_self();
+	unsigned int seed = (intptr_t) pthread_self();
 #endif
 	int iterations = rand_r(&seed) % ITERATIONS;
 	pthread_t **slabs = slab_map(&arena);
