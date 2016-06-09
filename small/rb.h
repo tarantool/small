@@ -13,6 +13,7 @@
  *   #define NDEBUG // (Optional, see assert(3).)
  *   #include <assert.h>
  *   #define RB_COMPACT // (Optional, embed color bits in right-child pointers.)
+ *   #define RB_CMP_TREE_ARG // (Optional, passes tree to comparators)
  *   #include <rb.h>
  *   ...
  *
@@ -24,6 +25,12 @@
 
 #if 0
 __FBSDID("$FreeBSD: head/lib/libc/stdlib/rb.h 204493 2010-02-28 22:57:13Z jasone $");
+#endif
+
+#ifdef RB_CMP_TREE_ARG
+#define RB_CMP_ARG rbtree,
+#else
+#define RB_CMP_ARG
 #endif
 
 #ifdef RB_COMPACT
@@ -338,7 +345,8 @@ rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
  * macro has one additional argument - type of key.
  *
  */
-#define	rb_gen_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_field, a_cmp, a_key, a_cmp_key)	\
+#define	rb_gen_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_field,	\
+		       a_cmp, a_key, a_cmp_key)				\
 a_attr void								\
 a_prefix##new(a_rbt_type *rbtree) {					\
     rb_new(a_type, a_field, rbtree);					\
@@ -372,7 +380,7 @@ a_prefix##next(a_rbt_type *rbtree, a_type *node) {			\
 	assert(tnode != &rbtree->rbt_nil);				\
 	ret = &rbtree->rbt_nil;						\
 	while (true) {							\
-	    int cmp = a_cmp(node, tnode);				\
+	    int cmp = a_cmp(RB_CMP_ARG node, tnode);			\
 	    if (cmp < 0) {						\
 		ret = tnode;						\
 		tnode = rbtn_left_get(a_type, a_field, tnode);		\
@@ -400,7 +408,7 @@ a_prefix##prev(a_rbt_type *rbtree, a_type *node) {			\
 	assert(tnode != &rbtree->rbt_nil);				\
 	ret = &rbtree->rbt_nil;						\
 	while (true) {							\
-	    int cmp = a_cmp(node, tnode);				\
+	    int cmp = a_cmp(RB_CMP_ARG node, tnode);			\
 	    if (cmp < 0) {						\
 		tnode = rbtn_left_get(a_type, a_field, tnode);		\
 	    } else if (cmp > 0) {					\
@@ -423,7 +431,7 @@ a_prefix##search(a_rbt_type *rbtree, a_key key) {			\
     int cmp;								\
     ret = rbtree->rbt_root;						\
     while (ret != &rbtree->rbt_nil					\
-      && (cmp = a_cmp_key(key, ret)) != 0) {				\
+      && (cmp = a_cmp_key(RB_CMP_ARG key, ret)) != 0) {			\
 	if (cmp < 0) {							\
 	    ret = rbtn_left_get(a_type, a_field, ret);			\
 	} else {							\
@@ -441,7 +449,7 @@ a_prefix##nsearch(a_rbt_type *rbtree, a_key key) {			\
     a_type *tnode = rbtree->rbt_root;					\
     ret = &rbtree->rbt_nil;						\
     while (tnode != &rbtree->rbt_nil) {					\
-	int cmp = a_cmp_key(key, tnode);				\
+	int cmp = a_cmp_key(RB_CMP_ARG key, tnode);			\
 	if (cmp < 0) {							\
 	    ret = tnode;						\
 	    tnode = rbtn_left_get(a_type, a_field, tnode);		\
@@ -463,7 +471,7 @@ a_prefix##psearch(a_rbt_type *rbtree, a_key key) {			\
     a_type *tnode = rbtree->rbt_root;					\
     ret = &rbtree->rbt_nil;						\
     while (tnode != &rbtree->rbt_nil) {					\
-	int cmp = a_cmp_key(key, tnode);				\
+	int cmp = a_cmp_key(RB_CMP_ARG key, tnode);			\
 	if (cmp < 0) {							\
 	    tnode = rbtn_left_get(a_type, a_field, tnode);		\
 	} else if (cmp > 0) {						\
@@ -489,7 +497,7 @@ a_prefix##insert(a_rbt_type *rbtree, a_type *node) {			\
     /* Wind. */								\
     path->node = rbtree->rbt_root;					\
     for (pathp = path; pathp->node != &rbtree->rbt_nil; pathp++) {	\
-	int cmp = pathp->cmp = a_cmp(node, pathp->node);		\
+	int cmp = pathp->cmp = a_cmp(RB_CMP_ARG node, pathp->node);	\
 	assert(cmp != 0);						\
 	if (cmp < 0) {							\
 	    pathp[1].node = rbtn_left_get(a_type, a_field,		\
@@ -557,7 +565,7 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
     nodep = NULL; /* Silence compiler warning. */			\
     path->node = rbtree->rbt_root;					\
     for (pathp = path; pathp->node != &rbtree->rbt_nil; pathp++) {	\
-	int cmp = pathp->cmp = a_cmp(node, pathp->node);		\
+	int cmp = pathp->cmp = a_cmp(RB_CMP_ARG node, pathp->node);	\
 	if (cmp < 0) {							\
 	    pathp[1].node = rbtn_left_get(a_type, a_field,		\
 	      pathp->node);						\
@@ -907,7 +915,7 @@ a_prefix##iter_recurse(a_rbt_type *rbtree, a_type *node,		\
 a_attr a_type *								\
 a_prefix##iter_start(a_rbt_type *rbtree, a_type *start, a_type *node,	\
   a_type *(*cb)(a_rbt_type *, a_type *, void *), void *arg) {		\
-    int cmp = a_cmp(start, node);					\
+    int cmp = a_cmp(RB_CMP_ARG start, node);				\
     if (cmp < 0) {							\
 	a_type *ret;							\
 	if ((ret = a_prefix##iter_start(rbtree, start,			\
@@ -967,7 +975,7 @@ a_attr a_type *								\
 a_prefix##reverse_iter_start(a_rbt_type *rbtree, a_type *start,		\
   a_type *node, a_type *(*cb)(a_rbt_type *, a_type *, void *),		\
   void *arg) {								\
-    int cmp = a_cmp(start, node);					\
+    int cmp = a_cmp(RB_CMP_ARG start, node);				\
     if (cmp > 0) {							\
 	a_type *ret;							\
 	if ((ret = a_prefix##reverse_iter_start(rbtree, start,		\
@@ -1009,6 +1017,5 @@ a_prefix##reverse_iter(a_rbt_type *rbtree, a_type *start,		\
 #define	rb_gen(a_attr, a_prefix, a_rbt_type, a_type, a_field, a_cmp)	\
 rb_gen_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_field, a_cmp,	\
 	       a_type *, a_cmp)
-
 
 #endif /* RB_H_ */
