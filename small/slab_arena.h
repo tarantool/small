@@ -31,7 +31,6 @@
  * SUCH DAMAGE.
  */
 #include "lf_lifo.h"
-#include <sys/mman.h>
 #include <limits.h>
 
 #if defined(__cplusplus)

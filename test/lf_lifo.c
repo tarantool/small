@@ -1,5 +1,5 @@
 #include <small/lf_lifo.h>
-#include <sys/mman.h>
+#include <small/pm_mmap.h>
 #include "unit.h"
 
 #if !defined(MAP_ANONYMOUS)
@@ -11,19 +11,18 @@ mmap_aligned(size_t size)
 {
 	assert((size & (size - 1)) == 0);
         void *map = mmap(NULL, 2 * size,
-                         PROT_READ | PROT_WRITE, MAP_PRIVATE |
-                         MAP_ANONYMOUS, -1, 0);
+                         PROT_READ_WRITE, MAP_ANON_PRIVATE, -1, 0);
 
         /* Align the mapped address around slab size. */
         size_t offset = (intptr_t) map & (size - 1);
 
         if (offset != 0) {
                 munmap(map, size - offset);
-                map += size - offset;
-                munmap(map + size, offset);
+                map = (char*)map + size - offset;
+                munmap((char*)map + size, offset);
         } else {
                 /* The address is returned aligned. */
-                munmap(map + size, size);
+                munmap((char*)map + size, size);
         }
         return map;
 }

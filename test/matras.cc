@@ -173,7 +173,7 @@ int vermask = 1;
 
 int reg_view_id()
 {
-	int id = __builtin_ctz(~vermask);
+	int id = builtin_ctz(~vermask);
 	vermask |= 1 << id;
 	return id;
 }

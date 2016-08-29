@@ -34,7 +34,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
+#ifndef _MSC_VER
 #include <unistd.h>
+#else
+#include "win32/vcunistd.h"
+#endif
 #include <sys/types.h> /* ssize_t */
 #include "pmatomic.h"
 

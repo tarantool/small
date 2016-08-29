@@ -117,6 +117,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include "builtins.h"
 
 #if defined(__cplusplus)
 extern "C" {

@@ -17,3 +17,5 @@ build/
 CTestTestfile.cmake
 Testing
 CTestTestfile.cmake
+*.vcxproj
+*.vcxproj.filters

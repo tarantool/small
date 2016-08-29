@@ -77,6 +77,9 @@
 #ifndef PMATOMIC_H__
 #define	PMATOMIC_H__
 
+#ifdef _MSC_VER
+  #include "win32/pmvcatomic.h"
+#else
 /* Compiler-fu */
 #if !defined(__has_feature)
 #define __has_feature(x) 0
@@ -491,4 +494,5 @@ atomic_flag_clear(volatile atomic_flag *__object)
 
 #endif
 
+#endif /* _MSC_VER */
 #endif /* !_STDATOMIC_H_ */

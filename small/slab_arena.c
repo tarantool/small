@@ -38,6 +38,7 @@
 #include <assert.h>
 #include <limits.h>
 #include "pmatomic.h"
+#include "pm_mmap.h"
 
 #if !defined(MAP_ANONYMOUS)
 #define MAP_ANONYMOUS MAP_ANON
@@ -69,7 +70,7 @@ mmap_checked(size_t size, size_t align, int flags)
 	 * be aligned already.  Be optimistic by trying
 	 * to map exactly the requested amount.
 	 */
-	void *map = mmap(NULL, size, PROT_READ | PROT_WRITE,
+	void *map = mmap(NULL, size, PROT_READ_WRITE,
 			 flags | MAP_ANONYMOUS, -1, 0);
 	if (map == MAP_FAILED)
 		return NULL;
@@ -94,11 +95,11 @@ mmap_checked(size_t size, size_t align, int flags)
 	if (offset != 0) {
 		/* Unmap unaligned prefix and postfix. */
 		munmap_checked(map, align - offset);
-		map += align - offset;
-		munmap_checked(map + size, offset);
+		map = (char*)map + align - offset;
+		munmap_checked((char*)map + size, offset);
 	} else {
 		/* The address is returned aligned. */
-		munmap_checked(map + size, align);
+		munmap_checked((char*)map + size, align);
 	}
 	return map;
 }
@@ -163,7 +164,7 @@ slab_arena_destroy(struct slab_arena *arena)
 	size_t total = 0;
 	while ((ptr = lf_lifo_pop(&arena->cache))) {
 		if (arena->arena == NULL || ptr < arena->arena ||
-		    ptr >= arena->arena + arena->prealloc) {
+		    ptr >= (char*)arena->arena + arena->prealloc) {
 			munmap_checked(ptr, arena->slab_size);
 		}
 		total += arena->slab_size;
@@ -188,7 +189,7 @@ slab_map(struct slab_arena *arena)
 	size_t used = pm_atomic_fetch_add(&arena->used, arena->slab_size);
 	used += arena->slab_size;
 	if (used <= arena->prealloc)
-		return arena->arena + used - arena->slab_size;
+		return (char*)arena->arena + used - arena->slab_size;
 
 	ptr = mmap_checked(arena->slab_size, arena->slab_size,
 			   arena->flags);

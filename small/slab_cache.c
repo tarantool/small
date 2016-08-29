@@ -29,13 +29,17 @@
  * SUCH DAMAGE.
  */
 #include "slab_cache.h"
-#include <sys/mman.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include "pm_mmap.h"
+#ifndef _MSC_VER
 #include <unistd.h>
+#else
+#include "win32/vcunistd.h"
+#endif
 
 const uint32_t slab_magic = 0xeec0ffee;
 
