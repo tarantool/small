@@ -31,6 +31,7 @@
  * SUCH DAMAGE.
  */
 #include "lf_lifo.h"
+#include "builtins.h"
 #include <limits.h>
 
 #if defined(__cplusplus)
@@ -143,7 +144,7 @@ small_round(size_t size)
 	assert(size - 1 <= ULONG_MAX);
 	size_t r = 1;
 	return r << (sizeof(unsigned long) * CHAR_BIT -
-		     __builtin_clzl((unsigned long) (size - 1)));
+		     builtin_clzl((unsigned long) (size - 1)));
 }
 
 /** Binary logarithm of a size. */
@@ -152,7 +153,7 @@ small_lb(size_t size)
 {
 	assert(size <= ULONG_MAX);
 	return sizeof(unsigned long) * CHAR_BIT -
-		__builtin_clzl((unsigned long) size) - 1;
+		builtin_clzl((unsigned long) size) - 1;
 }
 
 

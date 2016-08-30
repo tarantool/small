@@ -223,7 +223,7 @@ using std::_Uint8_t;
 #define	pm_atomic_compare_exchange_strong_explicit(object, expected,	\
     desired, success, failure)						\
 	_Atomic_compare_exchange_strong_n(object, expected,		\
-	    desired, sizeof(desired), success, failure)
+	    (atomic_uintmax_t)desired, sizeof(desired), success, failure)
 #define	pm_atomic_compare_exchange_weak_explicit(object, expected,	\
     desired, success, failure)						\
 	atomic_compare_exchange_strong_explicit(object, expected,	\
@@ -263,7 +263,7 @@ static atomic_uintmax_t _Atomic_fetch_add_n(
 	return 0;	
 }
 #define	pm_atomic_fetch_add_explicit(object, operand, order)		\
-	_Atomic_fetch_add_n(object, operand, sizeof(operand), order)
+	_Atomic_fetch_add_n(object, (atomic_uintmax_t)operand, sizeof(operand), order)
 
 static atomic_uintmax_t _Atomic_fetch_and_n(
 	volatile void *_Tgt, atomic_uintmax_t _Value, size_t _Size, memory_order _Order)
@@ -279,7 +279,7 @@ static atomic_uintmax_t _Atomic_fetch_and_n(
 	return 0;	
 }
 #define	pm_atomic_fetch_and_explicit(object, operand, order)		\
-	_Atomic_fetch_and_n(object, operand, sizeof(operand), order)
+	_Atomic_fetch_and_n(object, (atomic_uintmax_t)operand, sizeof(operand), order)
 
 static atomic_uintmax_t _Atomic_fetch_or_n(
 	volatile void *_Tgt, atomic_uintmax_t _Value, size_t _Size, memory_order _Order)
@@ -295,7 +295,7 @@ static atomic_uintmax_t _Atomic_fetch_or_n(
 	return 0;	
 }
 #define	pm_atomic_fetch_or_explicit(object, operand, order)		\
-	_Atomic_fetch_or_n(object, operand, sizeof(operand), order)
+	_Atomic_fetch_or_n(object, (atomic_uintmax_t)operand, sizeof(operand), order)
 
 static atomic_uintmax_t _Atomic_fetch_sub_n(
 	volatile void *_Tgt, atomic_uintmax_t _Value, size_t _Size, memory_order _Order)
@@ -311,7 +311,7 @@ static atomic_uintmax_t _Atomic_fetch_sub_n(
 	return 0;	
 }
 #define	pm_atomic_fetch_sub_explicit(object, operand, order)		\
-	_Atomic_fetch_sub_n(object, operand, sizeof(operand), order)
+	_Atomic_fetch_sub_n(object, (atomic_uintmax_t)operand, sizeof(operand), order)
 
 static atomic_uintmax_t _Atomic_fetch_xor_n(
 	volatile void *_Tgt, atomic_uintmax_t _Value, size_t _Size, memory_order _Order)
@@ -327,7 +327,7 @@ static atomic_uintmax_t _Atomic_fetch_xor_n(
 	return 0;	
 }
 #define	pm_atomic_fetch_xor_explicit(object, operand, order)		\
-	_Atomic_fetch_xor_n(object, operand, sizeof(operand), order)
+	_Atomic_fetch_xor_n(object, (atomic_uintmax_t)operand, sizeof(operand), order)
 
 static atomic_uintmax_t _Atomic_load_n(
 	volatile void *_Tgt, size_t _Size, memory_order _Order)
@@ -359,7 +359,7 @@ static void inline _Atomic_store_n(
 }
 
 #define	pm_atomic_store_explicit(object, desired, order)		\
-	_Atomic_store_n(object, desired, sizeof(desired), order)
+	_Atomic_store_n(object, (atomic_uintmax_t)desired, sizeof(desired), order)
 
 /*
  * Convenience functions.

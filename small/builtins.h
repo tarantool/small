@@ -1,16 +1,20 @@
 #ifndef _BUILTINS_H_
 #define _BUILTINS_H_
 
-#if __has_builtin(__builtin_clz) || LLVM_GNUC_PREREQ(4, 0, 0)
+#if defined (__GNUC__) && (__GNUC__ >= 4) || defined(__llvm__)
 
-#define builtin_clz(v)	__builtin_clz(v)
-#define builtin_ctz(v)	__builtin_ctz(v)
+#define builtin_clz(v)					__builtin_clz(v)
+#define builtin_clzl(v)					__builtin_clzl(v)
+#define builtin_ctz(v)					__builtin_ctz(v)
+#define builtin_sync_sub_and_fetch(addend,decrement)	__sync_sub_and_fetch(addend,decrement)
 
 #elif defined(_MSC_VER)
 
 #include <intrin.h>
 #pragma intrinsic (_BitScanReverse)
+#pragma intrinsic (_BitScanReverse64)
 #pragma intrinsic (_BitScanForward)
+#pragma intrinsic (_InterlockedExchangeAdd)
 
 unsigned long inline builtin_ctz(unsigned long  value)
 {
@@ -25,6 +29,15 @@ unsigned long inline builtin_clz(unsigned long value)
 	_BitScanReverse(&leading_zero, value);
 	return (31 - leading_zero);
 }
+
+unsigned long inline builtin_clzl(unsigned __int64 value)
+{
+	unsigned long leading_zero = 0;
+	_BitScanReverse64(&leading_zero, value);
+	return (63 - leading_zero);
+}
+
+#define builtin_sync_sub_and_fetch(addend,decrement)	(_InterlockedExchangeAdd((volatile long*)(addend), -(long)(decrement)) - (decrement))
 
 #endif
 

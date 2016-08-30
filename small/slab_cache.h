@@ -36,6 +36,7 @@
 #include <assert.h>
 #include "rlist.h"
 #include "slab_arena.h"
+#include "builtins.h"
 #include <pthread.h>
 
 #if defined(__cplusplus)
@@ -248,7 +249,7 @@ slab_order(struct slab_cache *cache, size_t size)
 		return cache->order_max + 1;
 
 	return (uint8_t) (CHAR_BIT * sizeof(unsigned) -
-			  __builtin_clz((unsigned) size - 1) -
+			  builtin_clz((unsigned) size - 1) -
 			  cache->order0_size_lb);
 }
 

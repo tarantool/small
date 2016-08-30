@@ -19,3 +19,9 @@ Testing
 CTestTestfile.cmake
 *.vcxproj
 *.vcxproj.filters
+Debug/
+Release/
+*.obj
+*.bsr
+*.pdb
+*.tlog

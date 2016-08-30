@@ -56,6 +56,12 @@ struct obuf_svp
 	size_t used;
 };
 
+#ifdef _MSC_VER
+#  define ALIGNED64 declspec(align(64))
+#else
+#  define ALIGNED64 __attribute__((aligned(64)))
+#endif
+
 /**
  * An output buffer is a vector of struct iovec
  * for writev().
@@ -96,12 +102,12 @@ struct obuf
 	 * The below two members are used by iproto thread,
 	 * avoid false sharing by cache aligning them.
 	 */
-	struct {
+	struct ALIGNED64 {
 		/** Current write position in the output buffer */
 		struct obuf_svp wpos;
 		/** End of write position in the output buffer */
 		struct obuf_svp wend;
-	} __attribute__((aligned(64)));
+	} ;
 };
 
 void

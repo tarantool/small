@@ -24,11 +24,6 @@ typedef ptrdiff_t ssize_t;
 #define _SSIZE_T_DEFINED
 #endif
 
-#ifndef getpid
-#define  getpid() _getpid()
-extern pid_t __cdecl _getpid(void);
-#endif
-
 //<sys/stat.h>
 #define fstat64(fildes, stat) (_fstati64(fildes, stat))
 #define stat64(path, buffer) (_stati64(path,buffer))

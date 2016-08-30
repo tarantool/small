@@ -39,9 +39,14 @@
 #include <limits.h>
 #include "pmatomic.h"
 #include "pm_mmap.h"
+#include "builtins.h"
 
 #if !defined(MAP_ANONYMOUS)
 #define MAP_ANONYMOUS MAP_ANON
+#endif
+
+#ifdef _MSC_VER
+#define strerror_r(errnum,buf,buflen)	strerror_s(buf,buflen,errnum)
 #endif
 
 static void
@@ -84,7 +89,7 @@ mmap_checked(size_t size, size_t align, int flags)
 	 * fragmentation depending on the kernels allocation
 	 * strategy.
 	 */
-	map = mmap(NULL, size + align, PROT_READ | PROT_WRITE,
+	map = mmap(NULL, size + align, PROT_READ_WRITE,
 		   flags | MAP_ANONYMOUS, -1, 0);
 	if (map == MAP_FAILED)
 		return NULL;
@@ -164,7 +169,7 @@ slab_arena_destroy(struct slab_arena *arena)
 	size_t total = 0;
 	while ((ptr = lf_lifo_pop(&arena->cache))) {
 		if (arena->arena == NULL || ptr < arena->arena ||
-		    ptr >= (char*)arena->arena + arena->prealloc) {
+		    ptr >= (void*)((char*)arena->arena + arena->prealloc)) {
 			munmap_checked(ptr, arena->slab_size);
 		}
 		total += arena->slab_size;
@@ -194,7 +199,7 @@ slab_map(struct slab_arena *arena)
 	ptr = mmap_checked(arena->slab_size, arena->slab_size,
 			   arena->flags);
 	if (!ptr) {
-		__sync_sub_and_fetch(&arena->used, arena->slab_size);
+		builtin_sync_sub_and_fetch(&arena->used, arena->slab_size);
 		quota_release(arena->quota, arena->slab_size);
 	}
 	return ptr;
@@ -211,5 +216,5 @@ void
 slab_arena_mprotect(struct slab_arena *arena)
 {
 	if (arena->arena)
-		mprotect(arena->arena, arena->prealloc, PROT_READ);
+		mprotect(arena->arena, arena->prealloc, PROT_READ_ONLY);
 }

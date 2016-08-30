@@ -1,5 +1,6 @@
 #include <small/slab_arena.h>
 #include <small/quota.h>
+#include <small/pm_mmap.h>
 #include <stdio.h>
 #include <limits.h>
 #include <stdlib.h>

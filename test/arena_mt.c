@@ -18,8 +18,13 @@ int ITERATIONS = 1009 /* 100003 */;
 int OSCILLATION = 137;
 int FILL = SLAB_MIN_SIZE/sizeof(pthread_t);
 
+#ifdef __GNUC__
+#define UNUSED(x) x __attribute__((unused))
+#else
+#define UNUSED(x) x
+#endif
 void *
-run(void *p __attribute__((unused)))
+run(void * UNUSED(p) )
 {
 #ifdef __FreeBSD__
 	unsigned int seed = pthread_getthreadid_np();
