@@ -163,10 +163,18 @@ mempool_create_with_order(struct mempool *pool, struct slab_cache *cache,
 void
 mempool_destroy(struct mempool *pool)
 {
+#if 0
 	struct slab *slab, *tmp;
 	rlist_foreach_entry_safe(slab, &pool->slabs.slabs,
 				 next_in_list, tmp)
 		slab_put(pool->cache, slab);
+#else
+	struct rlist *curr, *tmp;
+	rlist_foreach_safe(&pool->slabs.slabs, curr, tmp) {
+	    struct slab *slab = rlist_entry(curr, struct slab, next_in_list);
+	    slab_put(pool->cache, slab);
+	}
+#endif
 }
 
 void *

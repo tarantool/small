@@ -222,9 +222,14 @@ rlist_swap(struct rlist *rhs, struct rlist *lhs)
 /**
  * return entry by list item
  */
+#ifdef _MSC_VER
+#define rlist_entry(item, type, member)					\
+	 ((type *)( (char*)(item) - (uintptr_t)(&((type *)0)->member)))
+#else
 #define rlist_entry(item, type, member) ({				\
 	const typeof( ((type *)0)->member ) *__mptr = (item);		\
 	(type *)( (char *)__mptr - ((size_t) &((type *)0)->member) ); })
+#endif
 
 /**
  * return first entry
@@ -306,13 +311,28 @@ delete from one list and add_tail as another's head
 #define rlist_foreach(item, head)					\
 	for (item = rlist_first(head); item != (head); item = rlist_next(item))
 
-/**
+ /**
+ * foreach through list - safer version, gracefully handles current entry removal
+ */
+#define	rlist_foreach_safe(head, curr, tmp)				\
+	for (curr = rlist_first(head), tmp = rlist_next(curr);		\
+	     curr != (head);						\
+	     curr = (tmp), tmp = rlist_next(curr))
+
+ /**
  * foreach backward through list
  */
 #define rlist_foreach_reverse(item, head)				\
 	for (item = rlist_last(head); item != (head); item = rlist_prev(item))
 
-/**
+/* NB! rlist_foreach_entry* macros are impossible to implement in non GCC-way
+ * which will be compatible with MSVC which has no _typeof_ support in their
+ * preprocessor. Thus all the code is reimplemented to use simple rlist_foreach[_safe]
+ */
+
+#ifndef _MSC_VER
+
+ /**
  * foreach through all list entries
  */
 #define rlist_foreach_entry(item, head, member)				\
@@ -333,6 +353,10 @@ delete from one list and add_tail as another's head
 	     &item->member != (head) &&                                 \
 	     ((tmp) = rlist_next_entry((item), member));                \
 	     (item) = (tmp))
+
+#endif // _MSC_VER
+
+
 
 #if defined(__cplusplus)
 } /* extern "C" */

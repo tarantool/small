@@ -200,6 +200,7 @@ slab_cache_destroy(struct slab_cache *cache)
 	 * slabs of the largest order. All smaller slabs are
 	 * obtained from larger slabs by splitting.
          */
+#if 0
 	struct slab *slab, *tmp;
 	rlist_foreach_entry_safe(slab, slabs, next_in_cache, tmp) {
 		if (slab->order == cache->order_max + 1)
@@ -207,6 +208,16 @@ slab_cache_destroy(struct slab_cache *cache)
 		else
 			slab_unmap(cache->arena, slab);
 	}
+#else
+	struct rlist * curr, *tmp;
+	rlist_foreach_safe(slabs, curr, tmp) {
+		struct slab * slab = rlist_entry(curr, struct slab, next_in_cache);
+		if (slab->order == cache->order_max + 1)
+			free(slab);
+		else
+			slab_unmap(cache->arena, slab);
+	}
+#endif
 }
 
 struct slab *
@@ -351,10 +362,17 @@ slab_cache_check(struct slab_cache *cache)
 	size_t huge = 0;
 	bool dont_panic = true;
 
+
+#if 0
 	struct rlist *slabs = &cache->allocated.slabs;
 	struct slab *slab;
 
 	rlist_foreach_entry(slab, slabs, next_in_cache) {
+#else
+	struct rlist * curr;
+	rlist_foreach(curr, &cache->allocated.slabs) {
+		struct slab * slab = rlist_entry(curr, struct slab, next_in_cache);
+#endif
 		if (slab->magic != slab_magic) {
 			fprintf(stderr, "%s: incorrect slab magic,"
 				" expected %d, got %d", __func__,
