@@ -1,6 +1,7 @@
 #include <small/quota.h>
 #include <small/obuf.h>
 #include <small/slab_cache.h>
+#include <small/pm_mmap.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

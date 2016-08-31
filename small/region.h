@@ -30,6 +30,11 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#ifndef _MSC_VER
+#include <unistd.h>
+#else
+#include "win32/vcunistd.h"
+#endif
 #include <stddef.h>
 #include <inttypes.h>
 #include <assert.h>

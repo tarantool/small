@@ -10,7 +10,11 @@
 #define PROT_READ_WRITE	    (PROT_READ | PROT_WRITE)
 #define MAP_ANON_PRIVATE    (MAP_PRIVATE | MAP_ANONYMOUS)
 
-#else
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
+#else // _MSC_VER=
 
 #include <stddef.h>
 #include <sys/types.h>
@@ -44,6 +48,8 @@ int pm_mprotect(void *__addr, size_t __len, int __prot);
 }
 #endif
 
-#endif
+#endif // _MSC_VER-
+
+
 
 #endif // _PM_MMAP_H_

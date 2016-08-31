@@ -41,9 +41,6 @@
 #include "pm_mmap.h"
 #include "builtins.h"
 
-#if !defined(MAP_ANONYMOUS)
-#define MAP_ANONYMOUS MAP_ANON
-#endif
 
 #ifdef _MSC_VER
 #define strerror_r(errnum,buf,buflen)	strerror_s(buf,buflen,errnum)
@@ -131,7 +128,7 @@ int
 slab_arena_create(struct slab_arena *arena, struct quota *quota,
 		  size_t prealloc, uint32_t slab_size, int flags)
 {
-	assert(flags & (MAP_PRIVATE | MAP_SHARED));
+	assert(flags & (MAP_PRIVATE | MAP_SHARED)); // FIXME - makes no much sense under Windows
 	lf_lifo_init(&arena->cache);
 	/*
 	 * Round up the user supplied data - it can come in

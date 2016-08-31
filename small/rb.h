@@ -68,7 +68,7 @@ struct {								\
 /* Right accessors. */
 #define	rbtn_right_get(a_type, a_field, a_node)				\
     ((a_type *) (((intptr_t) (a_node)->a_field.rbn_right_red)		\
-      & ((ssize_t)-2)))
+      & ((ptrdiff_t)-2)))
 #define	rbtn_right_set(a_type, a_field, a_node, a_right) do {		\
     (a_node)->a_field.rbn_right_red = (a_type *) (((uintptr_t) a_right)	\
       | (((uintptr_t) (a_node)->a_field.rbn_right_red) & ((size_t)1)));	\
@@ -80,8 +80,8 @@ struct {								\
       & ((size_t)1)))
 #define	rbtn_color_set(a_type, a_field, a_node, a_red) do {		\
     (a_node)->a_field.rbn_right_red = (a_type *) ((((intptr_t)		\
-      (a_node)->a_field.rbn_right_red) & ((ssize_t)-2))			\
-      | ((ssize_t)a_red));						\
+      (a_node)->a_field.rbn_right_red) & ((ptrdiff_t)-2))			\
+      | ((ptrdiff_t)a_red));						\
 } while (0)
 #define	rbtn_red_set(a_type, a_field, a_node) do {			\
     (a_node)->a_field.rbn_right_red = (a_type *) (((uintptr_t)		\
@@ -89,7 +89,7 @@ struct {								\
 } while (0)
 #define	rbtn_black_set(a_type, a_field, a_node) do {			\
     (a_node)->a_field.rbn_right_red = (a_type *) (((intptr_t)		\
-      (a_node)->a_field.rbn_right_red) & ((ssize_t)-2));		\
+      (a_node)->a_field.rbn_right_red) & ((ptrdiff_t)-2));		\
 } while (0)
 #else
 /* Right accessors. */

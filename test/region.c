@@ -1,5 +1,6 @@
 #include <small/region.h>
 #include <small/quota.h>
+#include <small/pm_mmap.h>
 #include <stdio.h>
 #include "unit.h"
 
