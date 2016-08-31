@@ -43,15 +43,6 @@
 
 const uint32_t slab_magic = 0xeec0ffee;
 
-#if !defined(MAP_ANONYMOUS)
-/*
- * MAP_ANON is deprecated, MAP_ANONYMOUS should be used instead.
- * Unfortunately, it's not universally present (e.g. not present
- * on FreeBSD.
- */
-#define MAP_ANONYMOUS MAP_ANON
-#endif /* !defined(MAP_ANONYMOUS) */
-
 static inline void
 slab_assert(struct slab_cache *cache, struct slab *slab)
 {

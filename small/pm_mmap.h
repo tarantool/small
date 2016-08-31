@@ -11,6 +11,11 @@
 #define MAP_ANON_PRIVATE    (MAP_PRIVATE | MAP_ANONYMOUS)
 
 #ifndef MAP_ANONYMOUS
+/*
+* MAP_ANON is deprecated, MAP_ANONYMOUS should be used instead.
+* Unfortunately, it's not universally present (e.g. not present
+* on FreeBSD.
+*/
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 

@@ -5,6 +5,10 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+if(WIN32)
+    set(CMAKE_USE_RELATIVE_PATHS 1)
+endif()
+
 if(NOT DEFINED SMALL_EMBEDDED)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall -Wextra")
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -Werror")
@@ -16,12 +20,14 @@ endif()
 add_definitions("-D_GNU_SOURCE")
 
 set(lib_headers
+    small/builtins.h
     small/ibuf.h
     small/lf_lifo.h
     small/lifo.h
     small/matras.h
     small/mempool.h
     small/obuf.h
+    small/pm_mmap.h
     small/pmatomic.h
     small/quota.h
     small/rb.h
@@ -29,7 +35,11 @@ set(lib_headers
     small/rlist.h
     small/slab_arena.h
     small/slab_cache.h
-    small/small.h)
+    small/small.h
+    small/win32/pmvcatomic.h
+    small/win32/vcunistd.h
+    small/win32/xatomic.h
+    small/win32/xatomic0.h)
 
 set(lib_sources
     small/slab_cache.c
@@ -39,7 +49,8 @@ set(lib_sources
     small/small.c
     small/matras.c
     small/ibuf.c
-    small/obuf.c)
+    small/obuf.c
+    small/pm_mmap.c)
 
 add_library(${PROJECT_NAME} STATIC ${lib_sources})
 
