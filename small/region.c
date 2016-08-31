@@ -129,10 +129,16 @@ region_join(struct region *region, size_t size)
 	while (offset > 0 && slab->used <= offset) {
 		memcpy(ptr + offset - slab->used, rslab_data(slab), slab->used);
 		offset -= slab->used;
+#if 0
 		slab = rlist_next_entry(slab, slab.next_in_list);
+#else
+		slab = rlist_entry(rlist_next(&slab->slab.next_in_list), 
+				   struct rslab, 
+				   slab.next_in_list);
+#endif
 	}
 	if (offset > 0)
-		memcpy(ptr, rslab_data(slab) + slab->used - offset, offset);
+		memcpy(ptr, (char*)rslab_data(slab) + slab->used - offset, offset);
 	region_alloc(region, size);
 	return ptr;
 }
