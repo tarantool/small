@@ -28,6 +28,17 @@ typedef ptrdiff_t ssize_t;
 #define fstat64(fildes, stat) (_fstati64(fildes, stat))
 #define stat64(path, buffer) (_stati64(path,buffer))
 
+// uio buffers defined, as it was for writev, readv.
+struct iovec {
+  void * iov_base;
+  size_t iov_len;
+};
+
+// TODO - implement these separately for file and socket descriptors
+// ssize_t readv(int filedes, const struct iovec *vector, int count);
+// ssize_t writev(int filedes, const struct iovec *vector, int count);
+
+
 #ifdef	__cplusplus
 }
 #endif

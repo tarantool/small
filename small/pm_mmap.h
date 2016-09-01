@@ -27,7 +27,7 @@
 #include <windows.h>
 
 #ifdef __cplusplus
-extern "C"
+extern "C" {
 #endif
 
 void *pm_mmap(void *__addr, size_t __len, int __prot, int __flags, int __fd, off_t __offset);

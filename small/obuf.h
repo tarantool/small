@@ -30,7 +30,11 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#ifndef _MSC_VER
 #include <sys/uio.h>
+#else
+#include "win32/vcunistd.h"
+#endif
 #include <stdbool.h>
 #include <stddef.h>
 #include <assert.h>
@@ -57,7 +61,7 @@ struct obuf_svp
 };
 
 #ifdef _MSC_VER
-#  define ALIGNED64 declspec(align(64))
+#  define ALIGNED64 __declspec(align(64))
 #else
 #  define ALIGNED64 __attribute__((aligned(64)))
 #endif
