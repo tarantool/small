@@ -33,16 +33,35 @@
 #ifndef VSATOMIC_H__
 #define	VSATOMIC_H__
 
+
+#ifdef __cplusplus
+
+#include <atomic>
+
+using std::memory_order;
+using std::memory_order_seq_cst;
+
+using std::atomic_uintmax_t;
+using std::_Uint1_t;
+using std::_Uint2_t;
+using std::_Uint4_t;
+using std::_Uint8_t;
+
+#define pm_atomic_compare_exchange_strong(object, expected, desired)	\
+	std::atomic_compare_exchange_strong(object, expected, desired)
+
+typedef std::_Atomic_ushort	atomic_uint16_t;
+typedef std::_Atomic_uint	atomic_uint32_t;
+typedef std::_Atomic_ullong	atomic_uint64_t;
+
+#else // !__cplusplus
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <crtdbg.h>
 #include "xatomic.h"
-
-#ifdef __cplusplus
-#include <atomic>
-#endif
 
 // we are Visual Studio specific
 #ifndef _MSC_VER
@@ -102,10 +121,6 @@
 
 // Visual Studio 2015 has their own enum memory_order defined in the xatomic0.h
 // we has already included it via xatomic.h include
-#ifdef __cplusplus
-using std::memory_order;
-using std::memory_order_seq_cst;
-#endif
 
 
 /*
@@ -134,7 +149,6 @@ using std::memory_order_seq_cst;
  */
 #if 0
 
-#ifndef __cplusplus
 typedef _Atomic_bool		atomic_bool;
 typedef _Atomic_char		atomic_char;
 typedef _Atomic_schar		atomic_schar;
@@ -175,19 +189,23 @@ typedef _Atomic_ullong		atomic_uint_fast64_t;
 
 typedef _Atomic_llong		atomic_intmax_t;
 typedef _Atomic_ullong		atomic_uintmax_t;
-#endif
 
 #else
 
-#ifndef __cplusplus
-typedef _Uint8_t		atomic_uintmax_t;
-#else
-using std::atomic_uintmax_t;
-using std::_Uint1_t;
-using std::_Uint2_t;
-using std::_Uint4_t;
-using std::_Uint8_t;
-#endif
+typedef short			atomic_short;
+typedef unsigned short		atomic_ushort;
+typedef int			atomic_int;
+typedef unsigned int		atomic_uint;
+typedef long			atomic_long;
+typedef unsigned long		atomic_ulong;
+typedef long long		atomic_llong;
+typedef unsigned long long	atomic_ullong;
+
+typedef atomic_ushort		atomic_uint16_t;
+typedef atomic_uint		atomic_uint32_t;
+typedef atomic_ullong		atomic_uint64_t;
+
+typedef atomic_ullong		atomic_uintmax_t;
 
 #endif
 
@@ -421,5 +439,7 @@ typedef _Atomic_flag_t 	atomic_flag_t;
 #endif /* !_KERNEL */
 
 #endif
+
+#endif // __cplusplus-
 
 #endif /* !VSATOMIC_H_ */

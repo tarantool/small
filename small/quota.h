@@ -60,7 +60,7 @@ struct quota {
 	 * Both values are represented in units of size
 	 * QUOTA_UNIT_SIZE.
 	 */
-	uint64_t value;
+	atomic_uintmax_t value;
 };
 
 /**
@@ -120,7 +120,7 @@ quota_set(struct quota *quota, size_t new_total)
 			return  -1;
 		uint64_t new_value =
 			((uint64_t) new_total_in_units << 32) | used_in_units;
-		if (pm_atomic_compare_exchange_strong(&quota->value, &value, new_value))
+		if (pm_atomic_compare_exchange_strong((volatile atomic_uint64_t*)&quota->value, &value, new_value))
 			break;
 	}
 	return new_total_in_units * QUOTA_UNIT_SIZE;
@@ -152,7 +152,7 @@ quota_use(struct quota *quota, size_t size)
 		uint64_t new_value =
 			((uint64_t) total_in_units << 32) | new_used_in_units;
 
-		if (pm_atomic_compare_exchange_strong(&quota->value, &value, new_value))
+		if (pm_atomic_compare_exchange_strong((volatile atomic_uint64_t*)&quota->value, &value, new_value))
 			break;
 	}
 	return size_in_units * QUOTA_UNIT_SIZE;
@@ -177,7 +177,7 @@ quota_release(struct quota *quota, size_t size)
 		uint64_t new_value =
 			((uint64_t) total_in_units << 32) | new_used_in_units;
 
-		if (pm_atomic_compare_exchange_strong(&quota->value, &value, new_value))
+		if (pm_atomic_compare_exchange_strong((volatile atomic_uint64_t*)&quota->value, &value, new_value))
 			break;
 	}
 }
