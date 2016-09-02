@@ -7,6 +7,10 @@
 #include <time.h>
 #include "unit.h"
 
+#ifdef _MSC_VER
+#define random() rand()
+#endif
+
 
 enum { NRUNS = 25, ITERATIONS = 1000, MAX_ALLOC = 5000000 };
 static struct slab *runs[NRUNS];

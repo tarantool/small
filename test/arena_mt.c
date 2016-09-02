@@ -5,10 +5,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <time.h>
-#include <pthread.h>
-#ifdef __FreeBSD__
-#include <pthread_np.h>
-#endif
+#include <small/pm_pthread.h>
 #include "unit.h"
 
 struct slab_arena arena;

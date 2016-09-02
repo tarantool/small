@@ -1,4 +1,8 @@
+include(FindThreads)
+find_package(Threads REQUIRED)
+
 # Fix compilation by C++
+
 add_definitions("-D__STDC_FORMAT_MACROS=1")
 add_definitions("-D__STDC_LIMIT_MACROS=1")
 add_definitions("-D__STDC_CONSTANT_MACROS=1")
@@ -22,18 +26,19 @@ add_executable(small_alloc.test small_alloc.c)
 target_link_libraries(small_alloc.test small)
 
 add_executable(lf_lifo.test lf_lifo.c)
+target_link_libraries(lf_lifo.test small)
 
 add_executable(slab_arena.test slab_arena.c)
 target_link_libraries(slab_arena.test small)
 
 add_executable(arena_mt.test arena_mt.c unit.c)
-target_link_libraries(arena_mt.test small pthread)
+target_link_libraries(arena_mt.test small ${CMAKE_THREAD_LIBS_INIT})
 
 add_executable(matras.test matras.cc)
 target_link_libraries(matras.test small)
 
 add_executable(quota.test quota.cc unit.c)
-target_link_libraries(quota.test pthread)
+target_link_libraries(quota.test small ${CMAKE_THREAD_LIBS_INIT})
 
 include_directories("${PROJECT_SOURCE_DIR}")
 

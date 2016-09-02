@@ -28,6 +28,11 @@ typedef ptrdiff_t ssize_t;
 #define fstat64(fildes, stat) (_fstati64(fildes, stat))
 #define stat64(path, buffer) (_stati64(path,buffer))
 
+#define random()	rand()
+// FIXME - rand is claimed to be thread-safe in MSVC RT, the trick is to seed each thread properly
+// at the moment we just give up
+#define rand_r(pseed)	rand()
+
 // uio buffers defined, as it was for writev, readv.
 struct iovec {
   void * iov_base;

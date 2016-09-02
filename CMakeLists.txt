@@ -29,6 +29,7 @@ set(lib_headers
     small/obuf.h
     small/pm_mmap.h
     small/pmatomic.h
+    small/pm_pthread.h
     small/quota.h
     small/rb.h
     small/region.h
@@ -50,7 +51,8 @@ set(lib_sources
     small/matras.c
     small/ibuf.c
     small/obuf.c
-    small/pm_mmap.c)
+    small/pm_mmap.c
+    small/pm_pthread.c)
 
 add_library(${PROJECT_NAME} STATIC ${lib_sources})
 

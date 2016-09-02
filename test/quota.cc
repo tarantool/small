@@ -1,7 +1,6 @@
 #include <small/quota.h>
 
-#include <pthread.h>
-#include <sched.h>
+#include <small/pm_pthread.h>
 
 #include "unit.h"
 

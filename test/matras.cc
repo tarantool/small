@@ -79,7 +79,7 @@ void matras_alloc_test()
 		for (unsigned int j = 0; j < i; j++) {
 			unsigned int res = 0;
 			void *data = matras_alloc(&mat, &res);
-			check(data, "Alloc returned NULL");
+			check(!!data, "Alloc returned NULL");
 			void *test_data = matras_get(&mat, res);
 			check(data == test_data, "Alloc and Get mismatch");
 			size_t provConsumedMemory = (size_t)matras_extent_count(&mat) * PROV_EXTENT_SIZE;

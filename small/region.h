@@ -114,7 +114,7 @@ region_free(struct region *region);
 static inline void
 region_destroy(struct region *region)
 {
-	return region_free(region);
+	region_free(region);
 }
 
 /** Internal: a single block in a region.  */

@@ -37,18 +37,7 @@
 #include "rlist.h"
 #include "slab_arena.h"
 #include "builtins.h"
-#ifndef _WIN32
-#include <pthread.h>
-#else
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
-typedef HANDLE pthread_t;
-
-//#define pthread_self()	GetCurrentThreadId()
-#define pthread_self()		GetCurrentThread()
-#define pthread_equal(thread1, thread2)	(thread1 == thread2)
-#endif
+#include "pm_pthread.h"
 
 #if defined(__cplusplus)
 extern "C" {

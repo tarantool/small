@@ -237,7 +237,7 @@ mempool_create(struct mempool *pool, struct slab_cache *cache,
 	 */
 	uint8_t order = slab_order(cache, slab_size);
 	assert(order <= cache->order_max);
-	return mempool_create_with_order(pool, cache, objsize, order);
+	mempool_create_with_order(pool, cache, objsize, order);
 }
 
 static inline bool
