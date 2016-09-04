@@ -42,12 +42,12 @@ int pm_mprotect(void *__addr, size_t __len, int __prot);
 
 #define PROT_READ_ONLY	    PAGE_READONLY
 #define PROT_READ_WRITE	    PAGE_READWRITE
-#define MAP_PRIVATE	    (MEM_COMMIT | MEM_PRIVATE)
+#define MAP_PRIVATE	    (MEM_COMMIT) // MEM_PRIVATE is failing
 #define MAP_SHARED	    (MEM_COMMIT)
 #define MAP_ANONYMOUS	    0
 #define MAP_ANON_PRIVATE    (MAP_PRIVATE | MAP_ANONYMOUS)
 
-#define MAP_FAILED	    (void*)(intptr_t)-1
+#define MAP_FAILED	    NULL
 
 #ifdef __cplusplus
 }

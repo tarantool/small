@@ -12,21 +12,28 @@ void * pm_mmap(void * __addr, size_t __len, int __prot, int __flags, int __fd, o
 	assert(__addr == 0);
 	assert(__fd = -1);
 	assert(__offset == 0);
+	__addr = VirtualAlloc(__addr, __len, MEM_RESERVE, __prot);
 	return VirtualAlloc(__addr, __len, __flags, __prot);
 }
 
 int pm_munmap(void * __addr, size_t __len)
 {
-	VirtualFree(__addr, __len, MEM_DECOMMIT);
-	VirtualFree(__addr, 0, MEM_RELEASE);
+	BOOL retValue = VirtualFree(__addr, __len, MEM_DECOMMIT);
+	// FIXME - could not use it in munmap_checked because entire region will be released
+	// VirtualFree(__addr, 0, MEM_RELEASE); 
 
-	return 0;
+	int nRetValue = retValue == 0 ? 1 : -1;
+	errno = GetLastError();
+	return !retValue;
 }
 
 int pm_mprotect(void * __addr, size_t __len, int __prot)
 {
-	VirtualProtect(__addr, __len, __prot, NULL);
-	return 0;
+	BOOL retValue = VirtualProtect(__addr, __len, __prot, NULL);
+
+	int nRetValue = retValue == 0 ? 1 : -1;
+	errno = GetLastError();
+	return retValue;
 }
 
 #endif
