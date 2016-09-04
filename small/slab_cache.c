@@ -148,9 +148,7 @@ page_size()
 {
 #ifdef _MSC_VER
 	SYSTEM_INFO siSysInfo;
- 
 	GetSystemInfo(&siSysInfo);
-
 	return siSysInfo.dwPageSize;
 #else
 	return sysconf(_SC_PAGESIZE);

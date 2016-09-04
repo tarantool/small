@@ -142,9 +142,9 @@ small_round(size_t size)
 		return size;
 	assert(size <= SIZE_MAX / 2 + 1);
 	assert(size - 1 <= ULONG_MAX);
-	size_t r = 1;
-	return r << (sizeof(unsigned long) * CHAR_BIT -
+	size_t r = 1 << (sizeof(unsigned long) * CHAR_BIT -
 		     builtin_clzl((unsigned long) (size - 1)));
+	return r;
 }
 
 /** Binary logarithm of a size. */
@@ -152,8 +152,9 @@ static inline size_t
 small_lb(size_t size)
 {
 	assert(size <= ULONG_MAX);
-	return sizeof(unsigned long) * CHAR_BIT -
+	size_t r = sizeof(unsigned long) * CHAR_BIT -
 		builtin_clzl((unsigned long) size) - 1;
+	return r;
 }
 
 

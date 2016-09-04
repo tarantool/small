@@ -38,7 +38,7 @@ free_checked(int *ptr)
 }
 
 static inline void *
-alloc_checked()
+alloc_checked(void)
 {
 	int pos = rand() % OBJECTS_MAX;
 	int size = rand() % OBJSIZE_MAX;
@@ -61,7 +61,7 @@ alloc_checked()
 
 
 static void
-basic_alloc_streak()
+basic_alloc_streak(void)
 {
 	int oscillation = rand() % OSCILLATION_MAX;
 	int i;
@@ -72,7 +72,7 @@ basic_alloc_streak()
 }
 
 void
-small_alloc_basic()
+small_alloc_basic(void)
 {
 	int i;
 	header();
@@ -89,7 +89,7 @@ small_alloc_basic()
 	footer();
 }
 
-int main()
+int main(void)
 {
 	seed = time(0);
 

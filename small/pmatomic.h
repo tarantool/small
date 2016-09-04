@@ -304,6 +304,8 @@ typedef _Atomic(__intmax_t)		atomic_intmax_t;
 typedef _Atomic(__uintmax_t)		atomic_uintmax_t;
 
 #endif
+typedef unsigned long long		atomic_uint64_t;
+typedef atomic_uint64_t			atomic_uintmax_t;
 
 /*
  * 7.17.7 Operations on atomic types.

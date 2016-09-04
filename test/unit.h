@@ -99,7 +99,7 @@ void plan(int count);
 int check_plan(void);
 
 #define ok(condition, fmt, ...)	{			\
-	int res = _ok(condition, fmt, __VA_ARGS__);	\
+	int res = _ok(condition, fmt, ## __VA_ARGS__);	\
 	if (!res) {					\
 		_space(stderr);				\
 		fprintf(stderr, "#   Failed test '");	\
@@ -111,11 +111,11 @@ int check_plan(void);
 }
 
 #define is(a, b, fmt, ...)	{			\
-	int res = _ok((a) == (b), fmt, __VA_ARGS__);	\
+	int res = _ok((a) == (b), fmt, ## __VA_ARGS__);	\
 	if (!res) {					\
 		_space(stderr);				\
 		fprintf(stderr, "#   Failed test '");	\
-		fprintf(stderr, fmt, __VA_ARGS__);	\
+		fprintf(stderr, fmt, ## __VA_ARGS__);	\
 		fprintf(stderr, "'\n");			\
 		_space(stderr);				\
 		fprintf(stderr, "#   in %s at line %d\n", __FILE__, __LINE__); \
@@ -123,11 +123,11 @@ int check_plan(void);
 }
 
 #define isnt(a, b, fmt, ...) {				\
-	int res = _ok((a) != (b), fmt, __VA_ARGS__);	\
+	int res = _ok((a) != (b), fmt, ## __VA_ARGS__);	\
 	if (!res) {					\
 		_space(stderr);				\
 		fprintf(stderr, "#   Failed test '");	\
-		fprintf(stderr, fmt, __VA_ARGS__);	\
+		fprintf(stderr, fmt, ## __VA_ARGS__);	\
 		fprintf(stderr, "'\n");			\
 		_space(stderr);				\
 		fprintf(stderr, "#   in %s at line %d\n", __FILE__, __LINE__); \

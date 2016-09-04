@@ -12,7 +12,9 @@
 
 #include <intrin.h>
 #pragma intrinsic (_BitScanReverse)
+#ifdef _M_X64
 #pragma intrinsic (_BitScanReverse64)
+#endif
 #pragma intrinsic (_BitScanForward)
 #pragma intrinsic (_InterlockedExchangeAdd)
 
@@ -30,12 +32,14 @@ unsigned long inline builtin_clz(unsigned long value)
 	return (31 - leading_zero);
 }
 
+#ifdef _M_X64
 unsigned long inline builtin_clzl(unsigned __int64 value)
 {
 	unsigned long leading_zero = 0;
 	_BitScanReverse64(&leading_zero, value);
 	return (63 - leading_zero);
 }
+#endif
 
 #define builtin_sync_sub_and_fetch(addend,decrement)	(_InterlockedExchangeAdd((volatile long*)(addend), -(long)(decrement)) - (decrement))
 

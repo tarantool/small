@@ -9,12 +9,22 @@ if(WIN32)
     set(CMAKE_USE_RELATIVE_PATHS 1)
 endif()
 
-if(NOT DEFINED SMALL_EMBEDDED)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall -Wextra")
-    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -Werror")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -Werror")
-endif()
+# if(NOT DEFINED SMALL_EMBEDDED)
+    if (WIN32)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Wall")
+        # set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Od /WX")
+        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Od")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Wall")
+        # set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od /WX")
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od")
+    else()
+        set(CC_NATIVE_OPTS -march=native)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall -Wextra ${CC_NATIVE_OPTS}")
+        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -Werror")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra ${CC_NATIVE_OPTS}")
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -Werror")
+    endif()
+# endif()
 
 # Enable GNU glibc extentions.
 add_definitions("-D_GNU_SOURCE")
@@ -50,9 +60,13 @@ set(lib_sources
     small/small.c
     small/matras.c
     small/ibuf.c
-    small/obuf.c
-    small/pm_mmap.c
-    small/pm_pthread.c)
+    small/obuf.c)
+
+if (WIN32)
+    set(lib_sources ${lib_sources} 
+                    small/pm_mmap.c
+                    small/pm_pthread.c)
+endif()
 
 add_library(${PROJECT_NAME} STATIC ${lib_sources})
 

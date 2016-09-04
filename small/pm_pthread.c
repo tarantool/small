@@ -1,3 +1,5 @@
+#ifdef _MSC_VER
+
 #include "pm_pthread.h"
 #include <malloc.h>
 
@@ -50,3 +52,4 @@ int pthread_attr_init(pthread_attr_t * attr)
 	return 0;
 }
 
+#endif
