@@ -142,8 +142,10 @@ small_round(size_t size)
 		return size;
 	assert(size <= SIZE_MAX / 2 + 1);
 	assert(size - 1 <= ULONG_MAX);
-	size_t r = 1 << (sizeof(unsigned long) * CHAR_BIT -
-		     builtin_clzl((unsigned long) (size - 1)));
+	assert(sizeof(size_t) == 8);	// builtin_clzl() will return correct values only for 64-bit size_t
+					// otherwise, for 32-bit mode you should use builtin_clz()
+	size_t r = 1 << (sizeof(size_t) * CHAR_BIT - 
+		   builtin_clzl((size - 1)));
 	return r;
 }
 
@@ -152,8 +154,10 @@ static inline size_t
 small_lb(size_t size)
 {
 	assert(size <= ULONG_MAX);
-	size_t r = sizeof(unsigned long) * CHAR_BIT -
-		builtin_clzl((unsigned long) size) - 1;
+	assert(sizeof(size_t) == 8);	// builtin_clzl() will return correct values only for 64-bit size_t
+					// otherwise, for 32-bit mode you should use builtin_clz()
+	size_t r = sizeof(size_t) * CHAR_BIT -
+		   builtin_clzl(size) - 1;
 	return r;
 }
 
