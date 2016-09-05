@@ -15,7 +15,7 @@
 enum { NRUNS = 25, ITERATIONS = 1000, MAX_ALLOC = 5000000 };
 static struct slab *runs[NRUNS];
 
-int main()
+int main(void)
 {
 	srand(time(0));
 
@@ -60,4 +60,6 @@ int main()
 
 	slab_cache_destroy(&cache);
 	slab_arena_destroy(&arena);
+
+	return 0;
 }

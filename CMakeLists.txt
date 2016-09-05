@@ -64,8 +64,7 @@ set(lib_sources
 
 if (WIN32)
     set(lib_sources ${lib_sources} 
-                    small/pm_mmap.c
-                    small/pm_pthread.c)
+                    small/pm_mmap.c)
 endif()
 
 add_library(${PROJECT_NAME} STATIC ${lib_sources})

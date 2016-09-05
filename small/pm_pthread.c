@@ -1,4 +1,4 @@
-#ifdef _MSC_VER
+#if 0 // def _MSC_VER
 
 #include "pm_pthread.h"
 #include <malloc.h>
