@@ -11,18 +11,21 @@ clone_folder: c:\dev\tarantool
 
 platform: x64
 
-matrix:
-  config:
-    - RelWithDebInfo
-    - Debug
+environment:
+  matrix:
+    - Generator: "Visual Studio 14 2015 Win64"
+      Config: Debug
+
+    - Generator: "Visual Studio 14 2015 Win64"
+      Config: Release
 
 build_script:
   - cd c:\dev\tarantool
   - mkdir build
   - cd build
-  - cmake .. -G "Visual Studio 14 2015 Win64" -DSMALL_EMBEDDED=1
-  - msbuild /m /p:Configuration=%config% /p:Platform="Win32" small.sln
+  - cmake .. -G "%Generator%" -DSMALL_EMBEDDED=1
+  - msbuild /m /p:Configuration=%Config% /p:Platform="Win32" small.sln
 
  
 test_script:
-  - ctest -C %config% -VV
+  - ctest -C %Config% -VV
