@@ -1,0 +1,28 @@
+version: 1.0.{build}
+
+branches:
+  only:
+  - master
+  - windows-port
+
+os: Visual Studio 2015
+
+clone_folder: c:\dev\tarantool
+
+platform: x64
+
+matrix:
+  config:
+    - RelWithDebInfo
+    - Debug
+
+build_script:
+  - cd c:\dev\tarantool
+  - mkdir build
+  - cd build
+  - cmake .. -G "Visual Studio 14 2015 Win64" -DSMALL_EMBEDDED=1
+  - msbuild /m /p:Configuration=%config% /p:Platform="Win32" small.sln
+
+ 
+test_script:
+  - ctest -C %config% -VV
