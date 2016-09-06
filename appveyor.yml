@@ -24,7 +24,7 @@ build_script:
   - mkdir build
   - cd build
   - cmake .. -G "%Generator%" -DSMALL_EMBEDDED=1
-  - msbuild /m /p:Configuration=%Config% /p:Platform="Win32" small.sln
+  - msbuild /m /p:Configuration=%Config% /p:Platform="x64" small.sln
 
  
 test_script:
