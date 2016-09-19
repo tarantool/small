@@ -32,6 +32,7 @@
  */
 #include "lf_lifo.h"
 #include "builtins.h"
+#include "pm_mmap.h"
 #include <limits.h>
 
 #if defined(__cplusplus)
