@@ -158,7 +158,7 @@ slab_cache_create(struct slab_cache *cache, struct slab_arena *arena)
 	 * of the slab size in the slab arena.
 	 */
 	long min_order0_size = sysconf(_SC_PAGESIZE);
-	assert(arena->slab_size >= min_order0_size);
+	assert((long)arena->slab_size >= min_order0_size);
 	cache->order_max = small_lb(arena->slab_size / min_order0_size);
 	if (cache->order_max > ORDER_MAX - 1)
 		cache->order_max = ORDER_MAX - 1;

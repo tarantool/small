@@ -69,8 +69,8 @@ region_free(struct region *region)
 void
 region_truncate(struct region *region, size_t used)
 {
-	ssize_t cut_size = region_used(region) - used;
-	assert(cut_size >= 0);
+	assert(region_used(region) >= used);
+	size_t cut_size = region_used(region) - used;
 
 	while (! rlist_empty(&region->slabs.slabs)) {
 		struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
