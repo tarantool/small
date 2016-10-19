@@ -136,8 +136,8 @@ typedef uint32_t matras_id_t;
  * of size M). Is allowed to return NULL, but is not allowed
  * to throw an exception
  */
-typedef void *(*matras_alloc_func)();
-typedef void (*matras_free_func)(void *);
+typedef void *(*matras_alloc_func)(void *ctx);
+typedef void (*matras_free_func)(void *ctx, void *ptr);
 
 /**
  * sruct matras_view represents appropriate mapping between
@@ -177,6 +177,8 @@ struct matras {
 	matras_alloc_func alloc_func;
 	/* External extent deallocator */
 	matras_free_func free_func;
+	/* Argument passed to extent allocator */
+	void *alloc_ctx;
 };
 
 /*
@@ -207,7 +209,8 @@ struct matras {
  */
 void
 matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
-	      matras_alloc_func alloc_func, matras_free_func free_func);
+	      matras_alloc_func alloc_func, matras_free_func free_func,
+	      void *alloc_ctx);
 
 /**
  * Free all memory used by an instance of matras and

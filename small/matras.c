@@ -37,7 +37,8 @@ matras_log2(matras_id_t val)
  */
 void
 matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
-	      matras_alloc_func alloc_func, matras_free_func free_func)
+	      matras_alloc_func alloc_func, matras_free_func free_func,
+	      void *alloc_ctx)
 {
 	/*extent_size must be power of 2 */
 	assert((extent_size & (extent_size - 1)) == 0);
@@ -56,6 +57,7 @@ matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
 	m->extent_count = 0;
 	m->alloc_func = alloc_func;
 	m->free_func = free_func;
+	m->alloc_ctx = alloc_ctx;
 
 	matras_id_t log1 = matras_log2(extent_size);
 	matras_id_t log2 = matras_log2(block_size);
@@ -86,7 +88,7 @@ matras_reset(struct matras *m)
 static inline void *
 matras_alloc_extent(struct matras *m)
 {
-	void *ext = m->alloc_func();
+	void *ext = m->alloc_func(m->alloc_ctx);
 	if (ext)
 		m->extent_count++;
 	return ext;
@@ -98,7 +100,7 @@ matras_alloc_extent(struct matras *m)
 static inline void
 matras_free_extent(struct matras *m, void *ext)
 {
-	m->free_func(ext);
+	m->free_func(m->alloc_ctx, ext);
 	m->extent_count--;
 }
 

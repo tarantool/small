@@ -8,9 +8,9 @@
 #include <iostream>
 
 static void *
-pta_alloc();
+pta_alloc(void *ctx);
 static void
-pta_free(void *p);
+pta_free(void *ctx, void *p);
 
 #define PROV_BLOCK_SIZE 16
 #define PROV_EXTENT_SIZE 64
@@ -41,8 +41,9 @@ unsigned int alloc_err_inj_countdown = 0;
 #define MATRAS_VERSION_COUNT 8
 
 static void *
-pta_alloc()
+pta_alloc(void *ctx)
 {
+	static_cast<void>(ctx);
 	if (alloc_err_inj_enabled) {
 		if (alloc_err_inj_countdown == 0)
 			return 0;
@@ -54,8 +55,9 @@ pta_alloc()
 	return p;
 }
 static void
-pta_free(void *p)
+pta_free(void *ctx, void *p)
 {
+	static_cast<void>(ctx);
 	check(AllocatedBlocks.find(p) != AllocatedBlocks.end(), "Bad free");
 	AllocatedBlocks.erase(p);
 	delete [] static_cast<char *>(p);
@@ -73,7 +75,7 @@ void matras_alloc_test()
 
 	alloc_err_inj_enabled = false;
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
-		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free);
+		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL);
 		check(1u << mat.log2_capacity == maxCapacity, "Wrong capacity!");
 		AllocatedItems.clear();
 		for (unsigned int j = 0; j < i; j++) {
@@ -116,7 +118,7 @@ void matras_alloc_test()
 	}
 
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
-		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free);
+		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL);
 		for (unsigned int j = 0; j < i; j++) {
 			unsigned int res = 0;
 			(void) matras_alloc(&mat, &res);
@@ -132,7 +134,7 @@ void matras_alloc_test()
 
 	alloc_err_inj_enabled = true;
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
-		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free);
+		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL);
 
 		alloc_err_inj_countdown = i;
 
@@ -154,17 +156,18 @@ void matras_alloc_test()
 
 typedef uint64_t type_t;
 const size_t VER_EXTENT_SIZE = 512;
-int extents_in_use = 0;
 
-void *all()
+void *all(void *ctx)
 {
-	extents_in_use++;
+	long *extents_in_use = static_cast<long *>(ctx);
+	++*extents_in_use;
 	return malloc(VER_EXTENT_SIZE);
 }
 
-void dea(void *p)
+void dea(void *ctx, void *p)
 {
-	extents_in_use--;
+	long *extents_in_use = static_cast<long *>(ctx);
+	--*extents_in_use;
 	free(p);
 }
 
@@ -192,7 +195,8 @@ matras_vers_test()
 	int use_mask = 1;
 	int cur_num_or_ver = 1;
 	struct matras local;
-	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea);
+	long extents_in_use = 0;
+	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use);
 	type_t val = 0;
 	for (int s = 10; s < 8000; s = int(s * 1.5)) {
 		for (int k = 0; k < 800; k++) {
@@ -267,7 +271,8 @@ matras_gh_1145_test()
 	std::cout << "Testing matras gh-1145 test..." << std::endl;
 
 	struct matras local;
-	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea);
+	long extents_in_use = 0;
+	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use);
 	struct matras_view view;
 	matras_create_read_view(&local, &view);
 	matras_id_t id;
