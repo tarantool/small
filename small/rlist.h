@@ -204,6 +204,36 @@ rlist_swap(struct rlist *rhs, struct rlist *lhs)
 }
 
 /**
+ * move all items of list head2 to the head of list head1
+ */
+static inline void
+rlist_splice(struct rlist *head1, struct rlist *head2)
+{
+	if (!rlist_empty(head2)) {
+		head1->next->prev = head2->prev;
+		head2->prev->next = head1->next;
+		head1->next = head2->next;
+		head2->next->prev = head1;
+		rlist_create(head2);
+	}
+}
+
+/**
+ * move all items of list head2 to the tail of list head1
+ */
+static inline void
+rlist_splice_tail(struct rlist *head1, struct rlist *head2)
+{
+	if (!rlist_empty(head2)) {
+		head1->prev->next = head2->next;
+		head2->next->prev = head1->prev;
+		head1->prev = head2->prev;
+		head2->prev->next = head1;
+		rlist_create(head2);
+	}
+}
+
+/**
  * list head initializer
  */
 #define RLIST_HEAD_INITIALIZER(name) { &(name), &(name) }
