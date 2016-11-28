@@ -152,96 +152,9 @@ lsregion_create(struct lsregion *lsregion, struct slab_arena *arena)
 	lsregion->cached = NULL;
 }
 
-/**
- * Find existing or allocate a new slab, that has \p size unused
- * memory space.
- * @param lsregion Allocator object.
- * @param size     Size to reserve.
- * @param id       Allocation id. It is assumed that ids are
- *                 nondecreasing.
- *
- * @retval not NULL Success.
- * @retval NULL     Memory error, or too big size.
- */
-struct lslab *
-lsregion_reserve_lslab_slow(struct lsregion *lsregion, size_t size, int64_t id);
-
-static inline struct lslab *
-lsregion_reserve_lslab(struct lsregion *lsregion, size_t size, int64_t id)
-{
-	struct lslab *slab = NULL;
-
-	/* Can't reserve more than the arena can map. */
-	if (size + lslab_sizeof() > lsregion->slab_size)
-		return NULL;
-
-	/* If there is an existing slab then try to use it. */
-	if (! rlist_empty(&lsregion->slabs.slabs)) {
-		slab = rlist_last_entry(&lsregion->slabs.slabs, struct lslab,
-					next_in_list);
-		assert(slab != NULL);
-		assert(slab->max_id <= id);
-		/*
-		 * If the newest slab is only reserved but is not
-		 * used then check if the previous slab maybe has
-		 * needed bytes count.
-		 *
-		 * Here data still can be allocated in the slab 1.
-		 * *----------*------*     *---------------------*
-		 * | occupied | free | --> |         free        |
-		 * *----------*------*     *---------------------*
-		 *       slab 1                     slab 2
-		 *
-		 * Here data can be allocated only in the second
-		 * or a new slab.
-		 * *----------*------*     *---------------------*
-		 * | occupied | free | --> | occupied |   free   |
-		 * *----------*------*     *---------------------*
-		 *       slab 1                     slab 2
-		 */
-		if (slab->max_id != LSLAB_NOT_USED_ID) {
-			if (size <= lslab_unused(lsregion, slab))
-				return slab;
-			/* Fall to the slow version. */
-			return lsregion_reserve_lslab_slow(lsregion, size, id);
-		}
-		struct lslab *prev;
-		prev = rlist_prev_entry_safe(slab, &lsregion->slabs.slabs,
-					     next_in_list);
-		if (prev != NULL &&
-		    size <= lslab_unused(lsregion, prev))
-			return prev;
-	}
-	/* If there is the cached slab then use it. */
-	if (lsregion->cached != NULL) {
-		slab = lsregion->cached;
-		lsregion->cached = NULL;
-		rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
-				     next_in_list);
-		return slab;
-	}
-	/* Fall back to the slow version. */
-	return lsregion_reserve_lslab_slow(lsregion, size, id);
-}
-
-/**
- * Reserve \p size bytes. Guarantees, that for a next allocation
- * of bytes <= \p size a new slab will not be mapped.
- * @param lsregion Allocator object.
- * @param size     Size to reserve.
- * @param id       Memory block identifier.
- *
- * @retval not NULL Success.
- * @retval NULL     Memory error.
- */
-static inline void *
-lsregion_reserve(struct lsregion *lsregion, size_t size, int64_t id)
-{
-	struct lslab *slab = lsregion_reserve_lslab(lsregion, size, id);
-	if (slab == NULL)
-		return NULL;
-	return lslab_pos(slab);
-}
+/** @sa lsregion_alloc().  */
+void *
+lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id);
 
 /**
  * Allocate \p size bytes and assicoate the allocated block
@@ -256,18 +169,22 @@ lsregion_reserve(struct lsregion *lsregion, size_t size, int64_t id)
 static inline void *
 lsregion_alloc(struct lsregion *lsregion, size_t size, int64_t id)
 {
-	/* Reserve and occupy a memory block. */
-	struct lslab *slab = lsregion_reserve_lslab(lsregion, size, id);
-	if (slab == NULL)
-		return NULL;
-	void *res = lslab_pos(slab);
-	slab->slab_used += size;
-
-	/* Update the memory block meta info. */
-	assert(slab->max_id <= id);
-	slab->max_id = id;
-	lsregion->slabs.stats.used += size;
-	return res;
+	/* If there is an existing slab then try to use it. */
+	if (! rlist_empty(&lsregion->slabs.slabs)) {
+		struct lslab *slab;
+		slab = rlist_last_entry(&lsregion->slabs.slabs, struct lslab,
+					next_in_list);
+		assert(slab != NULL);
+		assert(slab->max_id <= id);
+		if (size <= lslab_unused(lsregion, slab)) {
+			void *res = lslab_pos(slab);
+			slab->slab_used += size;
+			slab->max_id = id;
+			lsregion->slabs.stats.used += size;
+			return res;
+		}
+	}
+	return lsregion_alloc_slow(lsregion, size, id);
 }
 
 /**
@@ -318,14 +235,14 @@ lsregion_destroy(struct lsregion *lsregion)
 		slab_unmap(lsregion->arena, lsregion->cached);
 }
 
-/** Size of the alloced memory. */
+/** Size of the allocated memory. */
 static inline uint32_t
 lsregion_used(const struct lsregion *lsregion)
 {
 	return lsregion->slabs.stats.used;
 }
 
-/** Size of the alloced and reserved memory. */
+/** Size of the allocated and reserved memory. */
 static inline uint32_t
 lsregion_total(const struct lsregion *lsregion)
 {

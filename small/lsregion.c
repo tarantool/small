@@ -31,15 +31,12 @@
 
 #include "lsregion.h"
 
-struct lslab *
-lsregion_reserve_lslab_slow(struct lsregion *lsregion, size_t size, int64_t id)
+void *
+lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id)
 {
-	(void) id; /* Used only for debug. */
-	assert(lsregion != NULL);
-	assert(size > 0);
 	struct lslab *slab = NULL;
 
-	/* Can't reserve more than the arena can map. */
+	/* Can't alloc more than the arena can map. */
 	if (size + lslab_sizeof() > lsregion->slab_size)
 		return NULL;
 
@@ -48,36 +45,33 @@ lsregion_reserve_lslab_slow(struct lsregion *lsregion, size_t size, int64_t id)
 		slab = rlist_last_entry(&lsregion->slabs.slabs, struct lslab,
 					next_in_list);
 		assert(slab != NULL);
-		assert(slab->max_id <= id);
-		/* For details @sa lsregion_reserve_lslab(). */
-		if (slab->max_id == LSLAB_NOT_USED_ID) {
-			struct lslab *prev;
-			prev = rlist_prev_entry_safe(slab,
-						     &lsregion->slabs.slabs,
-						     next_in_list);
-			if (prev != NULL &&
-			    lslab_unused(lsregion, prev) >= size)
-				slab = prev;
+	}
+	if ((slab != NULL && size > lslab_unused(lsregion, slab)) ||
+	    slab == NULL) {
+		/* If there is the cached slab then use it. */
+		if (lsregion->cached != NULL) {
+			slab = lsregion->cached;
+			lsregion->cached = NULL;
+			rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
+					     next_in_list);
+		} else {
+			slab = (struct lslab *) slab_map(lsregion->arena);
+			if (slab == NULL)
+				return NULL;
+			lslab_create(slab);
+			rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
+					     next_in_list);
+			lsregion->slabs.stats.total += lsregion->slab_size;
 		}
 	}
-
-	/*
-	 * In case of an empty lsregion or the full last slab we
-	 * need to reserve a new one.
-	 */
-	if (slab == NULL || size > lslab_unused(lsregion, slab)) {
-		/*
-		 * Reserve memory for data and for the header of
-		 * the lslab wrapper.
-		 */
-		slab = (struct lslab *) slab_map(lsregion->arena);
-		if (slab == NULL)
-			return NULL;
-		lslab_create(slab);
-		rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
-				     next_in_list);
-		lsregion->slabs.stats.total += lsregion->slab_size;
-	}
 	assert(slab != NULL);
-	return slab;
+	assert(slab->max_id <= id);
+	void *res = lslab_pos(slab);
+	slab->slab_used += size;
+
+	/* Update the memory block meta info. */
+	assert(slab->max_id <= id);
+	slab->max_id = id;
+	lsregion->slabs.stats.used += size;
+	return res;
 }

@@ -35,7 +35,7 @@ slab_arena_print(struct slab_arena *arena)
 static void
 test_basic()
 {
-	plan(15);
+	plan(17);
 	header();
 
 	struct slab_arena arena;
@@ -51,27 +51,18 @@ test_basic()
 	fail_if(lsregion_total(&allocator) > 0);
 	slab_arena_print(&arena);
 
-	/* Try to reserve and alloc 100 bytes. */
+	/* Try to alloc 100 bytes. */
 
 	uint32_t size = 100;
 	int64_t id = 10;
-	char *data = lsregion_reserve(&allocator, size, id);
+	char *data = lsregion_alloc(&allocator, size, id);
 	uint32_t used = lsregion_used(&allocator);
 	uint32_t total = lsregion_total(&allocator);
-	is(used, 0, "Used %u, must be used 0", used);
-	is(total, arena.slab_size, "Total %u, must be total %u", total,
-	   arena.slab_size);
-
-	data = lsregion_alloc(&allocator, size, id);
-	slab_arena_print(&arena);
-
-	/* Used size is same that was allocated. */
-
-	used = lsregion_used(&allocator);
-	total = lsregion_total(&allocator);
 	is(used, size, "Used %u, must be used %u", used, size);
 	is(total, arena.slab_size, "Total %u, must be total %u", total,
 	   arena.slab_size);
+
+	slab_arena_print(&arena);
 
 	/*
 	 * Truncate with id < the allocated block id has't any
@@ -105,8 +96,7 @@ test_basic()
 	slab_arena_print(&arena);
 
 	/*
-	 * Try to allocate block with size > specified
-	 * slab_size without reserve.
+	 * Try to allocate block with size > specified slab_size.
 	 */
 	size = 2048;
 	++id;
@@ -123,6 +113,17 @@ test_basic()
 	block_count = rlist_size(&allocator.slabs.slabs);
 	is(block_count, 1, "Blocks count %u, must be 1", block_count);
 	slab_arena_print(&arena);
+
+	++id;
+	data = lsregion_alloc(&allocator, arena.slab_size + 100, id);
+	is(data, NULL, "Cant alloc more than slab size")
+
+	used = lsregion_used(&allocator);
+	total = lsregion_total(&allocator);
+	is(used, size, "Used %u, must be used %u", used, size);
+	is(total, arena.slab_size, "Total %u, must be total %u", total,
+	   arena.slab_size);
+	is(allocator.cached, NULL, "Cached slab is used");
 
 	lsregion_destroy(&allocator);
 	slab_arena_print(&arena);
@@ -150,111 +151,6 @@ test_data(char **data, uint32_t count, uint32_t size)
 			fail_if(data[i][j] != (char) (i % CHAR_MAX));
 		}
 	}
-}
-
-/** Test memory reserve. */
-static void
-test_reserve()
-{
-	plan(10);
-	header();
-
-	struct slab_arena arena;
-	struct lsregion allocator;
-	fail_if(slab_arena_create(&arena, &quota, 0, 0, MAP_PRIVATE) != 0);
-	lsregion_create(&allocator, &arena);
-
-	uint32_t size = arena.slab_size / 11;
-	char *data[TEST_ARRAY_SIZE];
-	uint32_t id = 0;
-
-	/* Reserve memory for the entire array at once. */
-
-	fail_if(lsregion_reserve(&allocator, size * TEST_ARRAY_SIZE,
-				 id) == NULL);
-	slab_arena_print(&arena);
-
-	uint32_t used = lsregion_used(&allocator);
-	uint32_t total = lsregion_total(&allocator);
-	is(used, 0, "Used %u, must be used 0", used);
-	is(total, arena.slab_size, "Total %u, must be total %u", total,
-	   arena.slab_size);
-
-	/* Allocate already reserved memory. */
-
-	fill_data(data, TEST_ARRAY_SIZE, size, 0, &allocator);
-	id += TEST_ARRAY_SIZE;
-
-	used = lsregion_used(&allocator);
-	total = lsregion_total(&allocator);
-	is(used, size * TEST_ARRAY_SIZE, "Used %u, must be used %u", used,
-	   size * TEST_ARRAY_SIZE);
-	is(total, arena.slab_size, "Total %u, must be total %u", total,
-	   arena.slab_size);
-	slab_arena_print(&arena);
-
-	/*
-	 * Delete all data, and try to reserve a memory space in
-	 * the not empty allocator.
-	 */
-	lsregion_gc(&allocator, id);
-	++id;
-	data[0] = lsregion_alloc(&allocator, size, id);
-	++id;
-	data[1] = lsregion_reserve(&allocator, size, id);
-
-	used = lsregion_used(&allocator);
-	total = lsregion_total(&allocator);
-	is(used, size, "Used %u, must be used %u", used, size);
-	is(total, arena.slab_size, "Total %u, must be total %u", total,
-	   arena.slab_size);
-
-	++id;
-	data[2] = lsregion_alloc(&allocator, size, id);
-	is(data[1], data[2], "Alloced on the same place that was reserved");
-
-	/*
-	 * Delete all data, and the following case:
-	 * - allocate data in the first slab
-	 *
-	 * - reserve too much data to fit in the first slab, so
-	 *       the second slab is reserved
-	 *
-	 * - allocate data that can fit in the first slab. In that
-	 *       case the second slab still is not used and data
-	 *       still can be allocated in the first slab.
-	 *
-	 *   @same lsregion_reserve_lslab() for details.
-	 */
-	lsregion_gc(&allocator, id);
-
-	++id;
-	size = arena.slab_size * 0.6;
-	data[0] = lsregion_alloc(&allocator, size, id);
-
-	char *data0_end = data[0] + size;
-
-	++id;
-	data[1] = lsregion_reserve(&allocator, arena.slab_size * 0.5, id);
-
-	isnt(data[0], data[1], "Data allocted in first slab, and next data "\
-	     "reserved in second slab");
-
-	++id;
-	data[2] = lsregion_alloc(&allocator, arena.slab_size * 0.1, id);
-	is(data[2], data0_end, "Data must be alloced in previous block");
-
-	++id;
-	data[3] = lsregion_alloc(&allocator, arena.slab_size * 0.5, id);
-
-	is(data[3], data[1], "Data must be alloced in next block that was "\
-	   "reserved earlier.")
-
-	lsregion_destroy(&allocator);
-	slab_arena_destroy(&arena);
-
-	footer();
-	check_plan();
 }
 
 /** Test many blocks allocation in one slab. */
@@ -454,10 +350,9 @@ main()
 {
 	quota_init(&quota, UINT_MAX);
 
-	plan(5);
+	plan(4);
 
 	test_basic();
-	test_reserve();
 	test_many_allocs_one_slab();
 	test_many_allocs_many_slabs();
 	test_big_data_small_slabs();
