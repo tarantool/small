@@ -32,6 +32,9 @@ target_link_libraries(arena_mt.test small pthread)
 add_executable(matras.test matras.cc)
 target_link_libraries(matras.test small)
 
+add_executable(lsregion.test lsregion.c unit.c)
+target_link_libraries(lsregion.test small)
+
 add_executable(quota.test quota.cc unit.c)
 target_link_libraries(quota.test pthread)
 
@@ -47,6 +50,7 @@ add_test(lf_lifo ${CMAKE_CURRENT_BUILD_DIR}/lf_lifo.test)
 add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
 add_test(arena_mt ${CMAKE_CURRENT_BUILD_DIR}/arena_mt.test)
 add_test(matras ${CMAKE_CURRENT_BUILD_DIR}/matras.test)
+add_test(lsregion ${CMAKE_CURRENT_BUILD_DIR}/lsregion.test)
 add_test(quota ${CMAKE_CURRENT_BUILD_DIR}/quota.test)
 
 if(DEFINED SMALL_EMBEDDED)
@@ -62,5 +66,5 @@ add_custom_target(test
     COMMAND ctest
     DEPENDS slab_cache.test region.test ibuf.test obuf.test mempool.test
             small_alloc.test lf_lifo.test slab_arena.test arena_mt.test
-            matras.test quota.test
+            matras.test lsregion.test quota.test
 )

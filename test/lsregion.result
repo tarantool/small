@@ -1,0 +1,114 @@
+1..5
+    1..15
+	*** test_basic ***
+    ok 1 - Slab size lsregion: 65536, slab size arena: 65536
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 0
+#arena->slab_size = 65536
+    ok 2 - Used 0, must be used 0
+    ok 3 - Total 65536, must be total 65536
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 65536
+#arena->slab_size = 65536
+    ok 4 - Used 100, must be used 100
+    ok 5 - Total 65536, must be total 65536
+    ok 6 - Used 100, must be used 100
+    ok 7 - Total 65536, must be total 65536
+    ok 8 - Blocks count 1, must be 1
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 65536
+#arena->slab_size = 65536
+    ok 9 - Used 0, must be used 0
+    ok 10 - Total 65536, must be total 65536
+    ok 11 - Cached is not NULL
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 65536
+#arena->slab_size = 65536
+    ok 12 - Used 2048, must be used 2048
+    ok 13 - Total 65536, must be total 65536
+    ok 14 - Cached slab is used
+    ok 15 - Blocks count 1, must be 1
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 65536
+#arena->slab_size = 65536
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 65536
+#arena->slab_size = 65536
+	*** test_basic: done ***
+ok 1 - subtests
+    1..10
+	*** test_reserve ***
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 65536
+#arena->slab_size = 65536
+    ok 1 - Used 0, must be used 0
+    ok 2 - Total 65536, must be total 65536
+    ok 3 - Used 59570, must be used 59570
+    ok 4 - Total 65536, must be total 65536
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 65536
+#arena->slab_size = 65536
+    ok 5 - Used 5957, must be used 5957
+    ok 6 - Total 65536, must be total 65536
+    ok 7 - Alloced on the same place that was reserved
+    ok 8 - Data allocted in first slab, and next data reserved in second slab
+    ok 9 - Data must be alloced in previous block
+    ok 10 - Data must be alloced in next block that was reserved earlier.
+	*** test_reserve: done ***
+ok 2 - subtests
+    1..4
+	*** test_many_allocs_one_slab ***
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 65536
+#arena->slab_size = 65536
+    ok 1 - Total used 4000, must be 4000
+    ok 2 - Blocks count 1, must be 1
+    ok 3 - Total used 4000, must be 4000
+    ok 4 - Blocks count 1, must be 1
+	*** test_many_allocs_one_slab: done ***
+ok 3 - subtests
+    1..5
+	*** test_many_allocs_many_slabs ***
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 65536
+#arena->slab_size = 65536
+    ok 1 - Total used 60071, must be 60071
+    ok 2 - Blocks count 1, must be 1
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 131072
+#arena->slab_size = 65536
+    ok 3 - Total used 120142, must be 120142
+    ok 4 - Blocks count 1, must be 1
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 131072
+#arena->slab_size = 65536
+    ok 5 - Blocks count 0, must be 0
+	*** test_many_allocs_many_slabs: done ***
+ok 4 - subtests
+    1..3
+	*** test_big_data_small_slabs ***
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 655360
+#arena->slab_size = 65536
+    ok 1 - Blocks count 10, must be 10
+    ok 2 - Total used 491520, must be 491520
+    ok 3 - Blocks count 4, must be 4
+#arena->prealloc = 0
+#arena->maxalloc = 4294967296
+#arena->used = 655360
+#arena->slab_size = 65536
+	*** test_big_data_small_slabs: done ***
+ok 5 - subtests
