@@ -236,14 +236,14 @@ lsregion_destroy(struct lsregion *lsregion)
 }
 
 /** Size of the allocated memory. */
-static inline uint32_t
+static inline size_t
 lsregion_used(const struct lsregion *lsregion)
 {
 	return lsregion->slabs.stats.used;
 }
 
 /** Size of the allocated and reserved memory. */
-static inline uint32_t
+static inline size_t
 lsregion_total(const struct lsregion *lsregion)
 {
 	return lsregion->slabs.stats.total;
