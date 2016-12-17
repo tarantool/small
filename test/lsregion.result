@@ -1,94 +1,72 @@
 1..4
-    1..17
-	*** test_basic ***
-    ok 1 - Slab size lsregion: 65536, slab size arena: 65536
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 0
-#arena->slab_size = 65536
-    ok 2 - Used 100, must be used 100
-    ok 3 - Total 65536, must be total 65536
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 65536
-#arena->slab_size = 65536
-    ok 4 - Used 100, must be used 100
-    ok 5 - Total 65536, must be total 65536
-    ok 6 - Blocks count 1, must be 1
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 65536
-#arena->slab_size = 65536
-    ok 7 - Used 0, must be used 0
-    ok 8 - Total 65536, must be total 65536
-    ok 9 - Cached is not NULL
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 65536
-#arena->slab_size = 65536
-    ok 10 - Used 2048, must be used 2048
-    ok 11 - Total 65536, must be total 65536
-    ok 12 - Cached slab is used
-    ok 13 - Blocks count 1, must be 1
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 65536
-#arena->slab_size = 65536
-    ok 14 - Cant alloc more than slab size
-    ok 15 - Used 2048, must be used 2048
-    ok 16 - Total 65536, must be total 65536
-    ok 17 - Cached slab is used
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 65536
-#arena->slab_size = 65536
-	*** test_basic: done ***
+# basic
+    1..36
+    ok 1 - init
+    ok 2 - slab size
+    ok 3 - used after init
+    ok 4 - total after init
+    ok 5 - arena used after init
+    ok 6 - slab count after init
+    ok 7 - slab cache after init
+    ok 8 - alloc(100)
+    ok 9 - used after alloc(100)
+    ok 10 - total after alloc(100)
+    ok 11 - arena used after alloc(100)
+    ok 12 - slab count after alloc(100)
+    ok 13 - slab cache after alloc(100)
+    ok 14 - used after gc(id / 2)
+    ok 15 - total after gc(id / 2)
+    ok 16 - arena used after gc(id / 2)
+    ok 17 - slab count after gc(id / 2)
+    ok 18 - slab cache after gc(id / 2)
+    ok 19 - used after gc(id)
+    ok 20 - total after gc(id)
+    ok 21 - arena used after gc(id)
+    ok 22 - slab count after gc(id)
+    ok 23 - slab cache after gc(id)
+    ok 24 - alloc(2048)
+    ok 25 - used after alloc(2048)
+    ok 26 - total after alloc(2048)
+    ok 27 - arena used after alloc(2048)
+    ok 28 - slab count after alloc(2048)
+    ok 29 - slab cache after alloc(2048)
+    ok 30 - failed alloc(slab_size + 100)
+    ok 31 - used after failed alloc()
+    ok 32 - total after failed alloc()
+    ok 33 - arena used after failed alloc()
+    ok 34 - slab count after failed alloc()
+    ok 35 - slab cache after failed alloc()
+    ok 36 - arena used after destroy
 ok 1 - subtests
-    1..4
-	*** test_many_allocs_one_slab ***
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 65536
-#arena->slab_size = 65536
-    ok 1 - Total used 4000, must be 4000
-    ok 2 - Blocks count 1, must be 1
-    ok 3 - Total used 4000, must be 4000
-    ok 4 - Blocks count 1, must be 1
-	*** test_many_allocs_one_slab: done ***
+# many_allocs_one_slab
+    1..6
+    ok 1 - init
+    ok 2 - arena used after many small blocks
+    ok 3 - used after small blocks
+    ok 4 - slab count after small blocks
+    ok 5 - used after gc
+    ok 6 - slab count after gc(id/2)
 ok 2 - subtests
-    1..5
-	*** test_many_allocs_many_slabs ***
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 65536
-#arena->slab_size = 65536
-    ok 1 - Total used 60071, must be 60071
-    ok 2 - Blocks count 1, must be 1
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 131072
-#arena->slab_size = 65536
-    ok 3 - Total used 120142, must be 120142
-    ok 4 - Blocks count 1, must be 1
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 131072
-#arena->slab_size = 65536
-    ok 5 - Blocks count 0, must be 0
-	*** test_many_allocs_many_slabs: done ***
+# many_allocs_many_slabs
+    1..10
+    ok 1 - init
+    ok 2 - arena used after one slab
+    ok 3 - used after one slab
+    ok 4 - slab count after one slab
+    ok 5 - arena used after many slabs
+    ok 6 - used after many slabs
+    ok 7 - slab count after gc first
+    ok 8 - arena used after gc first
+    ok 9 - slab count after gc second
+    ok 10 - arena used after gc second
 ok 3 - subtests
-    1..3
-	*** test_big_data_small_slabs ***
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 655360
-#arena->slab_size = 65536
-    ok 1 - Blocks count 10, must be 10
-    ok 2 - Total used 491520, must be 491520
-    ok 3 - Blocks count 4, must be 4
-#arena->prealloc = 0
-#arena->maxalloc = 4294967296
-#arena->used = 655360
-#arena->slab_size = 65536
-	*** test_big_data_small_slabs: done ***
+# big_data_small_slabs
+    1..7
+    ok 1 - init
+    ok 2 - used after alloc
+    ok 3 - arena used after alloc
+    ok 4 - slab count after alloc
+    ok 5 - used after gc(id / 2)
+    ok 6 - slab count after gc (id / 2)
+    ok 7 - arena used after gc(id / 2)
 ok 4 - subtests
