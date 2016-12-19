@@ -121,7 +121,7 @@ static inline uint32_t
 lslab_unused(const struct lsregion *lsregion, const struct lslab *slab)
 {
 	uint32_t slab_size = lsregion->slab_size;
-	assert(slab_size > slab->slab_used);
+	assert(slab_size >= slab->slab_used);
 	return slab_size - slab->slab_used;
 }
 
