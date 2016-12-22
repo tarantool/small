@@ -38,6 +38,8 @@
 #include <assert.h>
 #include <limits.h>
 #include "pmatomic.h"
+#include <valgrind/valgrind.h>
+#include <valgrind/memcheck.h>
 
 #if !defined(MAP_ANONYMOUS)
 #define MAP_ANONYMOUS MAP_ANON
@@ -127,6 +129,8 @@ slab_arena_create(struct slab_arena *arena, struct quota *quota,
 {
 	assert(flags & (MAP_PRIVATE | MAP_SHARED));
 	lf_lifo_init(&arena->cache);
+	VALGRIND_MAKE_MEM_DEFINED(&arena->cache, sizeof(struct lf_lifo));
+
 	/*
 	 * Round up the user supplied data - it can come in
 	 * directly from the configuration file. Allow
@@ -178,8 +182,10 @@ void *
 slab_map(struct slab_arena *arena)
 {
 	void *ptr;
-	if ((ptr = lf_lifo_pop(&arena->cache)))
+	if ((ptr = lf_lifo_pop(&arena->cache))) {
+		VALGRIND_MAKE_MEM_UNDEFINED(ptr, arena->slab_size);
 		return ptr;
+	}
 
 	if (quota_use(arena->quota, arena->slab_size) < 0)
 		return NULL;
@@ -187,8 +193,11 @@ slab_map(struct slab_arena *arena)
 	/** Need to allocate a new slab. */
 	size_t used = pm_atomic_fetch_add(&arena->used, arena->slab_size);
 	used += arena->slab_size;
-	if (used <= arena->prealloc)
-		return arena->arena + used - arena->slab_size;
+	if (used <= arena->prealloc) {
+		ptr = arena->arena + used - arena->slab_size;
+		VALGRIND_MAKE_MEM_UNDEFINED(ptr, arena->slab_size);
+		return ptr;
+	}
 
 	ptr = mmap_checked(arena->slab_size, arena->slab_size,
 			   arena->flags);
@@ -196,14 +205,19 @@ slab_map(struct slab_arena *arena)
 		__sync_sub_and_fetch(&arena->used, arena->slab_size);
 		quota_release(arena->quota, arena->slab_size);
 	}
+	VALGRIND_MAKE_MEM_UNDEFINED(ptr, arena->slab_size);
 	return ptr;
 }
 
 void
 slab_unmap(struct slab_arena *arena, void *ptr)
 {
-	if (ptr)
-		lf_lifo_push(&arena->cache, ptr);
+	if (ptr == NULL)
+		return;
+
+	lf_lifo_push(&arena->cache, ptr);
+	VALGRIND_MAKE_MEM_NOACCESS(ptr, arena->slab_size);
+	VALGRIND_MAKE_MEM_DEFINED(lf_lifo(ptr), sizeof(struct lf_lifo));
 }
 
 void

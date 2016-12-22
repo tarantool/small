@@ -30,6 +30,8 @@
  */
 #include "region.h"
 #include <sys/types.h> /* ssize_t */
+#include <valgrind/valgrind.h>
+#include <valgrind/memcheck.h>
 
 void *
 region_reserve_slow(struct region *region, size_t size)
@@ -48,6 +50,7 @@ region_reserve_slow(struct region *region, size_t size)
 	 * region_truncate() won't work.
 	 */
 	slab_list_add(&region->slabs, &slab->slab, next_in_list);
+	VALGRIND_MALLOCLIKE_BLOCK(rslab_data(slab), rslab_unused(slab), 0, 0);
 	return rslab_data(slab);
 }
 

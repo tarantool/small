@@ -15,6 +15,9 @@ endif()
 # Enable GNU glibc extentions.
 add_definitions("-D_GNU_SOURCE")
 
+# Valgrind
+include_directories(third_party)
+
 set(lib_headers
     small/ibuf.h
     small/lf_lifo.h
@@ -52,6 +55,11 @@ if(DEFINED SMALL_EMBEDDED)
     # Don't build shared library and skip INSTALL() targets if this
     # library is used as submodule in other project.
     return()
+endif()
+
+option(ENABLE_VALGRIND "Enable integration with valgrind, a memory analyzing tool" OFF)
+if (NOT ENABLE_VALGRIND)
+    add_definitions(-DNVALGRIND=1)
 endif()
 
 add_library(${PROJECT_NAME}_shared SHARED ${lib_sources})

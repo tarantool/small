@@ -31,6 +31,9 @@
 #include "mempool.h"
 #include <stdlib.h>
 #include <string.h>
+#include <valgrind/valgrind.h>
+#include <valgrind/memcheck.h>
+
 #include "slab_cache.h"
 
 /* slab fragmentation must reach 1/8 before it's recycled */
@@ -90,6 +93,8 @@ mslab_free(struct mempool *pool, struct mslab *slab, void *ptr)
 	/* put object to garbage list */
 	*(void **)ptr = slab->free_list;
 	slab->free_list = ptr;
+	VALGRIND_FREELIKE_BLOCK(ptr, 0);
+	VALGRIND_MAKE_MEM_DEFINED(ptr, sizeof(void *));
 
 	slab->nfree++;
 
@@ -195,7 +200,10 @@ mempool_alloc(struct mempool *pool)
 		pool->first_hot_slab = slab;
 	}
 	pool->slabs.stats.used += pool->objsize;
-	return mslab_alloc(pool, slab);
+	void *ptr = mslab_alloc(pool, slab);
+	assert(ptr != NULL);
+	VALGRIND_MALLOCLIKE_BLOCK(ptr, pool->objsize, 0, 0);
+	return ptr;
 }
 
 void

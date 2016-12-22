@@ -36,6 +36,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <valgrind/valgrind.h>
+#include <valgrind/memcheck.h>
 
 const uint32_t slab_magic = 0xeec0ffee;
 
@@ -73,6 +75,7 @@ slab_set_free(struct slab_cache *cache, struct slab *slab)
 	cache->allocated.stats.used -= slab->size;
 	cache->orders[slab->order].stats.used -= slab->size;
 	slab->in_use = 0;
+	VALGRIND_MEMPOOL_FREE(cache, slab_data(slab));
 }
 
 static inline void
@@ -82,6 +85,7 @@ slab_set_used(struct slab_cache *cache, struct slab *slab)
 	cache->orders[slab->order].stats.used += slab->size;
 	/* Not a boolean to have an extra assert. */
 	slab->in_use = 1 + slab->order;
+	VALGRIND_MEMPOOL_ALLOC(cache, slab_data(slab), slab_capacity(slab));
 }
 
 static inline bool
@@ -95,10 +99,11 @@ slab_poison(struct slab *slab)
 {
 	(void)slab;
 #ifndef NDEBUG
+	VALGRIND_MAKE_MEM_UNDEFINED(slab_data(slab), slab_capacity(slab));
 	const char poison_char = 'P';
-	memset((char *) slab + slab_sizeof(), poison_char,
-	       slab->size - slab_sizeof());
+	memset(slab_data(slab), poison_char, slab_capacity(slab));
 #endif
+	VALGRIND_MAKE_MEM_NOACCESS(slab_data(slab), slab_capacity(slab));
 }
 
 static inline void
@@ -130,9 +135,12 @@ slab_split(struct slab_cache *cache, struct slab *slab)
 	size_t new_size = slab_order_size(cache, new_order);
 
 	slab_create(slab, new_order, new_size);
+
 	struct slab *buddy = slab_buddy(cache, slab);
+	VALGRIND_MAKE_MEM_UNDEFINED(buddy, sizeof(*buddy));
 	slab_create(buddy, new_order, new_size);
 	slab_list_add(&cache->orders[buddy->order], buddy, next_in_list);
+
 	return slab;
 }
 
@@ -171,6 +179,8 @@ slab_cache_create(struct slab_cache *cache, struct slab_arena *arena)
 	for (i = 0; i <= cache->order_max; i++)
 		slab_list_create(&cache->orders[i]);
 	slab_cache_set_thread(cache);
+	VALGRIND_CREATE_MEMPOOL_EXT(cache, 0, 0, VALGRIND_MEMPOOL_METAPOOL |
+				    VALGRIND_MEMPOOL_AUTO_FREE);
 }
 
 void
@@ -184,11 +194,14 @@ slab_cache_destroy(struct slab_cache *cache)
          */
 	struct slab *slab, *tmp;
 	rlist_foreach_entry_safe(slab, slabs, next_in_cache, tmp) {
-		if (slab->order == cache->order_max + 1)
+		if (slab->order == cache->order_max + 1) {
+			VALGRIND_MEMPOOL_FREE(cache, slab_data(slab));
 			free(slab);
-		else
+		} else {
 			slab_unmap(cache->arena, slab);
+		}
 	}
+	VALGRIND_DESTROY_MEMPOOL(cache);
 }
 
 struct slab *
@@ -260,6 +273,8 @@ slab_get(struct slab_cache *cache, size_t size)
 		slab_create(slab, order, size);
 		slab_list_add(&cache->allocated, slab, next_in_cache);
 		cache->allocated.stats.used += size;
+		VALGRIND_MEMPOOL_ALLOC(cache, slab_data(slab),
+				       slab_capacity(slab));
 		return slab;
 	}
 	return slab_get_with_order(cache, order);
@@ -275,8 +290,11 @@ slab_put(struct slab_cache *cache, struct slab *slab)
 		 * Free a huge slab right away, we have no
 		 * further business to do with it.
 		 */
+		uint32_t slab_size = slab->size;
 		slab_list_del(&cache->allocated, slab, next_in_cache);
-		cache->allocated.stats.used -= slab->size;
+		cache->allocated.stats.used -= slab_size;
+		slab_poison(slab);
+		VALGRIND_MEMPOOL_FREE(cache, slab_data(slab));
 		free(slab);
 		return;
 	}
