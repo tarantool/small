@@ -25,7 +25,7 @@ set(lib_headers
     small/matras.h
     small/mempool.h
     small/obuf.h
-    small/pmatomic.h
+    third_party/pmatomic.h
     small/quota.h
     small/rb.h
     small/region.h
