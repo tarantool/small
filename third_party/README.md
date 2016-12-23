@@ -17,4 +17,4 @@ index 8f29f28..b425be5 100644
          _zzq_default, _zzq_request,                               \
          _zzq_arg1, _zzq_arg2, _zzq_arg3, _zzq_arg4, _zzq_arg5)    \
 -      (_zzq_default )
-+      ((void) _zzq_default )
++      ({(void) _zzq_default; _zzq_default; })

@@ -214,7 +214,7 @@
 #define VALGRIND_DO_CLIENT_REQUEST_EXPR(                          \
         _zzq_default, _zzq_request,                               \
         _zzq_arg1, _zzq_arg2, _zzq_arg3, _zzq_arg4, _zzq_arg5)    \
-      ((void) _zzq_default )
+      ({(void) _zzq_default; _zzq_default; })
 
 #else  /* ! NVALGRIND */
 
