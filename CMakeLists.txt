@@ -25,7 +25,6 @@ set(lib_headers
     small/matras.h
     small/mempool.h
     small/obuf.h
-    third_party/pmatomic.h
     small/quota.h
     small/rb.h
     small/region.h
@@ -79,3 +78,4 @@ install(TARGETS ${PROJECT_NAME}_shared
     COMPONENT library)
 
 install(FILES ${lib_headers} DESTINATION include/${PROJECT_NAME})
+install(DIRECTORY third_party DESTINATION include/${PROJECT_NAME} FILES_MATCHING PATTERN "*.h")

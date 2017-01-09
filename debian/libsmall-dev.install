@@ -1,3 +1,5 @@
 usr/include/small/*.h
+usr/include/small/third_party/*.h
+usr/include/small/third_party/valgrind/*.h
 usr/lib/*/libsmall.so
 usr/lib/*/libsmall.a

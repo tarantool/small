@@ -42,6 +42,9 @@ make %{?_smp_mflags} test
 %files devel
 %dir %{_includedir}/small
 %{_includedir}/small/*.h
+%{_includedir}/small/third_party/*.h
+%{_includedir}/small/third_party/valgrind/*.h
+
 %{_libdir}/libsmall.a
 # unversioned libraries should belong devel package
 %{_libdir}/libsmall.so
