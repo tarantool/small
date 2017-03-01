@@ -67,20 +67,23 @@ struct lslab {
  * written log. It allows to allocate memory chunks of any size,
  * but does not support free() of an individual chunk. Instead,
  * each chunk, when allocated, needs to be identified with an id.
- * It is assumed that ids are nondecreasing.
  * The chunks are stored in equally-sized slabs, obtained from
  * slab arena.
- * To free memory, the allocator requires an oldest id before
- * which all memory could be discarded. Upon free, it returns
- * all slabs containing chunks with smaller ids to the slab arena.
- *
- * id_i <= id_(i + 1)
+ * To free memory, the allocator requires the oldest id before
+ * first of which all memory could be discarded. Upon free, it
+ * returns all slabs containing chunks with smaller ids to the
+ * slab arena.
  * *-------*   *-------*   *-------*                  *-------*
  * | slab  |-->| slab  |-->| slab  |-->            -->| slab  |
  * *-------*   *-------*   *-------*                  *-------*
- *  <= id1      <= id2 |    <= id3                     <= idN
- *                     |
- * truncate with id in [id2, id3) deletes from this position.
+ *
+ * For example, if the ids sequense is following:
+ * id1 <= id2 | <= id3   >   id4 <= id5  >   id1 <= id2 <= id6
+ *            |
+ *            |
+ * then truncate with id in [id2, id3) deletes from this position.
+ * The second sequence id1 <= id2 <= id3 will not be truncated,
+ * before there is id3 between them.
  */
 struct lsregion {
 	/**
@@ -175,11 +178,11 @@ lsregion_alloc(struct lsregion *lsregion, size_t size, int64_t id)
 		slab = rlist_last_entry(&lsregion->slabs.slabs, struct lslab,
 					next_in_list);
 		assert(slab != NULL);
-		assert(slab->max_id <= id);
 		if (size <= lslab_unused(lsregion, slab)) {
 			void *res = lslab_pos(slab);
 			slab->slab_used += size;
-			slab->max_id = id;
+			if (id > slab->max_id)
+				slab->max_id = id;
 			lsregion->slabs.stats.used += size;
 			return res;
 		}

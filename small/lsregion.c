@@ -65,13 +65,12 @@ lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id)
 		}
 	}
 	assert(slab != NULL);
-	assert(slab->max_id <= id);
 	void *res = lslab_pos(slab);
 	slab->slab_used += size;
 
 	/* Update the memory block meta info. */
-	assert(slab->max_id <= id);
-	slab->max_id = id;
+	if (id > slab->max_id)
+		slab->max_id = id;
 	lsregion->slabs.stats.used += size;
 	return res;
 }

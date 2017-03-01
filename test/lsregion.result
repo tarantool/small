@@ -1,4 +1,4 @@
-1..4
+1..5
 # basic
     1..36
     ok 1 - init
@@ -70,3 +70,21 @@ ok 3 - subtests
     ok 6 - slab count after gc (id / 2)
     ok 7 - arena used after gc(id / 2)
 ok 4 - subtests
+# decreasing_identifiers
+    1..15
+    ok 1 - init
+    ok 2 - alloc(10) with id 100
+    ok 3 - used after alloc(10) with id 100
+    ok 4 - total after alloc(10) with id 100
+    ok 5 - slab count after alloc(10) with id 100
+    ok 6 - alloc(10) with id 90
+    ok 7 - used after alloc(10) with id 90
+    ok 8 - total after alloc(10) with id 90
+    ok 9 - slab count after alloc(10) with id 90
+    ok 10 - used after gc(95)
+    ok 11 - total after gc(95)
+    ok 12 - slab count after gc(95)
+    ok 13 - used after gc(100)
+    ok 14 - total after gc(100)
+    ok 15 - slab count after gc(100)
+ok 5 - subtests

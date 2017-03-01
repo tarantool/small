@@ -317,15 +317,74 @@ test_big_data_small_slabs()
 	check_plan();
 }
 
+static void
+test_decreasing_ids()
+{
+	note("decreasing_identifiers");
+	plan(15);
+	struct quota quota;
+	struct slab_arena arena;
+	struct lsregion allocator;
+	quota_init(&quota, 4 * SLAB_MIN_SIZE);
+	is(slab_arena_create(&arena, &quota, 0, 1024, MAP_PRIVATE), 0, "init");
+	lsregion_create(&allocator, &arena);
+	size_t size = 10;
+	char *data = lsregion_alloc(&allocator, size, 100);
+	isnt(data, NULL, "alloc(10) with id 100");
+	uint32_t used = lsregion_used(&allocator);
+	uint32_t total = lsregion_total(&allocator);
+	is(used, size, "used after alloc(10) with id 100");
+	is(total, arena.slab_size, "total after alloc(10) with id 100");
+	is(lsregion_slab_count(&allocator), 1,
+	   "slab count after alloc(10) with id 100");
+
+	/* Use decreasing identifier to allocate data. */
+	data = lsregion_alloc(&allocator, size, 90);
+	isnt(data, NULL, "alloc(10) with id 90");
+	used = lsregion_used(&allocator);
+	total = lsregion_total(&allocator);
+	is(used, size * 2, "used after alloc(10) with id 90");
+	/*
+	 * The single slab contains two allocations with
+	 * decreasing identifiers.
+	 */
+	is(total, arena.slab_size, "total after alloc(10) with id 90");
+	is(lsregion_slab_count(&allocator), 1,
+	   "slab count after alloc(10) with id 90");
+
+	/* We can't drop slab, because its max_ids == 100. */
+	lsregion_gc(&allocator, 95);
+	used = lsregion_used(&allocator);
+	total = lsregion_total(&allocator);
+	is(used, size * 2, "used after gc(95)");
+	is(total, arena.slab_size, "total after gc(95)");
+	is(lsregion_slab_count(&allocator), 1, "slab count after gc(95)");
+
+	/* Now we can drop slab, because 100 >= max_id == 100. */
+	lsregion_gc(&allocator, 100);
+	used = lsregion_used(&allocator);
+	total = lsregion_total(&allocator);
+	is(used, 0, "used after gc(100)");
+	/* Slab is cached. */
+	is(total, arena.slab_size, "total after gc(100)");
+	is(lsregion_slab_count(&allocator), 0, "slab count after gc(100)");
+
+	lsregion_destroy(&allocator);
+	slab_arena_destroy(&arena);
+
+	check_plan();
+}
+
 int
 main()
 {
-	plan(4);
+	plan(5);
 
 	test_basic();
 	test_many_allocs_one_slab();
 	test_many_allocs_many_slabs();
 	test_big_data_small_slabs();
+	test_decreasing_ids();
 
 	return check_plan();
 }
