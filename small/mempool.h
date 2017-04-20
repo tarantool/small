@@ -270,6 +270,7 @@ mempool_free(struct mempool *pool, void *ptr)
 #ifndef NDEBUG
 	memset(ptr, '#', pool->objsize);
 #endif
+	assert(ptr);
 	struct mslab *slab = (struct mslab *)
 		slab_from_ptr(ptr, pool->slab_ptr_mask);
 	assert(slab->slab.order == pool->slab_order);

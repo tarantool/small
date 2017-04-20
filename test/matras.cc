@@ -29,7 +29,7 @@ check_file_line(bool expr, const char *err_message, const char *file, int line)
 	}
 	assert(expr);
 	if (!expr) {
-		throw err_message;
+		exit(-1);
 	}
 }
 
