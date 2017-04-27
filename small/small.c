@@ -319,7 +319,7 @@ struct mempool_iterator
 {
 	struct small_alloc *alloc;
 	struct mempool *step_pool;
-	struct factor_pool *factor_pool;
+	struct factor_tree_iterator factor_iterator;
 };
 
 void
@@ -328,7 +328,7 @@ mempool_iterator_create(struct mempool_iterator *it,
 {
 	it->alloc = alloc;
 	it->step_pool = alloc->step_pools;
-	it->factor_pool = factor_tree_first(&alloc->factor_pools);
+	factor_tree_ifirst(&alloc->factor_pools, &it->factor_iterator);
 }
 
 struct mempool *
@@ -336,12 +336,10 @@ mempool_iterator_next(struct mempool_iterator *it)
 {
 	if (it->step_pool < it->alloc->step_pools + STEP_POOL_MAX)
 		return it->step_pool++;
-
-	if (it->factor_pool) {
-		struct mempool *pool = &it->factor_pool->pool;
-		it->factor_pool = factor_tree_next(&it->alloc->factor_pools,
-						   it->factor_pool);
-		return pool;
+	struct factor_pool *factor_pool = factor_tree_inext(&it->alloc->factor_pools,
+						&it->factor_iterator);
+	if (factor_pool) {
+		return &(factor_pool->pool);
 	}
 	return NULL;
 }
@@ -353,9 +351,9 @@ small_alloc_destroy(struct small_alloc *alloc)
 	struct mempool_iterator it;
 	mempool_iterator_create(&it, alloc);
 	struct mempool *pool;
-
-	while ((pool = mempool_iterator_next(&it)))
+	while ((pool = mempool_iterator_next(&it))) {
 		mempool_destroy(pool);
+	}
 }
 
 /** Calculate allocation statistics. */

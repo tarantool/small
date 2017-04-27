@@ -15,6 +15,16 @@ target_link_libraries(ibuf.test small)
 add_executable(obuf.test obuf.c)
 target_link_libraries(obuf.test small)
 
+add_executable(rb.test rb.c)
+target_link_libraries(rb.test small)
+
+add_executable(rb_rand.test rb_rand.cc)
+set_target_properties(rb_rand.test PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+
 add_executable(mempool.test mempool.c)
 target_link_libraries(mempool.test small)
 
@@ -52,6 +62,7 @@ add_test(arena_mt ${CMAKE_CURRENT_BUILD_DIR}/arena_mt.test)
 add_test(matras ${CMAKE_CURRENT_BUILD_DIR}/matras.test)
 add_test(lsregion ${CMAKE_CURRENT_BUILD_DIR}/lsregion.test)
 add_test(quota ${CMAKE_CURRENT_BUILD_DIR}/quota.test)
+add_test(rb ${CMAKE_CURRENT_BUILD_DIR}/rb.test)
 
 if(DEFINED SMALL_EMBEDDED)
     return()
@@ -66,5 +77,5 @@ add_custom_target(test
     COMMAND ctest
     DEPENDS slab_cache.test region.test ibuf.test obuf.test mempool.test
             small_alloc.test lf_lifo.test slab_arena.test arena_mt.test
-            matras.test lsregion.test quota.test
+            matras.test lsregion.test quota.test rb.test
 )
