@@ -6,7 +6,7 @@ add_definitions("-D__STDC_CONSTANT_MACROS=1")
 add_executable(slab_cache.test slab_cache.c)
 target_link_libraries(slab_cache.test small)
 
-add_executable(region.test region.c)
+add_executable(region.test region.c unit.c)
 target_link_libraries(region.test small)
 
 add_executable(ibuf.test ibuf.c unit.c)

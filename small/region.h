@@ -106,11 +106,8 @@ region_create(struct region *region, struct slab_cache *cache)
 void
 region_free(struct region *region);
 
-static inline void
-region_destroy(struct region *region)
-{
-	return region_free(region);
-}
+void
+region_destroy(struct region *region);
 
 /** Internal: a single block in a region.  */
 struct rslab

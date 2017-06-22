@@ -358,6 +358,12 @@ delete from one list and add_tail as another's head
 	     &item->member != (head);					\
 	     item = rlist_prev_entry((item), member))
 
+#define rlist_foreach_entry_safe_reverse(item, head, member, tmp)	\
+	for ((item) = rlist_last_entry((head), typeof(*(item)), member);\
+	     &(item)->member != (head) &&				\
+	     ((tmp) = rlist_prev_entry((item), member));		\
+	     (item) = (tmp))
+
 #define	rlist_foreach_entry_safe(item, head, member, tmp)		\
 	for ((item) = rlist_first_entry((head), typeof(*item), member);	\
 	     &item->member != (head) &&                                 \

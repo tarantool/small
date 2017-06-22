@@ -54,15 +54,26 @@ region_reserve_slow(struct region *region, size_t size)
 	return rslab_data(slab);
 }
 
+static inline void
+region_free_slabs(struct region *region)
+{
+	struct slab *slab, *tmp;
+	rlist_foreach_entry_safe_reverse(slab, &region->slabs.slabs,
+					 next_in_list, tmp)
+		slab_put(region->cache, slab);
+}
+
 void
 region_free(struct region *region)
 {
-	struct slab *slab, *tmp;
-	rlist_foreach_entry_safe(slab, &region->slabs.slabs,
-				 next_in_list, tmp)
-		slab_put(region->cache, slab);
-
+	region_free_slabs(region);
 	slab_list_create(&region->slabs);
+}
+
+void
+region_destroy(struct region *region)
+{
+	region_free_slabs(region);
 }
 
 /**

@@ -75,6 +75,57 @@ region_test_truncate()
 	footer();
 }
 
+void
+region_allocate_itself()
+{
+	header();
+	plan(6);
+
+	uint32_t used_mem = cache.allocated.stats.used;
+
+	struct region *region_p;
+	char *data;
+	size_t data_size = 100;
+	size_t aligned_data_size;
+
+	{
+		struct region region;
+		region_create(&region, &cache);
+		region_p = region_alloc_object(&region, struct region);
+		aligned_data_size = region_used(&region);
+		memcpy(region_p, &region, sizeof(region));
+		data = (char *) region_alloc(region_p, data_size);
+		is(region_used(region_p), aligned_data_size + data_size,
+		   "user data and region object are allocated");
+	}
+	is(region_used(region_p), aligned_data_size + data_size,
+	   "region_p correctly is created");
+
+	struct region region_copy = *region_p;
+	for (size_t i = 0; i < data_size; ++i)
+		data[i] = (char)i;
+	is(memcmp(&region_copy, region_p, sizeof(region_copy)), 0,
+	   "the data change doesn't change the region object");
+
+	size_t new_data_size = arena.slab_size - rslab_sizeof() - 1;
+	char *new_data = region_alloc(region_p, new_data_size);
+	for (size_t i = 0; i < new_data_size; ++i)
+		new_data[i] = (char)(i + data_size);
+	size_t ok = 0;
+	for (ok = 0; ok < data_size; ++ok)
+		if (data[ok] != (char)ok)
+			break;
+	is(ok, data_size, "old data was not changed");
+
+	region_truncate(region_p, aligned_data_size);
+	is(region_used(region_p), aligned_data_size, "truncate");
+	region_destroy(region_p);
+
+	is(cache.allocated.stats.used, used_mem, "all slabs are freed");
+	check_plan();
+	footer();
+}
+
 int main()
 {
 	quota_init(&quota, UINT_MAX);
@@ -84,6 +135,7 @@ int main()
 
 	region_basic();
 	region_test_truncate();
+	region_allocate_itself();
 
 	slab_cache_destroy(&cache);
 }
