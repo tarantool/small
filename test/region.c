@@ -33,18 +33,6 @@ region_basic()
 
 	fail_unless(region_used(&region) == 0);
 
-	printf("name of a new region: %s.\n", region_name(&region));
-
-	region_set_name(&region, "region");
-
-	printf("set new region name: %s.\n", region_name(&region));
-
-	region_set_name(&region, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-
-	printf("region name is truncated: %s.\n", region_name(&region));
-
 	footer();
 }
 

@@ -78,13 +78,10 @@ extern "C" {
  * region_free().
  */
 
-enum { REGION_NAME_MAX = 30 };
-
 struct region
 {
 	struct slab_cache *cache;
 	struct slab_list slabs;
-	char name[REGION_NAME_MAX];
 };
 
 /**
@@ -96,7 +93,6 @@ region_create(struct region *region, struct slab_cache *cache)
 {
 	region->cache = cache;
 	slab_list_create(&region->slabs);
-	region->name[0] = '\0';
 }
 
 /**
@@ -257,18 +253,6 @@ region_free_after(struct region *region, size_t after)
 /** Truncate the region to the given size */
 void
 region_truncate(struct region *pool, size_t size);
-
-static inline void
-region_set_name(struct region *region, const char *name)
-{
-	snprintf(region->name, sizeof(region->name), "%s", name);
-}
-
-static inline const char *
-region_name(struct region *region)
-{
-	return region->name;
-}
 
 static inline void *
 region_alloc_cb(void *ctx, size_t size)
