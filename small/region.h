@@ -402,6 +402,10 @@ struct RegionGuard {
 };
 #endif /* __cplusplus */
 
+#ifndef alignof
+#define alignof __alignof__
+#endif
+
 #define region_reserve_object(region, T) \
 	(T *)region_aligned_reserve((region), sizeof(T), alignof(T))
 
