@@ -57,8 +57,12 @@ struct {								\
     __VA_ARGS__								\
 }
 
-/* Max length of tree height can be iterated */
-#define MAX_ITER_HEIGHT 64
+/*
+ * Max height of the tree which can be iterated over.
+ * The tree can have no more nodes than x86_64 has distinct
+ * addresses.
+ */
+#define RB_MAX_TREE_HEIGHT 48
 
 /* Left accessors. */
 #define	rbtn_left_get(a_type, a_field, a_node)				\
@@ -165,43 +169,46 @@ struct {								\
     rbtn_right_set(a_type, a_field, (r_node), (a_node));		\
 } while (0)
 
+/* Iterator path population */
 #define rbtn_iter_go_left_down(a_type, a_field, rbtree, node, it) do {	\
     a_type *cur = (node);						\
     do {								\
-	assert((it)->count < MAX_ITER_HEIGHT);				\
+	assert((it)->count < RB_MAX_TREE_HEIGHT);			\
 	(it)->path[(it)->count++] = cur;				\
 	cur = rbtn_left_get(a_type, a_field, (cur));			\
     } while (cur != &(rbtree)->rbt_nil);				\
 } while (0)
 
-#define rbtn_iter_go_right_up(a_type, a_field, rbtree, it) do {		\
-    while(--(it)->count > 0) {						\
-	if (rbtn_right_get(a_type, a_field,				\
-			  (it)->path[(it)->count - 1]) !=		\
-			  (it)->path[(it)->count]) {			\
-	    break;							\
-	}								\
-    }									\
-} while (0)
-
 #define rbtn_iter_go_right_down(a_type, a_field, rbtree, node, it) do {	\
     a_type *cur = (node);						\
     do{									\
-	assert((it)->count < MAX_ITER_HEIGHT);				\
+	assert((it)->count < RB_MAX_TREE_HEIGHT);			\
 	(it)->path[(it)->count++] = cur;				\
 	cur = rbtn_right_get(a_type, a_field, (cur));			\
     } while (cur != &(rbtree)->rbt_nil);				\
 } while (0)
 
+/* Traverse up the search path to the first parent on the *left*. */
 #define rbtn_iter_go_left_up(a_type, a_field, rbtree, it) do {		\
     while(--(it)->count > 0) {						\
 	if (rbtn_left_get(a_type, a_field,				\
-			 (it)->path[(it)->count - 1]) !=		\
-			 (it)->path[(it)->count]) {			\
+			  (it)->path[(it)->count - 1]) !=		\
+	    (it)->path[(it)->count]) {					\
 	    break;							\
 	}								\
     }									\
-} while (0)								\
+} while (0)
+
+/* Traverse up the search path to the first parent on the *right*. */
+#define rbtn_iter_go_right_up(a_type, a_field, rbtree, it) do {		\
+    while(--(it)->count > 0) {						\
+	if (rbtn_right_get(a_type, a_field,				\
+			   (it)->path[(it)->count - 1]) !=		\
+	    (it)->path[(it)->count]) {					\
+	    break;							\
+	}								\
+    }									\
+} while (0)
 
 /*
  * The rb_proto() macro generates function prototypes that correspond to the
@@ -264,6 +271,7 @@ a_prefix##iter(a_rbt_type *rbtree, a_type *start, a_type *(*cb)(	\
 a_attr a_type *								\
 a_prefix##reverse_iter(a_rbt_type *rbtree, a_type *start,		\
   a_type *(*cb)(a_rbt_type *, a_type *, void *), void *arg);
+
 #define	rb_proto(a_attr, a_prefix, a_rbt_type, a_type)			\
 rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
 
@@ -336,24 +344,26 @@ rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
  *         key : Search key.
  *       Ret: Node in tree that matches key, or NULL if no match.
  *
- *   Let's explain next searching functions with example
- *   Assume having following set of the keys:
+ *   Let's explain the following searching functions with an example.
+ *   Assume we have a following set of keys:
  *   ((1,2), (1,3), (2,1), (2,2), (2,3), (3,1), (3,2))
- *   Comparison function if natural: first comparing first index, then second.
+ *   The comparison function is natural: first it compares the first index,
+ *   then the second.
  *   static ex_node_t *
  *   ex_nsearch(ex_t *tree, ex_node_t *key);
  *   static ex_node_t *
  *   ex_psearch(ex_t *tree, ex_node_t *key);
- *       Description: If match most/least of matching.
- *                    If no match is found, return what would be key's
- *                    successor/predecessor, were key in tree.
+ *       Description: If a match is found, it's the minimal/maximal
+ *                    among the matching keys.
+ *                    If no match is found, return what would be
+ *                    key's successor/predecessor, were key in tree.
  *       Args:
  *         tree: Pointer to an initialized red-black tree object.
  *         key : Search key.
  *       Ret: Node in tree that matches key, or if no match, hypothetical node's
  *            successor/predecessor (NULL if no successor/predecessor).
- *   In out example:
- *   _nsearch2)=(2,3) _nsearch(0)=(1,2) _nsearch(4)=nil
+ *   In our example:
+ *   _nsearch(2)=(2,3) _nsearch(0)=(1,2) _nsearch(4)=nil
  *   _psearch(2)=(2,1) _psearch(0)=nil   _psearch(4)=(3,2)
  *
  *   static void
@@ -395,72 +405,74 @@ rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
  *       Ret: NULL if iteration completed, or the non-NULL callback return value
  *            that caused termination of the iteration.
  *
- *      Also will be generated following iterator API:
+ *      The following iterator API is generated:
  *
  *   struct ex_iterator;
- *       Description: Struct for iteration over the tree.
+ *       Description: A context for iteration over the tree.
  *
  *   static ex_node *
  *   ex_iterator_get(ex_iterator *it)
- *       Description: Get value iterator points to.
+ *       Description: Get the value the iterator points to.
  *       Args:
  *         it   : Pointer to initialized iterator
  *       Ret: NULL if iterator points to nothing, else value.
  *   static bool
  *   ex_icreate(ex_t *tree, ex_node_t *node, ex_iterator *it);
- *       Description: Create the iterator that corresponds to node.
+ *       Description: Create an iterator that corresponds to the node.
  *       Args:
  *         tree : Pointer to an initialized red-black tree object.
- *         node : Pointer to a node at which start iteration.
+ *         node : Pointer to a node at which to start iteration.
  *         it   : Pointer to an uninitialized iterator.
- *       Ret: true if found given node, false if not.
+ *       Ret: true if the matching node is found, false otherwise.
  *
  *   static void
  *   ex_ifirst(ex_t *tree, ex_iterator *it);
- *       Description: Locate iterator to the first node of the tree.
+ *       Description: Position iterator to the first node of the tree.
  *       Args:
  *         tree : Pointer to an initialized red-black tree object.
  *         it   : Pointer to an uninitialized iterator.
  *
  *   static void
  *   ex_ilast(ex_t *tree, ex_iterator *it);
- *       Description: Locate iterator to the last node of the tree.
+ *       Description: Position iterator to the last node of the tree.
  *       Args:
  *         tree : Pointer to an initialized red-black tree object.
  *         it   : Pointer to an uninitialized iterator.
  *
  *   static ex_node_t *
  *   ex_inext(ex_t *tree, ex_iterator *it);
- *       Description: Iterate to the next node. Change iterator.
+ *       Description: Iterate to the next node. Changes the iterator.
  *       Args:
  *         tree : Pointer to an initialized red-black tree object.
  *         it   : Pointer to an initialized iterator.
  *       Ret: NULL if iteration ends; non-NULL node,
- *            at which current iterator points.
+ *            at which the current iterator points otherwise.
  *
  *   static ex_node_t *
  *   ex_iprev(ex_t *tree, ex_iterator *it);
- *       Description: Iterate to the previous node. Change iterator.
+ *       Description: Iterate to the previous node. Changes the iterator.
  *       Args:
  *         tree : Pointer to an initialized red-black tree object.
  *         it   : Pointer to an initialized iterator.
  *       Ret: NULL if iteration ends; non-NULL node,
- *            at which current iterator points
+ *            at which the current iterator points otherwise.
  *
  *   static bool
  *   ex_isearch(ex_t *tree, ex_key key, ex_iterator *it);
  *       Description: Search for node that matches key and
- *                    set \a it pointed to this node.
+ *                    set \a it to point to this node.
  *       Args:
  *         tree : Pointer to an initialized red-black tree object.
- *         key  : key to find a node at which iterator would point.
+ *         key  : key to find a node at which the iterator would
+ *                be set.
  *         it   : Pointer to an uninitialized iterator.
  *       Ret: true if found, false if not.
  *
  *   static void
  *   ex_isearch_le(ex_t *tree, ex_node_t *key, ex_iterator *it);
- *       Description: Search for the most node that Less of Equals to key,
- *                    set \a it pointed to this node.
+ *       Description: Search for the closest node which is less
+ *	              than or equal to the key, set \a it to point
+ *	              to this node.
  *       Args:
  *         tree: Pointer to an initialized red-black tree object.
  *         key : Search key.
@@ -468,8 +480,9 @@ rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
  *
  *   static void
  *   ex_isearch_ge(ex_t *tree, ex_node_t *key, ex_iterator *it);
- *       Description: Search for least node that Greater of Equals to key,
- *                    set \a it pointed to this node.
+ *       Description: Search for the closest node which is
+ *                    greater than or is equal to the key,
+ *                    set \a it to point to this node.
  *       Args:
  *         tree: Pointer to an initialized red-black tree object.
  *         key : Search key.
@@ -477,8 +490,9 @@ rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
  *
  *   static void
  *   ex_isearch_lt(ex_t *tree, ex_node_t *key, ex_iterator *it);
- *       Description: Search for most node that Less Than key,
- *                    set \a it pointed to this node.
+ *       Description: Search for the closest node which is
+ *                    strictly less than the key,
+ *                    set \a it to point to this node.
  *       Args:
  *         tree: Pointer to an initialized red-black tree object.
  *         key : Search key.
@@ -486,8 +500,9 @@ rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
  *
  *   static void
  *   ex_isearch_gt(ex_t *tree, ex_node_t *key, ex_iterator *it);
- *       Description: Search for least node that Greater Than key,
- *                    set \a it pointed to this node.
+ *       Description: Search for the closest node which is
+ *                    strictly greater than the key,
+ *                    set \a it to point to this node.
  *       Args:
  *         tree: Pointer to an initialized red-black tree object.
  *         key : Search key.
@@ -503,7 +518,8 @@ rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
  *   rb_gen_ext_key(static, ex_, ex_t, ex_node_t, ex_link, ex_cmp,
  *                  int, ex_key_cmp)
  *
- * Will generate same code as 'rb_gen' macro except for 8 functions:
+ * Will generate the same code as 'rb_gen' macro with addition of these
+ * 8 functions:
  *
  *   static ex_node_t *
  *   ex_search(ex_t *tree, int key);
@@ -537,7 +553,7 @@ rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
 #define	rb_gen_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_field,	\
 		       a_cmp, a_key, a_cmp_key)				\
 struct a_prefix##iterator {                                             \
-        a_type *path[MAX_ITER_HEIGHT];                                  \
+        a_type *path[RB_MAX_TREE_HEIGHT];				\
         uint32_t count;                                                 \
 };                                                                      \
 a_attr void								\
@@ -1100,13 +1116,11 @@ a_attr bool								\
 a_prefix##icreate(a_rbt_type *rbtree, a_type *node,			\
 	  struct a_prefix##iterator *it)				\
 {									\
-    assert(rbtree);							\
-    assert(it);								\
     it->count = 0;							\
     a_type *cur = rbtree->rbt_root;					\
     while (cur != &rbtree->rbt_nil) {					\
 	int cmp = a_cmp(RB_CMP_ARG node, cur);				\
-	assert(it->count < MAX_ITER_HEIGHT);				\
+	assert(it->count < RB_MAX_TREE_HEIGHT);				\
 	it->path[it->count++] = cur;					\
 	if (cmp < 0) {							\
 	    cur = rbtn_left_get(a_type, a_field, cur);			\
@@ -1143,14 +1157,11 @@ a_attr a_type *								\
 a_prefix##inext(a_rbt_type *rbtree,					\
 	struct a_prefix##iterator *it)					\
 {									\
-    assert(rbtree);							\
-    assert(it);								\
     if (it->count <= 0) {						\
 	return NULL;							\
     }									\
     a_type *ret = it->path[it->count - 1];				\
-    a_type *right = rbtn_right_get(a_type, a_field,			\
-				   it->path[it->count - 1]);		\
+    a_type *right = rbtn_right_get(a_type, a_field, ret);		\
     if (right != &rbtree->rbt_nil) {					\
 	rbtn_iter_go_left_down(a_type, a_field, rbtree,			\
 			       right, it);				\
@@ -1163,14 +1174,11 @@ a_attr a_type *								\
 a_prefix##iprev(a_rbt_type *rbtree,					\
 	struct a_prefix##iterator *it)					\
 {									\
-    assert(rbtree);							\
-    assert(it);								\
     if (it->count <= 0) {						\
 	return NULL;							\
     }									\
     a_type *ret = it->path[it->count - 1];				\
-    a_type *left = rbtn_left_get(a_type, a_field,			\
-				 it->path[it->count - 1]);		\
+    a_type *left = rbtn_left_get(a_type, a_field, ret);			\
     if (left != &rbtree->rbt_nil) {					\
 	rbtn_iter_go_right_down(a_type, a_field,			\
 				rbtree,					\
@@ -1184,13 +1192,11 @@ a_attr bool								\
 a_prefix##isearch(a_rbt_type *rbtree, a_key key,			\
 	  struct a_prefix##iterator *it)				\
 {									\
-    assert(rbtree);							\
-    assert(it);								\
     a_type *cur = rbtree->rbt_root;					\
     it->count = 0;							\
     while (cur != &rbtree->rbt_nil) {					\
 	int cmp = a_cmp_key(RB_CMP_ARG key, cur);			\
-	assert(it->count < MAX_ITER_HEIGHT);				\
+	assert(it->count < RB_MAX_TREE_HEIGHT);				\
 	it->path[it->count++] = cur;					\
 	if (cmp < 0) {							\
 	    cur = rbtn_left_get(a_type, a_field, cur);			\
@@ -1207,15 +1213,13 @@ a_attr void								\
 a_prefix##isearch_le(a_rbt_type *rbtree, a_key key,			\
 	     struct a_prefix##iterator *it)				\
 {									\
-    assert(rbtree);							\
-    assert(it);								\
     it->count = 0;							\
     a_type *cur = rbtree->rbt_root;					\
     int ret_count = -1;							\
     uint32_t prev_count = 0;						\
     while (cur != &rbtree->rbt_nil) {					\
 	int cmp = a_cmp_key(RB_CMP_ARG key, cur);			\
-	assert(it->count < MAX_ITER_HEIGHT);				\
+	assert(it->count < RB_MAX_TREE_HEIGHT);				\
 	it->path[it->count++] = cur;					\
 	if (cmp < 0) {							\
 	    cur = rbtn_left_get(a_type, a_field, cur);			\
@@ -1237,15 +1241,13 @@ a_attr void								\
 a_prefix##isearch_ge(a_rbt_type *rbtree, a_key key,			\
 	     struct a_prefix##iterator *it)				\
 {									\
-    assert(rbtree);							\
-    assert(it);								\
     it->count = 0;							\
     a_type *cur = rbtree->rbt_root;					\
     int ret_count = -1;							\
     uint32_t next_count = 0;						\
     while (cur != &rbtree->rbt_nil) {					\
 	int cmp = a_cmp_key(RB_CMP_ARG key, cur);			\
-	assert(it->count < MAX_ITER_HEIGHT);				\
+	assert(it->count < RB_MAX_TREE_HEIGHT);				\
 	it->path[it->count++] = cur;					\
 	if (cmp < 0) {							\
 	    next_count = it->count;					\
@@ -1267,14 +1269,12 @@ a_attr void								\
 a_prefix##isearch_lt(a_rbt_type *rbtree, a_key key,			\
 	     struct a_prefix##iterator *it)				\
 {									\
-    assert(rbtree);							\
-    assert(it);								\
     it->count = 0;							\
     uint32_t prev_count = 0;						\
     a_type *cur = rbtree->rbt_root;					\
     while (cur != &rbtree->rbt_nil) {					\
 	int cmp = a_cmp_key(RB_CMP_ARG key, cur);			\
-	assert(it->count < MAX_ITER_HEIGHT);				\
+	assert(it->count < RB_MAX_TREE_HEIGHT);				\
 	it->path[it->count++] = cur;					\
 	if (cmp < 0) {							\
 	    cur = rbtn_left_get(a_type, a_field, cur);			\
@@ -1291,14 +1291,12 @@ a_attr void								\
 a_prefix##isearch_gt(a_rbt_type *rbtree, a_key key,			\
 	     struct a_prefix##iterator *it)				\
 {									\
-    assert(rbtree);							\
-    assert(it);								\
     it->count = 0;							\
     uint32_t next_count = 0;						\
     a_type *cur = rbtree->rbt_root;					\
     while (cur != &rbtree->rbt_nil) {					\
 	int cmp = a_cmp_key(RB_CMP_ARG key, cur);			\
-	assert(it->count < MAX_ITER_HEIGHT);				\
+	assert(it->count < RB_MAX_TREE_HEIGHT);				\
 	it->path[it->count++] = cur;					\
 	if (cmp < 0) {							\
 	    next_count = it->count;					\
