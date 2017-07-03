@@ -11,7 +11,6 @@
 #include <utility>
 #include <algorithm>
 
-
 #define MAX_KEY 30
 #define RB_COMPACT 0
 #define DEFAULT_NODES 100
@@ -48,7 +47,7 @@ node_cmp(const node_t *a, const node_t *b)
 	return key_cmp(a->key, b->key);
 }
 
-rb_gen_ext_key(static inline, test_, tree_t,
+rb_gen_ext_key(static inline MAYBE_UNUSED, test_, tree_t,
 		   node_t, node, node_cmp,
 		   my_pair, key_node_cmp);
 

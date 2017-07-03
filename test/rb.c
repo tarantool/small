@@ -36,7 +36,7 @@ node_cmp(const node_t *a, const node_t *b)
     return key_cmp(a->key, b->key);
 }
 
-rb_gen_ext_key(static inline, test_, tree_t,
+rb_gen_ext_key(MAYBE_UNUSED static inline, test_, tree_t,
            node_t, node, node_cmp,
            int, key_node_cmp);
 

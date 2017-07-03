@@ -46,6 +46,12 @@
 #define fail_if(expr) if (expr) fail(#expr, "true")
 #define fail_unless(expr) if (!(expr)) fail(#expr, "false")
 
+#if defined(__GNUC__) || defined(__CLANG__)
+#  define MAYBE_UNUSED __attribute__((unused))
+#else
+#define MAYBE_UNUSED
+#endif
+
 #if defined(__cplusplus)
 extern "C" {
 #endif /* defined(__cplusplus) */
