@@ -19,11 +19,8 @@ add_executable(rb.test rb.c)
 target_link_libraries(rb.test small)
 
 add_executable(rb_rand.test rb_rand.cc)
-set_target_properties(rb_rand.test PROPERTIES
-    CXX_STANDARD 11
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
-)
+set_source_files_properties(rb_rand.cc PROPERTIES
+    COMPILE_FLAGS "-std=gnu++0x")
 
 add_executable(mempool.test mempool.c)
 target_link_libraries(mempool.test small)
