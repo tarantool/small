@@ -178,8 +178,6 @@ quota_release(struct quota *quota, size_t size)
 	}
 }
 
-#undef QUOTA_UNIT_SIZE
-
 #if defined(__cplusplus)
 } /* extern "C" { */
 #endif /* defined(__cplusplus) */
