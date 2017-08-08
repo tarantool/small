@@ -179,6 +179,8 @@ slab_cache_create(struct slab_cache *cache, struct slab_arena *arena)
 	for (i = 0; i <= cache->order_max; i++)
 		slab_list_create(&cache->orders[i]);
 	slab_cache_set_thread(cache);
+	quota_lessor_create(&cache->quota, arena->quota);
+
 	VALGRIND_CREATE_MEMPOOL_EXT(cache, 0, 0, VALGRIND_MEMPOOL_METAPOOL |
 				    VALGRIND_MEMPOOL_AUTO_FREE);
 }
@@ -195,12 +197,17 @@ slab_cache_destroy(struct slab_cache *cache)
 	struct slab *slab, *tmp;
 	rlist_foreach_entry_safe(slab, slabs, next_in_cache, tmp) {
 		if (slab->order == cache->order_max + 1) {
+			size_t slab_size = slab->size;
+			quota_end_lease(&cache->quota, slab_size);
 			VALGRIND_MEMPOOL_FREE(cache, slab_data(slab));
 			free(slab);
 		} else {
 			slab_unmap(cache->arena, slab);
 		}
 	}
+
+	quota_lessor_destroy(&cache->quota);
+
 	VALGRIND_DESTROY_MEMPOOL(cache);
 }
 
@@ -267,9 +274,14 @@ slab_get(struct slab_cache *cache, size_t size)
 	uint8_t order = slab_order(cache, size);
 
 	if (order == cache->order_max + 1) {
-		struct slab *slab = (struct slab *) malloc(size);
-		if (slab == NULL)
+		/* Sic: malloc's fragmentation is not accounted by quota */
+		if (quota_lease(&cache->quota, size) != 0)
 			return NULL;
+		struct slab *slab = (struct slab *) malloc(size);
+		if (slab == NULL) {
+			quota_end_lease(&cache->quota, size);
+			return NULL;
+		}
 		slab_create(slab, order, size);
 		slab_list_add(&cache->allocated, slab, next_in_cache);
 		cache->allocated.stats.used += size;
@@ -290,9 +302,10 @@ slab_put(struct slab_cache *cache, struct slab *slab)
 		 * Free a huge slab right away, we have no
 		 * further business to do with it.
 		 */
-		uint32_t slab_size = slab->size;
+		size_t slab_size = slab->size;
 		slab_list_del(&cache->allocated, slab, next_in_cache);
 		cache->allocated.stats.used -= slab_size;
+		quota_end_lease(&cache->quota, slab_size);
 		slab_poison(slab);
 		VALGRIND_MEMPOOL_FREE(cache, slab_data(slab));
 		free(slab);

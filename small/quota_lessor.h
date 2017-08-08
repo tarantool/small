@@ -106,6 +106,8 @@ static inline void
 quota_lessor_destroy(struct quota_lessor *lessor)
 {
 	assert(lessor->leased == 0);
+	if (lessor->available == 0)
+		return;
 	assert(lessor->available % QUOTA_UNIT_SIZE == 0);
 	quota_release(lessor->source, lessor->available);
 	lessor->available = 0;
