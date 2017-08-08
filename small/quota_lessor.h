@@ -34,50 +34,60 @@
 #include "quota.h"
 
 /**
- * Quota lessor allows to reduce strict usage of quota. The quota
- * has two shortcomings:
- * 1. Its precision is 1Kb.
- * 2. It is thread-safe and use atomics - it is too slow for
- *    frequent quota_use calls from different threads.
+ * Quota lessor is a conventional wrapper around thread-safe `struct quota`
+ * to allocate small chunks of memory fron the single thread. Original quota
+ * has 1Kb precision and uses atomics, which are too slow for frequent calls
+ * from different threads.
  *
- * The quota lessor uses the original quota to account big memory
- * blocks, at least 1Mb each. Then the lessor reaccounts this
- * memory in small and frequent allocs, but with no original qouta
- * access.
- * The end of lease is implemented in the similar way - the lessor
- * does not release small bytes count. The lessor accumulates
- * freed memory until it reaches at least 1Mb, an then releases.
+ * The quota lessor allocates the huge (1Mb+) chunks of memory from
+ * the source quota and then re-leases the small chunks to the end users
+ * without access to original quota. The end of lease is implemented in
+ * the similar way - the lessor does not release small bytes count.
+ * The lessor accumulates freed memory until it reaches at least 1Mb,
+ * an then releases.
  *
  * In such way the lessor decreases atomic locks usage and
  * improves the precision from 1024 bytes to 1 byte.
  * It is not thread-safe, so per each thread must be a lessor
  * created.
  */
-
-/** Best byte count to alloc from original quota. */
-#define QUOTA_LEASE_SIZE (QUOTA_UNIT_SIZE * 1024)
-
 struct quota_lessor {
 	/** Original thread-safe, 1Kb precision quota. */
 	struct quota *source;
-	/** Byte count taken from @source, but not used. */
+	/** The number of bytes taken from @a source, but not used. */
 	size_t available;
-	/** Used byte count. */
+	/** The number of bytes leased. */
 	size_t leased;
 };
 
+/**
+ * Return the total number of bytes leased
+ * @param lessor quota_lessor
+ */
 static inline size_t
 quota_leased(const struct quota_lessor *lessor)
 {
 	return lessor->leased;
 }
 
+/**
+ * Return the number of bytes allocated from the source, but not leased yet
+ * @param lessor quota_lessor
+ */
 static inline size_t
 quota_available(const struct quota_lessor *lessor)
 {
 	return lessor->available;
 }
 
+/** Best byte count to alloc from original quota. */
+#define QUOTA_LEASE_SIZE (QUOTA_UNIT_SIZE * 1024)
+
+/**
+ * Create a new quota lessor from @a source.
+ * @param lessor quota_lessor
+ * @param source source quota
+ */
 static inline void
 quota_lessor_create(struct quota_lessor *lessor, struct quota *source)
 {
@@ -88,6 +98,23 @@ quota_lessor_create(struct quota_lessor *lessor, struct quota *source)
 }
 
 /**
+ * Destroy the quota lessor
+ * @param lessor quota_lessor
+ * @pre quota_leased(lessor) == 0
+ */
+static inline void
+quota_lessor_destroy(struct quota_lessor *lessor)
+{
+	assert(lessor->leased == 0);
+	assert(lessor->available % QUOTA_UNIT_SIZE == 0);
+	quota_release(lessor->source, lessor->available);
+	lessor->available = 0;
+}
+
+/**
+ * Lease @a size bytes.
+ * @param lessor quota lessor
+ * @param size the number of bytes to lease
  * @retval  0 Success.
  * @retval -1 Error, not enough quota.
  */
@@ -123,10 +150,10 @@ quota_lease(struct quota_lessor *lessor, size_t size)
 			/*
 			 * 1. available_new = available_old +
 			 *                    source_mem - size;
-			 * 2. available_old - size == -needed;
+			 * 2. available_old = size - needed;
 			 * 3. available_new = source_mem - needed.
 			 */
-			lessor->available = source_mem - needed;
+			lessor->available = (size_t)source_mem - needed;
 			lessor->leased += size;
 			return 0;
 		}
@@ -145,6 +172,11 @@ quota_lease(struct quota_lessor *lessor, size_t size)
 	assert(0);
 }
 
+/*
+ * End the lease of @a size bytes
+ * @param lessor quota_lessor
+ * @param size the number of bytes to return
+ */
 static inline void
 quota_end_lease(struct quota_lessor *lessor, size_t size)
 {
@@ -164,15 +196,6 @@ quota_end_lease(struct quota_lessor *lessor, size_t size)
 		assert(lessor->available >= to_release);
 		lessor->available -= to_release;
 	}
-}
-
-static inline void
-quota_end_total(struct quota_lessor *lessor)
-{
-	assert(lessor->leased == 0);
-	assert(lessor->available % QUOTA_UNIT_SIZE == 0);
-	quota_release(lessor->source, lessor->available);
-	lessor->available = 0;
 }
 
 #endif /* INCLUDES_TARANTOOL_SMALL_QUOTA_LESSOR_H */

@@ -49,7 +49,7 @@ test_basic()
 	is(QUOTA_LEASE_SIZE, quota_available(&l), "lessor avoids oscillation");
 	is(QUOTA_LEASE_SIZE, quota_used(&q), "source quota isn't empty");
 
-	quota_end_total(&l);
+	quota_lessor_destroy(&l);
 	is(0, quota_available(&l), "lessor has no memory");
 	is(0, quota_used(&q), "source quota is empty");
 
@@ -81,7 +81,7 @@ test_hard_lease()
 
 	quota_end_lease(&l, quota_leased(&l));
 
-	quota_end_total(&l);
+	quota_lessor_destroy(&l);
 	is(0, quota_available(&l), "lessor is empty");
 	is(0, quota_leased(&l), "lessor is empty");
 	is(0, quota_used(&q), "sourcr quota is empty");
