@@ -147,9 +147,13 @@ struct small_alloc {
 	 */
 	factor_tree_t factor_pools;
 	/**
-	 * List of objects to be freed if delayed free mode.
+	 * List of mempool which objects to be freed if delayed free mode.
 	 */
 	struct lifo delayed;
+	/**
+	 * List of large allocations by malloc() to be freed in delayed mode.
+	 */
+	struct lifo delayed_large;
 	/**
 	 * The factor used for factored pools. Must be > 1.
 	 * Is provided during initialization.

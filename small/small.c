@@ -30,7 +30,6 @@
  */
 #include "small.h"
 #include <assert.h>
-#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -152,6 +151,7 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 	(void) factor_pool_create(alloc, NULL, alloc->objsize_max);
 
 	lifo_init(&alloc->delayed);
+	lifo_init(&alloc->delayed_large);
 	alloc->is_delayed_free_mode = false;
 }
 
@@ -171,13 +171,27 @@ small_alloc_setopt(struct small_alloc *alloc, enum small_opt opt, bool val)
 static inline void
 smfree_batch(struct small_alloc *alloc)
 {
-	if (alloc->is_delayed_free_mode || lifo_is_empty(&alloc->delayed))
+	if (alloc->is_delayed_free_mode)
 		return;
 
 	const int BATCH = 100;
+
+	/* Free large allocations */
+	int i;
+	for (i = 0; i < BATCH; i++) {
+		void *item = lifo_pop(&alloc->delayed_large);
+		if (item == NULL)
+			break;
+		struct slab *slab = slab_from_data(item);
+		slab_put(alloc->cache, slab);
+	}
+
+	if (lifo_is_empty(&alloc->delayed))
+		return;
+
+	/* Free regular allocations */
 	struct mempool *pool = lifo_peek(&alloc->delayed);
 
-	int i;
 	for (i = 0; i < BATCH; i++) {
 		void *item = lifo_pop(&pool->delayed);
 		if (item == NULL) {
@@ -224,8 +238,13 @@ smalloc(struct small_alloc *alloc, size_t size)
 		pattern.pool.objsize = size;
 		struct factor_pool *upper_bound =
 			factor_tree_nsearch(&alloc->factor_pools, &pattern);
-		if (upper_bound == NULL)
-			return NULL; /* The requested size is too large. */
+		if (upper_bound == NULL) {
+			/* Object is too large, fallback to slab_cache */
+			struct slab *slab = slab_get(alloc->cache, size);
+			if (slab == NULL)
+				return NULL;
+			return slab_data(slab);
+		}
 
 		if (size < upper_bound->objsize_min)
 			upper_bound = factor_pool_create(alloc, upper_bound,
@@ -267,7 +286,8 @@ mempool_find(struct small_alloc *alloc, size_t size)
 		pattern.pool.objsize = size;
 		struct factor_pool *upper_bound =
 			factor_tree_nsearch(&alloc->factor_pools, &pattern);
-		assert(upper_bound != NULL);
+		if (upper_bound == NULL)
+			return NULL; /* Allocated by slab_cache. */
 		assert(size >= upper_bound->objsize_min);
 		pool = &upper_bound->pool;
 	}
@@ -290,8 +310,15 @@ void
 smfree(struct small_alloc *alloc, void *ptr, size_t size)
 {
 	struct mempool *pool = mempool_find(alloc, size);
-	mempool_free(pool, ptr);
+	if (pool == NULL) {
+		/* Large allocation by slab_cache */
+		struct slab *slab = slab_from_data(ptr);
+		slab_put(alloc->cache, slab);
+		return;
+	}
 
+	/* Regular allocation in mempools */
+	mempool_free(pool, ptr);
 	if (mempool_used(pool) == 0)
 		small_recycle_pool(alloc, pool);
 }
@@ -306,6 +333,12 @@ smfree_delayed(struct small_alloc *alloc, void *ptr, size_t size)
 {
 	if (alloc->is_delayed_free_mode && ptr) {
 		struct mempool *pool = mempool_find(alloc, size);
+		if (pool == NULL) {
+			/* Large-object allocation by slab_cache. */
+			lifo_push(&alloc->delayed_large, ptr);
+			return;
+		}
+		/* Regular allocation in mempools */
 		if (lifo_is_empty(&pool->delayed))
 			lifo_push(&alloc->delayed, &pool->link);
 		lifo_push(&pool->delayed, ptr);
@@ -353,6 +386,14 @@ small_alloc_destroy(struct small_alloc *alloc)
 	struct mempool *pool;
 	while ((pool = mempool_iterator_next(&it))) {
 		mempool_destroy(pool);
+	}
+	lifo_init(&alloc->delayed);
+
+	/* Free large allocations */
+	void *item;
+	while ((item = lifo_pop(&alloc->delayed_large))) {
+		struct slab *slab = slab_from_data(item);
+		slab_put(alloc->cache, slab);
 	}
 }
 

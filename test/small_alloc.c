@@ -7,10 +7,7 @@
 
 enum {
 	OBJSIZE_MIN = 3 * sizeof(int),
-	OBJSIZE_MAX = 5000,
-	OBJECTS_MAX = 1000,
-	OSCILLATION_MAX = 1024,
-	ITERATIONS_MAX = 5000,
+	OBJECTS_MAX = 1000
 };
 
 struct slab_arena arena;
@@ -37,12 +34,10 @@ free_checked(int *ptr)
 }
 
 static inline void *
-alloc_checked()
+alloc_checked(int pos, int size_min, int size_max)
 {
-	int pos = rand() % OBJECTS_MAX;
-	int size = rand() % OBJSIZE_MAX;
-	if (size < OBJSIZE_MIN || size > OBJSIZE_MAX)
-		size = OBJSIZE_MIN;
+	assert(size_max > size_min);
+	int size = size_min + rand() % (size_max - size_min);
 
 	if (ptrs[pos]) {
 		assert(ptrs[pos][0] == pos);
@@ -58,33 +53,44 @@ alloc_checked()
 	return ptrs[pos];
 }
 
-
 static void
-basic_alloc_streak()
+small_alloc_test(int size_min, int size_max, int objects_max,
+		 int oscillation_max, int iterations_max)
 {
-	int oscillation = rand() % OSCILLATION_MAX;
-	int i;
-
-	for (i = 0; i < oscillation; ++i) {
-		alloc_checked();
-	}
-}
-
-void
-small_alloc_basic()
-{
-	int i;
-	header();
-
 	small_alloc_create(&alloc, &cache, OBJSIZE_MIN, 1.3);
 
-	for (i = 0; i < ITERATIONS_MAX; i++) {
-		basic_alloc_streak();
+	for (int i = 0; i < iterations_max; i++) {
+		int oscillation = rand() % oscillation_max;
+		for (int j = 0; j < oscillation; ++j) {
+			int pos = rand() % objects_max;
+			alloc_checked(pos, size_min, size_max);
+		}
 		allocating = ! allocating;
 	}
 
-	small_alloc_destroy(&alloc);
+	for (int pos = 0; pos < OBJECTS_MAX; pos++) {
+		if (ptrs[pos] != NULL)
+			free_checked(ptrs[pos]);
+	}
 
+	small_alloc_destroy(&alloc);
+}
+
+static void
+small_alloc_basic(void)
+{
+	header();
+	small_alloc_test(OBJSIZE_MIN, 5000, 1000, 1024, 5000);
+	footer();
+}
+
+static void
+small_alloc_large(void)
+{
+	header();
+	size_t large_size_min = cache.arena->slab_size;
+	size_t large_size_max = 2 * large_size_min;
+	small_alloc_test(large_size_min, large_size_max, 50, 10, 100);
 	footer();
 }
 
@@ -101,6 +107,7 @@ int main()
 	slab_cache_create(&cache, &arena);
 
 	small_alloc_basic();
+	small_alloc_large();
 
 	slab_cache_destroy(&cache);
 }
