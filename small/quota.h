@@ -155,7 +155,7 @@ quota_use(struct quota *quota, size_t size)
 }
 
 /** Release used memory */
-static inline void
+static inline size_t
 quota_release(struct quota *quota, size_t size)
 {
 	assert(size < QUOTA_MAX);
@@ -176,6 +176,7 @@ quota_release(struct quota *quota, size_t size)
 		if (pm_atomic_compare_exchange_strong(&quota->value, &value, new_value))
 			break;
 	}
+	return size_in_units * QUOTA_UNIT_SIZE;
 }
 
 #if defined(__cplusplus)

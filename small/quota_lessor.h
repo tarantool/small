@@ -30,32 +30,28 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
 #include "quota.h"
-
 /**
- * Quota lessor is a conventional wrapper around thread-safe `struct quota`
- * to allocate small chunks of memory fron the single thread. Original quota
+ * Quota lessor is a convenience wrapper around thread-safe `struct quota`
+ * to allocate small chunks of memory from the single thread. Original quota
  * has 1Kb precision and uses atomics, which are too slow for frequent calls
  * from different threads.
  *
- * The quota lessor allocates the huge (1Mb+) chunks of memory from
- * the source quota and then re-leases the small chunks to the end users
- * without access to original quota. The end of lease is implemented in
- * the similar way - the lessor does not release small bytes count.
- * The lessor accumulates freed memory until it reaches at least 1Mb,
- * an then releases.
+ * The quota lessor allocates huge (1Mb+) chunks of memory from
+ * the source quota and then leases small chunks to the end users.
+ * The end of lease is implemented in the similar way - the lessor
+ * does not release small amounts, but accumulates freed memory until
+ * it reaches at least 1Mb an then releases it.
  *
- * In such way the lessor decreases atomic locks usage and
- * improves the precision from 1024 bytes to 1 byte.
- * It is not thread-safe, so per each thread must be a lessor
- * created.
+ * This decreases usage of atomic locks and improves quota
+ * precision from 1024 bytes to 1 byte. This class, however, is
+ * not thread-safe, so there must be a lessor in each thread.
  */
 struct quota_lessor {
 	/** Original thread-safe, 1Kb precision quota. */
 	struct quota *source;
-	/** The number of bytes taken from @a source, but not used. */
-	size_t available;
+	/** The number of bytes taken from @a source. */
+	size_t used;
 	/** The number of bytes leased. */
 	size_t leased;
 };
@@ -77,11 +73,11 @@ quota_leased(const struct quota_lessor *lessor)
 static inline size_t
 quota_available(const struct quota_lessor *lessor)
 {
-	return lessor->available;
+	return lessor->used - lessor->leased;
 }
 
-/** Best byte count to alloc from original quota. */
-#define QUOTA_LEASE_SIZE (QUOTA_UNIT_SIZE * 1024)
+/** Min byte count to alloc from original quota. */
+#define QUOTA_USE_MIN (QUOTA_UNIT_SIZE * 1024)
 
 /**
  * Create a new quota lessor from @a source.
@@ -92,9 +88,9 @@ static inline void
 quota_lessor_create(struct quota_lessor *lessor, struct quota *source)
 {
 	lessor->source = source;
-	lessor->available = 0;
+	lessor->used = 0;
 	lessor->leased = 0;
-	assert(quota_total(source) >= QUOTA_LEASE_SIZE);
+	assert(quota_total(source) >= QUOTA_USE_MIN);
 }
 
 /**
@@ -106,11 +102,11 @@ static inline void
 quota_lessor_destroy(struct quota_lessor *lessor)
 {
 	assert(lessor->leased == 0);
-	if (lessor->available == 0)
+	if (lessor->used == 0)
 		return;
-	assert(lessor->available % QUOTA_UNIT_SIZE == 0);
-	quota_release(lessor->source, lessor->available);
-	lessor->available = 0;
+	assert(lessor->used % QUOTA_UNIT_SIZE == 0);
+	quota_release(lessor->source, lessor->used);
+	lessor->used = 0;
 }
 
 /**
@@ -124,54 +120,24 @@ static inline int
 quota_lease(struct quota_lessor *lessor, size_t size)
 {
 	/* Fast way, there is enough unused quota. */
-	if (lessor->available >= size) {
-		lessor->available -= size;
+	if (lessor->leased + size <= lessor->used) {
 		lessor->leased += size;
 		return 0;
 	}
+	/* Need to use the original quota. */
+	size_t required = size + lessor->leased - lessor->used;
+	size_t use = required > QUOTA_USE_MIN ? required : QUOTA_USE_MIN;
 
-	/* Need to use original quota. */
-	size_t needed = size - lessor->available;
-	/* quota_use takes size multiple to QUOTA_UNIT_SIZE. */
-	size_t mult_size;
-	if (needed % QUOTA_UNIT_SIZE == 0)
-		mult_size = needed;
-	else
-		mult_size = needed + QUOTA_UNIT_SIZE - needed % QUOTA_UNIT_SIZE;
-	assert(mult_size % QUOTA_UNIT_SIZE == 0);
-	size_t best_size;
-	if (QUOTA_LEASE_SIZE > mult_size)
-		best_size = QUOTA_LEASE_SIZE;
-	else
-		best_size = mult_size;
-	while(true) {
-		ssize_t source_mem =
-			quota_use(lessor->source, best_size);
-		if (source_mem != -1) {
-			assert((size_t)source_mem == best_size);
-			/*
-			 * 1. available_new = available_old +
-			 *                    source_mem - size;
-			 * 2. available_old = size - needed;
-			 * 3. available_new = source_mem - needed.
-			 */
-			lessor->available = (size_t)source_mem - needed;
+	for (; use >= required; use = use/2) {
+
+		ssize_t used = quota_use(lessor->source, use);
+		if (used >= 0) {
+			lessor->used += used;
 			lessor->leased += size;
 			return 0;
 		}
-		/* Cannot allocate less, than mult_size. */
-		if (best_size == mult_size)
-			return -1;
-		assert(best_size > mult_size);
-		/*
-		 * Divide the needed size, until the original
-		 * quota successfully returns it.
-		 */
-		best_size /= 2;
-		if (best_size < mult_size)
-			best_size = mult_size;
 	}
-	assert(0);
+	return -1;
 }
 
 /*
@@ -182,21 +148,17 @@ quota_lease(struct quota_lessor *lessor, size_t size)
 static inline void
 quota_end_lease(struct quota_lessor *lessor, size_t size)
 {
-	lessor->available += size;
-	assert(size <= lessor->leased);
 	lessor->leased -= size;
+	assert(lessor->leased >= 0);
+	size_t available = lessor->used - lessor->leased;
 	/*
-	 * Release the original quota, when enough bytes
-	 * accumulated to avoid frequent quota_release calls.
+	 * Release the original quota when enough bytes
+	 * accumulated to avoid frequent quota_release() calls.
 	 */
-	if (lessor->available >= 2 * QUOTA_LEASE_SIZE) {
-		size_t to_release = lessor->available -
-				    lessor->available % QUOTA_UNIT_SIZE;
-		/* Leave one LEASE_SIZE to avoid oscillation. */
-		to_release -= QUOTA_LEASE_SIZE;
-		quota_release(lessor->source, to_release);
-		assert(lessor->available >= to_release);
-		lessor->available -= to_release;
+	if (available >= 2 * QUOTA_USE_MIN) {
+		/* Do not release too much to avoid oscillation. */
+		size_t release = available - QUOTA_USE_MIN - QUOTA_UNIT_SIZE;
+		lessor->used -= quota_release(lessor->source, release);
 	}
 }
 
