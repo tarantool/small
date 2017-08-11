@@ -113,16 +113,16 @@ quota_lessor_destroy(struct quota_lessor *lessor)
  * Lease @a size bytes.
  * @param lessor quota lessor
  * @param size the number of bytes to lease
- * @retval  0 Success.
+ * @retval  >= 0 Number of leased bytes.
  * @retval -1 Error, not enough quota.
  */
-static inline int
-quota_lease(struct quota_lessor *lessor, size_t size)
+static inline ssize_t
+quota_lease(struct quota_lessor *lessor, ssize_t size)
 {
 	/* Fast way, there is enough unused quota. */
 	if (lessor->leased + size <= lessor->used) {
 		lessor->leased += size;
-		return 0;
+		return size;
 	}
 	/* Need to use the original quota. */
 	size_t required = size + lessor->leased - lessor->used;
@@ -134,7 +134,7 @@ quota_lease(struct quota_lessor *lessor, size_t size)
 		if (used >= 0) {
 			lessor->used += used;
 			lessor->leased += size;
-			return 0;
+			return size;
 		}
 	}
 	return -1;
@@ -145,8 +145,8 @@ quota_lease(struct quota_lessor *lessor, size_t size)
  * @param lessor quota_lessor
  * @param size the number of bytes to return
  */
-static inline void
-quota_end_lease(struct quota_lessor *lessor, size_t size)
+static inline ssize_t
+quota_end_lease(struct quota_lessor *lessor, ssize_t size)
 {
 	lessor->leased -= size;
 	assert(lessor->leased >= 0);
@@ -160,6 +160,7 @@ quota_end_lease(struct quota_lessor *lessor, size_t size)
 		size_t release = available - QUOTA_USE_MIN - QUOTA_UNIT_SIZE;
 		lessor->used -= quota_release(lessor->source, release);
 	}
+	return size;
 }
 
 #endif /* INCLUDES_TARANTOOL_SMALL_QUOTA_LESSOR_H */

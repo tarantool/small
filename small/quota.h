@@ -155,7 +155,7 @@ quota_use(struct quota *quota, size_t size)
 }
 
 /** Release used memory */
-static inline size_t
+static inline ssize_t
 quota_release(struct quota *quota, size_t size)
 {
 	assert(size < QUOTA_MAX);
