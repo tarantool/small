@@ -275,7 +275,7 @@ slab_get(struct slab_cache *cache, size_t size)
 
 	if (order == cache->order_max + 1) {
 		/* Sic: malloc's fragmentation is not accounted by quota */
-		if (quota_lease(&cache->quota, size) != 0)
+		if (quota_lease(&cache->quota, size) < 0)
 			return NULL;
 		struct slab *slab = (struct slab *) malloc(size);
 		if (slab == NULL) {
