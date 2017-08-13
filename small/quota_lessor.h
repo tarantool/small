@@ -146,10 +146,10 @@ quota_lease(struct quota_lessor *lessor, ssize_t size)
  * @param size the number of bytes to return
  */
 static inline ssize_t
-quota_end_lease(struct quota_lessor *lessor, ssize_t size)
+quota_end_lease(struct quota_lessor *lessor, size_t size)
 {
+	assert(lessor->leased >= size);
 	lessor->leased -= size;
-	assert(lessor->leased >= 0);
 	size_t available = lessor->used - lessor->leased;
 	/*
 	 * Release the original quota when enough bytes

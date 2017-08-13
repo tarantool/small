@@ -37,16 +37,12 @@ int main()
 		i++;
 	}
 
-	fail_unless(arena.used + cache.quota.used == quota_used(&quota));
-
 	/* Put all allocated memory back to cache */
 	for (i = 0; i < NRUNS; i++) {
 		if (runs[i])
 			slab_put(&cache, runs[i]);
 	}
 	slab_cache_check(&cache);
-
-	fail_unless(arena.used + cache.quota.used == quota_used(&quota));
 
 	/*
 	 * It is allowed to hold only one slab of arena.

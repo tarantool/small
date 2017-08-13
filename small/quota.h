@@ -130,7 +130,8 @@ quota_set(struct quota *quota, size_t new_total)
 static inline ssize_t
 quota_use(struct quota *quota, size_t size)
 {
-	assert(size < QUOTA_MAX);
+	if (size > QUOTA_MAX)
+		return -1;
 	uint32_t size_in_units = (size + (QUOTA_UNIT_SIZE - 1))
 				  / QUOTA_UNIT_SIZE;
 	assert(size_in_units);

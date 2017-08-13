@@ -36,7 +36,6 @@
 #include <assert.h>
 #include "rlist.h"
 #include "slab_arena.h"
-#include "quota_lessor.h"
 #include <pthread.h>
 
 #if defined(__cplusplus)
@@ -165,8 +164,6 @@ struct slab_cache {
 	 * next_in_list link may be reused for some other purpose.
          */
 	struct slab_list orders[ORDER_MAX+1];
-	/** Quota lessor for slab_get() allocations */
-	struct quota_lessor quota;
 #ifndef _NDEBUG
 	pthread_t thread_id;
 #endif
