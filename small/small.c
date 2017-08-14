@@ -183,7 +183,7 @@ small_collect_garbage(struct small_alloc *alloc)
 			if (item == NULL)
 				break;
 			struct slab *slab = slab_from_data(item);
-			slab_put(alloc->cache, slab);
+			slab_put_large(alloc->cache, slab);
 		}
 	} else if (!lifo_is_empty(&alloc->delayed)) {
 		/* Free regular allocations */
@@ -240,7 +240,7 @@ smalloc(struct small_alloc *alloc, size_t size)
 			factor_tree_nsearch(&alloc->factor_pools, &pattern);
 		if (upper_bound == NULL) {
 			/* Object is too large, fallback to slab_cache */
-			struct slab *slab = slab_get(alloc->cache, size);
+			struct slab *slab = slab_get_large(alloc->cache, size);
 			if (slab == NULL)
 				return NULL;
 			return slab_data(slab);
@@ -313,7 +313,7 @@ smfree(struct small_alloc *alloc, void *ptr, size_t size)
 	if (pool == NULL) {
 		/* Large allocation by slab_cache */
 		struct slab *slab = slab_from_data(ptr);
-		slab_put(alloc->cache, slab);
+		slab_put_large(alloc->cache, slab);
 		return;
 	}
 
@@ -393,7 +393,7 @@ small_alloc_destroy(struct small_alloc *alloc)
 	void *item;
 	while ((item = lifo_pop(&alloc->delayed_large))) {
 		struct slab *slab = slab_from_data(item);
-		slab_put(alloc->cache, slab);
+		slab_put_large(alloc->cache, slab);
 	}
 }
 

@@ -259,6 +259,46 @@ slab_get_with_order(struct slab_cache *cache, uint8_t order)
 	return slab;
 }
 
+struct slab *
+slab_get_large(struct slab_cache *cache, size_t size)
+{
+	size += slab_sizeof();
+	assert(slab_order(cache, size) == cache->order_max + 1);
+	if (quota_use(cache->arena->quota, size) < 0)
+		return NULL;
+	struct slab *slab = (struct slab *) malloc(size);
+	if (slab == NULL) {
+		quota_release(cache->arena->quota, size);
+		return NULL;
+	}
+
+	slab_create(slab, cache->order_max + 1, size);
+	slab_list_add(&cache->allocated, slab, next_in_cache);
+	cache->allocated.stats.used += size;
+	VALGRIND_MEMPOOL_ALLOC(cache, slab_data(slab),
+			       slab_capacity(slab));
+	return slab;
+}
+
+void
+slab_put_large(struct slab_cache *cache, struct slab *slab)
+{
+	slab_assert(cache, slab);
+	assert(slab->order == cache->order_max + 1);
+	/*
+	 * Free a huge slab right away, we have no
+	 * further business to do with it.
+	 */
+	size_t slab_size = slab->size;
+	slab_list_del(&cache->allocated, slab, next_in_cache);
+	cache->allocated.stats.used -= slab_size;
+	quota_release(cache->arena->quota, slab_size);
+	slab_poison(slab);
+	VALGRIND_MEMPOOL_FREE(cache, slab_data(slab));
+	free(slab);
+	return;
+}
+
 /**
  * Try to find a region of the requested order
  * in the cache. On failure, mmap() a new region,
@@ -269,47 +309,18 @@ slab_get_with_order(struct slab_cache *cache, uint8_t order)
 struct slab *
 slab_get(struct slab_cache *cache, size_t size)
 {
-	size += slab_sizeof();
-	uint8_t order = slab_order(cache, size);
-
-	if (order == cache->order_max + 1) {
-		/* Sic: malloc's fragmentation is not accounted by quota */
-		if (quota_use(cache->arena->quota, size) < 0)
-			return NULL;
-		struct slab *slab = (struct slab *) malloc(size);
-		if (slab == NULL) {
-			quota_release(cache->arena->quota, size);
-			return NULL;
-		}
-		slab_create(slab, order, size);
-		slab_list_add(&cache->allocated, slab, next_in_cache);
-		cache->allocated.stats.used += size;
-		VALGRIND_MEMPOOL_ALLOC(cache, slab_data(slab),
-				       slab_capacity(slab));
-		return slab;
-	}
+	uint8_t order = slab_order(cache, size + slab_sizeof());
+	if (order == cache->order_max + 1)
+		return slab_get_large(cache, size);
 	return slab_get_with_order(cache, order);
 }
 
 /** Return a slab back to the slab cache. */
 void
-slab_put(struct slab_cache *cache, struct slab *slab)
+slab_put_with_order(struct slab_cache *cache, struct slab *slab)
 {
 	slab_assert(cache, slab);
-	if (slab->order == cache->order_max + 1) {
-		/*
-		 * Free a huge slab right away, we have no
-		 * further business to do with it.
-		 */
-		size_t slab_size = slab->size;
-		slab_list_del(&cache->allocated, slab, next_in_cache);
-		cache->allocated.stats.used -= slab_size;
-		quota_release(cache->arena->quota, slab_size);
-		slab_poison(slab);
-		VALGRIND_MEMPOOL_FREE(cache, slab_data(slab));
-		free(slab);
-		return;
-	}
+	assert(slab->order <= cache->order_max);
 	/* An "ordered" slab is returned to the cache. */
 	slab_set_free(cache, slab);
 	struct slab *buddy = slab_buddy(cache, slab);
@@ -352,6 +363,14 @@ slab_put(struct slab_cache *cache, struct slab *slab)
 		rlist_add_entry(&cache->orders[slab->order].slabs, slab,
 				next_in_list);
 	}
+}
+
+void
+slab_put(struct slab_cache *cache, struct slab *slab)
+{
+	if (slab->order <= cache->order_max)
+		return slab_put_with_order(cache, slab);
+	return slab_put_large(cache, slab);
 }
 
 void

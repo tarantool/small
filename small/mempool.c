@@ -129,12 +129,12 @@ mslab_free(struct mempool *pool, struct mslab *slab, void *ptr)
 		if (pool->spare > slab) {
 			slab_list_del(&pool->slabs, &pool->spare->slab,
 				      next_in_list);
-			slab_put(pool->cache, &pool->spare->slab);
+			slab_put_with_order(pool->cache, &pool->spare->slab);
 			pool->spare = slab;
 		 } else if (pool->spare) {
 			 slab_list_del(&pool->slabs, &slab->slab,
 				       next_in_list);
-			 slab_put(pool->cache, &slab->slab);
+			 slab_put_with_order(pool->cache, &slab->slab);
 		 } else {
 			 pool->spare = slab;
 		 }
@@ -171,7 +171,7 @@ mempool_destroy(struct mempool *pool)
 	struct slab *slab, *tmp;
 	rlist_foreach_entry_safe(slab, &pool->slabs.slabs,
 				 next_in_list, tmp)
-		slab_put(pool->cache, slab);
+		slab_put_with_order(pool->cache, slab);
 }
 
 void *

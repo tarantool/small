@@ -175,12 +175,46 @@ slab_cache_create(struct slab_cache *cache, struct slab_arena *arena);
 void
 slab_cache_destroy(struct slab_cache *cache);
 
-struct slab *
-slab_get(struct slab_cache *cache, size_t size);
-
+/**
+ * Allocate ordered slab
+ * @see slab_order()
+ */
 struct slab *
 slab_get_with_order(struct slab_cache *cache, uint8_t order);
 
+/**
+ * Deallocate ordered slab
+ */
+void
+slab_put_with_order(struct slab_cache *cache, struct slab *slab);
+
+/**
+ * Allocate large slab.
+ * @pre size > slab_order_size(cache->arena->slab_size)
+ */
+struct slab *
+slab_get_large(struct slab_cache *slab, size_t size);
+
+/**
+ * Deallocate large slab.
+ * @pre slab was allocated with slab_get_large()
+ */
+void
+slab_put_large(struct slab_cache *cache, struct slab *slab);
+
+/**
+ * A shortcut for slab_get_with_order()/slab_get_large()
+ * @see slab_get_with_order()
+ * @see slab_get_large()
+ */
+struct slab *
+slab_get(struct slab_cache *cache, size_t size);
+
+/**
+ * Shortcut for slab_put_with_order()/slab_put_large()
+ * @see slab_get_with_order()
+ * @see slab_get_large()
+ */
 void
 slab_put(struct slab_cache *cache, struct slab *slab);
 
