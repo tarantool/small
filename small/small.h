@@ -123,6 +123,18 @@ struct factor_pool
 
 typedef rb_tree(struct factor_pool) factor_tree_t;
 
+/**
+ * Free mode
+ */
+enum small_free_mode {
+	/** Free objects immediately. */
+	SMALL_FREE,
+	/** Collect garbage after delayed free. */
+	SMALL_COLLECT_GARBAGE,
+	/** Postpone deletion of objects. */
+	SMALL_DELAYED_FREE,
+};
+
 /** A slab allocator for a wide range of object sizes. */
 struct small_alloc {
 	struct slab_cache *cache;
@@ -161,9 +173,9 @@ struct small_alloc {
 	float factor;
 	uint32_t objsize_max;
 	/**
-	 * If true, smfree_delayed puts items to delayed list.
+	 * Free mode.
 	 */
-	bool is_delayed_free_mode;
+	enum small_free_mode free_mode;
 	/**
 	 * Object size of step pool 0 divided by STEP_SIZE, to
 	 * quickly find the right stepped pool given object size.

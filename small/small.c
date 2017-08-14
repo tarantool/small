@@ -152,7 +152,7 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 
 	lifo_init(&alloc->delayed);
 	lifo_init(&alloc->delayed_large);
-	alloc->is_delayed_free_mode = false;
+	alloc->free_mode = SMALL_FREE;
 }
 
 void
@@ -160,7 +160,8 @@ small_alloc_setopt(struct small_alloc *alloc, enum small_opt opt, bool val)
 {
 	switch (opt) {
 	case SMALL_DELAYED_FREE_MODE:
-		alloc->is_delayed_free_mode = val;
+		alloc->free_mode = val ? SMALL_DELAYED_FREE :
+			SMALL_COLLECT_GARBAGE;
 		break;
 	default:
 		assert(false);
@@ -169,39 +170,38 @@ small_alloc_setopt(struct small_alloc *alloc, enum small_opt opt, bool val)
 }
 
 static inline void
-smfree_batch(struct small_alloc *alloc)
+small_collect_garbage(struct small_alloc *alloc)
 {
-	if (alloc->is_delayed_free_mode)
+	if (alloc->free_mode != SMALL_COLLECT_GARBAGE)
 		return;
 
 	const int BATCH = 100;
-
-	/* Free large allocations */
-	int i;
-	for (i = 0; i < BATCH; i++) {
-		void *item = lifo_pop(&alloc->delayed_large);
-		if (item == NULL)
-			break;
-		struct slab *slab = slab_from_data(item);
-		slab_put(alloc->cache, slab);
-	}
-
-	if (lifo_is_empty(&alloc->delayed))
-		return;
-
-	/* Free regular allocations */
-	struct mempool *pool = lifo_peek(&alloc->delayed);
-
-	for (i = 0; i < BATCH; i++) {
-		void *item = lifo_pop(&pool->delayed);
-		if (item == NULL) {
-			(void) lifo_pop(&alloc->delayed);
-			pool = lifo_peek(&alloc->delayed);
-			if (pool == NULL)
+	if (!lifo_is_empty(&alloc->delayed)) {
+		/* Free large allocations */
+		for (int i = 0; i < BATCH; i++) {
+			void *item = lifo_pop(&alloc->delayed_large);
+			if (item == NULL)
 				break;
-			continue;
+			struct slab *slab = slab_from_data(item);
+			slab_put(alloc->cache, slab);
 		}
-		mempool_free(pool, item);
+	} else if (!lifo_is_empty(&alloc->delayed)) {
+		/* Free regular allocations */
+		struct mempool *pool = lifo_peek(&alloc->delayed);
+		for (int i = 0; i < BATCH; i++) {
+			void *item = lifo_pop(&pool->delayed);
+			if (item == NULL) {
+				(void) lifo_pop(&alloc->delayed);
+				pool = lifo_peek(&alloc->delayed);
+				if (pool == NULL)
+					break;
+				continue;
+			}
+			mempool_free(pool, item);
+		}
+	} else {
+		/* Finish garbage collection and switch to regular mode */
+		alloc->free_mode = SMALL_FREE;
 	}
 }
 
@@ -223,7 +223,7 @@ smfree_batch(struct small_alloc *alloc)
 void *
 smalloc(struct small_alloc *alloc, size_t size)
 {
-	smfree_batch(alloc);
+	small_collect_garbage(alloc);
 
 	struct mempool *pool;
 	int idx = (size - 1) >> STEP_SIZE_LB;
@@ -331,7 +331,7 @@ smfree(struct small_alloc *alloc, void *ptr, size_t size)
 void
 smfree_delayed(struct small_alloc *alloc, void *ptr, size_t size)
 {
-	if (alloc->is_delayed_free_mode && ptr) {
+	if (alloc->free_mode == SMALL_DELAYED_FREE && ptr) {
 		struct mempool *pool = mempool_find(alloc, size);
 		if (pool == NULL) {
 			/* Large-object allocation by slab_cache. */
