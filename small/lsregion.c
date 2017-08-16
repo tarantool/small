@@ -35,9 +35,10 @@ void *
 lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id)
 {
 	struct lslab *slab = NULL;
+	size_t slab_size = lsregion->arena->slab_size;
 
 	/* Can't alloc more than the arena can map. */
-	if (size + lslab_sizeof() > lsregion->slab_size)
+	if (size + lslab_sizeof() > slab_size)
 		return NULL;
 
 	/* If there is an existing slab then try to use it. */
@@ -46,7 +47,7 @@ lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id)
 					next_in_list);
 		assert(slab != NULL);
 	}
-	if ((slab != NULL && size > lslab_unused(lsregion, slab)) ||
+	if ((slab != NULL && size > lslab_unused(slab)) ||
 	    slab == NULL) {
 		/* If there is the cached slab then use it. */
 		if (lsregion->cached != NULL) {
@@ -58,10 +59,10 @@ lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id)
 			slab = (struct lslab *) slab_map(lsregion->arena);
 			if (slab == NULL)
 				return NULL;
-			lslab_create(slab);
+			lslab_create(slab, slab_size);
 			rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
 					     next_in_list);
-			lsregion->slabs.stats.total += lsregion->slab_size;
+			lsregion->slabs.stats.total += slab_size;
 		}
 	}
 	assert(slab != NULL);

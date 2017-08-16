@@ -52,10 +52,14 @@ struct lslab {
 	/** Link in the lsregion.slabs list. */
 	struct rlist next_in_list;
 	/**
+	 * Slab allocated size.
+	 */
+	size_t slab_size;
+	/**
 	 * Size of used memory including aligned size of this
 	 * structure.
 	 */
-	uint32_t slab_used;
+	size_t slab_used;
 	/**
 	 * Maximal id that was used to alloc data from the slab.
 	 */
@@ -90,13 +94,11 @@ struct lsregion {
 	struct slab_list slabs;
 	/** Slabs arena - source for memory slabs. */
 	struct slab_arena *arena;
-	/** Copy of slab_arena.slab_size. */
-	uint32_t slab_size;
 	struct lslab *cached;
 };
 
 /** Aligned size of the struct lslab. */
-static inline uint32_t
+static inline size_t
 lslab_sizeof()
 {
 	return small_align(sizeof(struct lslab), sizeof(intptr_t));
@@ -104,25 +106,24 @@ lslab_sizeof()
 
 /** Initialize the lslab object. */
 static inline void
-lslab_create(struct lslab *slab)
+lslab_create(struct lslab *slab, size_t size)
 {
 	rlist_create(&slab->next_in_list);
+	slab->slab_size = size;
 	slab->slab_used = lslab_sizeof();
 	slab->max_id = LSLAB_NOT_USED_ID;
 }
 
 /**
  * Size of the unused part of the slab.
- * @param lsregion Allocator object.
  * @param slab     Slab container.
  * @retval Unsed memory size.
  */
-static inline uint32_t
-lslab_unused(const struct lsregion *lsregion, const struct lslab *slab)
+static inline size_t
+lslab_unused(const struct lslab *slab)
 {
-	uint32_t slab_size = lsregion->slab_size;
-	assert(slab_size >= slab->slab_used);
-	return slab_size - slab->slab_used;
+	assert(slab->slab_size >= slab->slab_used);
+	return slab->slab_size - slab->slab_used;
 }
 
 /**
@@ -148,7 +149,6 @@ lsregion_create(struct lsregion *lsregion, struct slab_arena *arena)
 	assert(arena->slab_size > lslab_sizeof());
 	slab_list_create(&lsregion->slabs);
 	lsregion->arena = arena;
-	lsregion->slab_size = arena->slab_size;
 	lsregion->cached = NULL;
 }
 
@@ -176,7 +176,7 @@ lsregion_alloc(struct lsregion *lsregion, size_t size, int64_t id)
 					next_in_list);
 		assert(slab != NULL);
 		assert(slab->max_id <= id);
-		if (size <= lslab_unused(lsregion, slab)) {
+		if (size <= lslab_unused(slab)) {
 			void *res = lslab_pos(slab);
 			slab->slab_used += size;
 			slab->max_id = id;
@@ -214,9 +214,9 @@ lsregion_gc(struct lsregion *lsregion, int64_t min_id)
 		lsregion->slabs.stats.used -= slab->slab_used - lslab_sizeof();
 		if (lsregion->cached != NULL) {
 			slab_unmap(lsregion->arena, slab);
-			lsregion->slabs.stats.total -= lsregion->slab_size;
+			lsregion->slabs.stats.total -= slab->slab_size;
 		} else {
-			lslab_create(slab);
+			lslab_create(slab, slab->slab_size);
 			lsregion->cached = slab;
 		}
 	}

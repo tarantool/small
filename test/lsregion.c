@@ -24,7 +24,7 @@ static void
 test_basic()
 {
 	note("basic");
-	plan(36);
+	plan(35);
 
 	struct quota quota;
 	struct slab_arena arena;
@@ -34,7 +34,6 @@ test_basic()
 	lsregion_create(&allocator, &arena);
 
 	/* Test that initialization was correct. */
-	is(allocator.slab_size, arena.slab_size, "slab size");
 	is(lsregion_used(&allocator), 0, "used after init");
 	is(lsregion_total(&allocator), 0, "total after init");
 	is(arena.used, 0, "arena used after init")
