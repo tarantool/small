@@ -1,0 +1,40 @@
+1..2
+    1..23
+    ok 1 - lease 100 bytes
+    ok 2 - leased 100 bytes
+    ok 3 - UNIT_SIZE - 100 available
+    ok 4 - source quota used
+    ok 5 - lease 200 bytes
+    ok 6 - leased 300 bytes at all
+    ok 7 - UNIT_SIZE - 300 available
+    ok 8 - source quota used did not change
+    ok 9 - lease big size
+    ok 10 - leased size
+    ok 11 - available size
+    ok 12 - update source quota used
+    ok 13 - end small lease
+    ok 14 - decrease leased
+    ok 15 - source quota did not change - too small size to free
+    ok 16 - decrease leased with big chunk
+    ok 17 - return big chunks into source quota
+    ok 18 - release source quota
+    ok 19 - lessor is empty
+    ok 20 - lessor avoids oscillation
+    ok 21 - source quota isn't empty
+    ok 22 - lessor has no memory
+    ok 23 - source quota is empty
+ok 1 - subtests
+    1..12
+    ok 1 - lease 1Mb
+    ok 2 - available 0
+    ok 3 - leased 1Mb
+    ok 4 - source quota used
+    ok 5 - lease too big
+    ok 6 - hard lease
+    ok 7 - leased changed
+    ok 8 - available the part of 1MB
+    ok 9 - source quota fully used
+    ok 10 - lessor is empty
+    ok 11 - lessor is empty
+    ok 12 - sourcr quota is empty
+ok 2 - subtests
