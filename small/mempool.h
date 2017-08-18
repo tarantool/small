@@ -112,7 +112,7 @@ static inline uint32_t
 mempool_objsize_max(uint32_t slab_size)
 {
 	/* Fit at least 4 objects in a slab, aligned by pointer size. */
-	return ((slab_size - mslab_sizeof()) / 4) &
+	return ((slab_size - mslab_sizeof()) / 16) &
 		 ~(sizeof(intptr_t) - 1);
 }
 
