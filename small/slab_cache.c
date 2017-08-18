@@ -263,7 +263,6 @@ struct slab *
 slab_get_large(struct slab_cache *cache, size_t size)
 {
 	size += slab_sizeof();
-	assert(slab_order(cache, size) == cache->order_max + 1);
 	if (quota_use(cache->arena->quota, size) < 0)
 		return NULL;
 	struct slab *slab = (struct slab *) malloc(size);

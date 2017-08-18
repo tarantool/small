@@ -88,8 +88,8 @@ static void
 small_alloc_large(void)
 {
 	header();
-	size_t large_size_min = cache.arena->slab_size;
-	size_t large_size_max = 2 * large_size_min;
+	size_t large_size_min = mempool_objsize_max(cache.arena->slab_size);
+	size_t large_size_max = 2 * cache.arena->slab_size;
 	small_alloc_test(large_size_min, large_size_max, 50, 10, 100);
 	footer();
 }
