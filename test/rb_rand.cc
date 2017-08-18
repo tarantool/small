@@ -216,13 +216,14 @@ opers(tree_t *tree, my_set& stl_tree)
 
 void delete_all(tree_t *tree, my_set& stl_tree)
 {
-	for (auto it = stl_tree.begin(); it != stl_tree.end(); ){
+	for (auto it = stl_tree.begin(); it != stl_tree.end(); ++it){
 		my_pair p = *it;
 		node_t *n = test_search(tree, p);
 		fail_unless(n);
+		test_remove(tree, n);
 		free(n);
-		it = stl_tree.erase(it);
 	}
+	stl_tree.clear();
 }
 
 int main()
