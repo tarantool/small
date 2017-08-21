@@ -1,42 +1,48 @@
 1..4
 # basic
-    1..36
+    1..42
     ok 1 - init
-    ok 2 - slab size
-    ok 3 - used after init
-    ok 4 - total after init
-    ok 5 - arena used after init
-    ok 6 - slab count after init
-    ok 7 - slab cache after init
-    ok 8 - alloc(100)
-    ok 9 - used after alloc(100)
-    ok 10 - total after alloc(100)
-    ok 11 - arena used after alloc(100)
-    ok 12 - slab count after alloc(100)
-    ok 13 - slab cache after alloc(100)
-    ok 14 - used after gc(id / 2)
-    ok 15 - total after gc(id / 2)
-    ok 16 - arena used after gc(id / 2)
-    ok 17 - slab count after gc(id / 2)
-    ok 18 - slab cache after gc(id / 2)
-    ok 19 - used after gc(id)
-    ok 20 - total after gc(id)
-    ok 21 - arena used after gc(id)
-    ok 22 - slab count after gc(id)
-    ok 23 - slab cache after gc(id)
-    ok 24 - alloc(2048)
-    ok 25 - used after alloc(2048)
-    ok 26 - total after alloc(2048)
-    ok 27 - arena used after alloc(2048)
-    ok 28 - slab count after alloc(2048)
-    ok 29 - slab cache after alloc(2048)
-    ok 30 - failed alloc(slab_size + 100)
-    ok 31 - used after failed alloc()
-    ok 32 - total after failed alloc()
-    ok 33 - arena used after failed alloc()
-    ok 34 - slab count after failed alloc()
-    ok 35 - slab cache after failed alloc()
-    ok 36 - arena used after destroy
+    ok 2 - used after init
+    ok 3 - total after init
+    ok 4 - arena used after init
+    ok 5 - slab count after init
+    ok 6 - slab cache after init
+    ok 7 - alloc(100)
+    ok 8 - used after alloc(100)
+    ok 9 - total after alloc(100)
+    ok 10 - arena used after alloc(100)
+    ok 11 - slab count after alloc(100)
+    ok 12 - slab cache after alloc(100)
+    ok 13 - used after gc(id / 2)
+    ok 14 - total after gc(id / 2)
+    ok 15 - arena used after gc(id / 2)
+    ok 16 - slab count after gc(id / 2)
+    ok 17 - slab cache after gc(id / 2)
+    ok 18 - used after gc(id)
+    ok 19 - total after gc(id)
+    ok 20 - arena used after gc(id)
+    ok 21 - slab count after gc(id)
+    ok 22 - slab cache after gc(id)
+    ok 23 - alloc(2048)
+    ok 24 - used after alloc(2048)
+    ok 25 - total after alloc(2048)
+    ok 26 - arena used after alloc(2048)
+    ok 27 - slab count after alloc(2048)
+    ok 28 - slab cache after alloc(2048)
+    ok 29 - large alloc()
+    ok 30 - used after large alloc()
+    ok 31 - total after large alloc()
+    ok 32 - arena used is not changed after large alloc()
+    ok 33 - quota used after large alloc()
+    ok 34 - slab count after large alloc()
+    ok 35 - slab cache after large alloc()
+    ok 36 - alloc after large
+    ok 37 - alloc after large
+    ok 38 - large slab is not re-used
+    ok 39 - large slab is not reused
+    ok 40 - slab count after large gc()
+    ok 41 - arena used after destroy
+    ok 42 - quota used after destroy
 ok 1 - subtests
 # many_allocs_one_slab
     1..6

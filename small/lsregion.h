@@ -36,6 +36,7 @@
 #include <stdbool.h>
 
 #include "rlist.h"
+#include "quota.h"
 #include "slab_cache.h"
 
 #if defined(__cplusplus)
@@ -198,6 +199,7 @@ static inline void
 lsregion_gc(struct lsregion *lsregion, int64_t min_id)
 {
 	struct lslab *slab, *next;
+	size_t arena_slab_size = lsregion->arena->slab_size;
 	/*
 	 * First blocks are the oldest so free them until
 	 * max_id > min_id.
@@ -212,9 +214,14 @@ lsregion_gc(struct lsregion *lsregion, int64_t min_id)
 		 * count.
 		 */
 		lsregion->slabs.stats.used -= slab->slab_used - lslab_sizeof();
-		if (lsregion->cached != NULL) {
-			slab_unmap(lsregion->arena, slab);
+		if (slab->slab_size > arena_slab_size) {
+			/* Never put large slabs into cache */
+			quota_release(lsregion->arena->quota, slab->slab_size);
 			lsregion->slabs.stats.total -= slab->slab_size;
+			free(slab);
+		} else if (lsregion->cached != NULL) {
+			lsregion->slabs.stats.total -= slab->slab_size;
+			slab_unmap(lsregion->arena, slab);
 		} else {
 			lslab_create(slab, slab->slab_size);
 			lsregion->cached = slab;

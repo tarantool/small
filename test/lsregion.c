@@ -24,7 +24,7 @@ static void
 test_basic()
 {
 	note("basic");
-	plan(35);
+	plan(42);
 
 	struct quota quota;
 	struct slab_arena arena;
@@ -95,21 +95,56 @@ test_basic()
 	is(lsregion_slab_count(&allocator), 1, "slab count after alloc(2048)");
 	is(allocator.cached, NULL, "slab cache after alloc(2048)");
 
+	/*
+	 * Large allocation backed by malloc()
+	 */
 	++id;
-	data = lsregion_alloc(&allocator, arena.slab_size + 100, id);
-	is(data, NULL, "failed alloc(slab_size + 100)")
+	size_t qused = quota_used(arena.quota);
+	size_t aused = arena.used;
 	used = lsregion_used(&allocator);
 	total = lsregion_total(&allocator);
-	is(used, size, "used after failed alloc()");
-	is(total, arena.slab_size, "total after failed alloc()");
-	is(arena.used, arena.slab_size, "arena used after failed alloc()")
-	is(lsregion_slab_count(&allocator), 1,
-	   "slab count after failed alloc()");
-	is(allocator.cached, NULL, "slab cache after failed alloc()");
+	size = arena.slab_size + 100;
+	data = lsregion_alloc(&allocator, size, id);
+	isnt(data, NULL, "large alloc()")
+	is(lsregion_used(&allocator), used + size, "used after large alloc()");
+	is(lsregion_total(&allocator), total + size + lslab_sizeof(),
+	   "total after large alloc()");
+	is(arena.used, aused, "arena used is not changed after large alloc()");
+	size_t size_quota = (size + lslab_sizeof() + QUOTA_UNIT_SIZE - 1) &
+				~(size_t)(QUOTA_UNIT_SIZE - 1);
+	is(quota_used(arena.quota), qused + size_quota,
+	   "quota used after large alloc()")
+	is(lsregion_slab_count(&allocator), 2,
+	   "slab count after large alloc()");
+	is(allocator.cached, NULL, "slab cache after large alloc()");
+
+	/*
+	 * Allocation after large slab
+	 */
+	++id;
+	size = 10;
+	used = lsregion_used(&allocator);
+	total = lsregion_total(&allocator);
+	data = lsregion_alloc(&allocator, size, id);
+	isnt(data, NULL, "alloc after large")
+	is(lsregion_used(&allocator), used + size,
+	   "alloc after large");
+	is(lsregion_total(&allocator), total + arena.slab_size,
+	   "large slab is not re-used");
+	is(lsregion_slab_count(&allocator), 3, "large slab is not reused");
+
+	/*
+	 * gc of large slab
+	 */
+	lsregion_gc(&allocator, id);
+	is(lsregion_slab_count(&allocator), 0,
+	   "slab count after large gc()");
 
 	lsregion_destroy(&allocator);
 	/* Sic: slabs are cached by arena */
-	is(arena.used, arena.slab_size, "arena used after destroy")
+	is(arena.used, 2 * arena.slab_size, "arena used after destroy");
+	is(quota_used(arena.quota), 2 * arena.slab_size,
+	   "quota used after destroy");
 	slab_arena_destroy(&arena);
 
 	check_plan();

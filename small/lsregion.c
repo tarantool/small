@@ -37,10 +37,6 @@ lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id)
 	struct lslab *slab = NULL;
 	size_t slab_size = lsregion->arena->slab_size;
 
-	/* Can't alloc more than the arena can map. */
-	if (size + lslab_sizeof() > slab_size)
-		return NULL;
-
 	/* If there is an existing slab then try to use it. */
 	if (! rlist_empty(&lsregion->slabs.slabs)) {
 		slab = rlist_last_entry(&lsregion->slabs.slabs, struct lslab,
@@ -49,8 +45,23 @@ lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id)
 	}
 	if ((slab != NULL && size > lslab_unused(slab)) ||
 	    slab == NULL) {
-		/* If there is the cached slab then use it. */
-		if (lsregion->cached != NULL) {
+		if (size + lslab_sizeof() >= slab_size) {
+			/* Large allocation, use malloc() */
+			slab_size = size + lslab_sizeof();
+			struct quota *quota = lsregion->arena->quota;
+			if (quota_use(quota, slab_size) < 0)
+				return NULL;
+			slab = malloc(slab_size);
+			if (slab == NULL) {
+				quota_release(quota, slab_size);
+				return NULL;
+			}
+			lslab_create(slab, slab_size);
+			rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
+					     next_in_list);
+			lsregion->slabs.stats.total += slab_size;
+		} else if (lsregion->cached != NULL) {
+			/* If there is the cached slab then use it. */
 			slab = lsregion->cached;
 			lsregion->cached = NULL;
 			rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
@@ -67,6 +78,7 @@ lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id)
 	}
 	assert(slab != NULL);
 	assert(slab->max_id <= id);
+	assert(size <= lslab_unused(slab));
 	void *res = lslab_pos(slab);
 	slab->slab_used += size;
 
