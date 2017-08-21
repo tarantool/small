@@ -29,7 +29,7 @@ free_checked(int *ptr)
 	int pos = ptr[0];
 	fail_unless(ptrs[pos] == ptr);
 	ptrs[pos][0] = ptrs[pos][ptr[1]/sizeof(int)-1] = INT_MAX;
-	smfree(&alloc, ptrs[pos], ptrs[pos][1]);
+	smfree_delayed(&alloc, ptrs[pos], ptrs[pos][1]);
 	ptrs[pos] = NULL;
 }
 
@@ -60,6 +60,7 @@ small_alloc_test(int size_min, int size_max, int objects_max,
 	small_alloc_create(&alloc, &cache, OBJSIZE_MIN, 1.3);
 
 	for (int i = 0; i < iterations_max; i++) {
+		small_alloc_setopt(&alloc, SMALL_DELAYED_FREE_MODE, i % 5 == 0);
 		int oscillation = rand() % oscillation_max;
 		for (int j = 0; j < oscillation; ++j) {
 			int pos = rand() % objects_max;
