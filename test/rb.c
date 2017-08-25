@@ -45,6 +45,7 @@ check_simple(tree_t *tree)
 {
     header();
     test_new(tree);
+    fail_unless(test_empty(tree));
     node_t *nodes = (node_t *)
         calloc(NUMBER_NODES, sizeof(*nodes));
         if (!nodes) {
@@ -56,6 +57,7 @@ check_simple(tree_t *tree)
         nodes[i].data = 2 * i;
         test_insert(tree, nodes + i);
     }
+    fail_if(test_empty(tree));
     for (int i = 0; i < NUMBER_NODES; i++) {
         node_t *node = test_search(tree, i);
         fail_if(node == NULL);
