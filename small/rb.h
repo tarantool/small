@@ -56,6 +56,11 @@ struct {								\
     __VA_ARGS__								\
 }
 
+enum {
+    RB_WALK_LEFT	= (1 << 0),
+    RB_WALK_RIGHT	= (1 << 1),
+};
+
 /*
  * Max height of the tree which can be iterated over.
  * The tree can have no more nodes than x86_64 has distinct
@@ -165,6 +170,19 @@ struct {								\
     rbtn_right_set(a_type, a_field, (r_node), (a_node));		\
 } while (0)
 
+#define rbtn_augment(a_type, a_field, a_rbt, a_node, a_aug) do {	\
+    a_type *left_ = rbtn_left_get(a_type, a_field, (a_node));		\
+    a_type *right_ = rbtn_right_get(a_type, a_field, (a_node));		\
+    a_aug((a_node), left_, right_);					\
+} while (0)
+
+#define rbtn_augment_propagate(a_type, a_field, a_rbt,			\
+			       a_path, a_from, a_aug) do {		\
+    __typeof__(a_from) pathp_;						\
+    for (pathp_ = (a_from); pathp_ >= (a_path); pathp_--)		\
+	rbtn_augment(a_type, a_field, (a_rbt), pathp_->node, a_aug);	\
+} while (0)
+
 /* Iterator path population */
 #define rbtn_iter_go_left_down(a_type, a_field, node, it) do {		\
     a_type *cur = (node);						\
@@ -213,6 +231,7 @@ struct {								\
 
 #define	rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_key)	\
 struct a_prefix##iterator;						\
+struct a_prefix##walk;							\
 a_attr void								\
 a_prefix##new(a_rbt_type *rbtree);					\
 a_attr bool								\
@@ -268,7 +287,12 @@ a_prefix##iter(a_rbt_type *rbtree, a_type *start, a_type *(*cb)(	\
   a_rbt_type *, a_type *, void *), void *arg);				\
 a_attr a_type *								\
 a_prefix##reverse_iter(a_rbt_type *rbtree, a_type *start,		\
-  a_type *(*cb)(a_rbt_type *, a_type *, void *), void *arg);
+  a_type *(*cb)(a_rbt_type *, a_type *, void *), void *arg);		\
+a_attr void								\
+a_prefix##walk_init(struct a_prefix##walk *it, a_rbt_type *rbtree);	\
+a_attr a_type *								\
+a_prefix##walk_next(struct a_prefix##walk *it, int dir,			\
+		    a_type **r_left, a_type **r_right);
 
 #define	rb_proto(a_attr, a_prefix, a_rbt_type, a_type)			\
 rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
@@ -511,6 +535,34 @@ rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
  *         key : Search key.
  *         it  : Pointer to an uninitialized iterator.
  *
+ *   struct ex_walk;
+ *       Description: Context for a pre-order depth-first tree traversal.
+ *
+ *   static void
+ *   ex_walk_init(ex_walk *it, ex_t *tree)
+ *       Description: Create a context for pre-order depth-first traversal
+ *                    over the given tree.
+ *       Args:
+ *         it  : Traversal context.
+ *         tree: Tree that will be traversed.
+ *
+ *   static ex_node *
+ *   ex_walk_next(ex_walk *it, int dir, ex_node **r_left, ex_node **r_right)
+ *       Description: Traverse to the next node in the tree. If the
+ *                    traversal was not started, i.e. this is the
+ *                    first call to ex_walk_next(), 'dir' is ignored
+ *                    and the iterator is positioned to the tree root.
+ *       Args:
+ *         it     : Traversal context.
+ *         dir    : Allowed traversal directions, specified as bitwise
+ *                  combination of RB_WALK_LEFT and RB_WALK_RIGHT.
+ *                  RB_WALK_LEFT allows to iterate to the left child
+ *                  of the current node if any, RB_WALK_RIGHT - to the
+ *                  right.
+ *         r_left : Left child of the next node.
+ *         r_right: Right child of the next node.
+ *       Ret: Next node or NULL if the traversal is complete.
+ *
  * There is also an extended 'rb_gen_ext_key' macro that allows to generate rb
  * code with specified key type and comparator for [p|n]search and isearch*
  * methods. So using this macro instead of 'rb_gen':
@@ -552,9 +604,27 @@ rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
  * all methods with that kind of search methods. Comparing to 'rb_gen', this
  * macro has one additional argument - type of key.
  *
+ * It is also possible to generate an augmented version of an rb tree that
+ * will invoke a user-defined callback on each node whose configuration
+ * changed as a result of a node insertion or deletion. The callback is
+ * invoked in the bottom-up manner, starting from the affected leaf node
+ * and going up to the tree root. It can be used for maintaining per node
+ * data. The data assigned to a node should be a function of the set of
+ * nodes that constitute the sub-tree rooted at the node.
+ *
+ * To generate an augmented rb tree, 'rb_gen_aug' or 'rb_gen_ext_key_aug'
+ * macro should be used. Apart from the arguments taken by 'rb_gen' and
+ * 'rb_gen_ext_key', these macros take an augmentation callback as the
+ * last parameter:
+ *
+ *   void (*ex_aug)(ex_node *node, ex_node *left, ex_node *right);
+ *
+ * The callback is passed the node whose value should be recomputed
+ * and its children. The macros do not affect the generated function
+ * signatures.
  */
-#define	rb_gen_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_field,	\
-		       a_cmp, a_key, a_cmp_key)				\
+#define	rb_gen_ext_key_aug(a_attr, a_prefix, a_rbt_type, a_type,	\
+			   a_field, a_cmp, a_key, a_cmp_key, a_aug)	\
 struct a_prefix##iterator {                                             \
         a_type *path[RB_MAX_TREE_HEIGHT];				\
         uint32_t count;                                                 \
@@ -697,6 +767,7 @@ a_prefix##insert(a_rbt_type *rbtree, a_type *node) {			\
 	int cmp;							\
     } path[sizeof(void *) << 4], *pathp;				\
     rbt_node_new(a_type, a_field, rbtree, node);			\
+    rbtn_augment(a_type, a_field, rbtree, node, a_aug);			\
     /* Wind. */								\
     path->node = rbtree->rbt_root;					\
     for (pathp = path; pathp->node != NULL; pathp++) {			\
@@ -725,9 +796,15 @@ a_prefix##insert(a_rbt_type *rbtree, a_type *node) {			\
 		    a_type *tnode;					\
 		    rbtn_black_set(a_type, a_field, leftleft);		\
 		    rbtn_rotate_right(a_type, a_field, cnode, tnode);	\
+		    rbtn_augment(a_type, a_field, rbtree, cnode, a_aug);\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		    cnode = tnode;					\
+		} else {						\
+		    rbtn_augment(a_type, a_field, rbtree, cnode, a_aug);\
 		}							\
 	    } else {							\
+		rbtn_augment_propagate(a_type, a_field, rbtree, path,	\
+		  pathp, a_aug);					\
 		return;							\
 	    }								\
 	} else {							\
@@ -741,6 +818,7 @@ a_prefix##insert(a_rbt_type *rbtree, a_type *node) {			\
 		    rbtn_black_set(a_type, a_field, left);		\
 		    rbtn_black_set(a_type, a_field, right);		\
 		    rbtn_red_set(a_type, a_field, cnode);		\
+		    rbtn_augment(a_type, a_field, rbtree, cnode, a_aug);\
 		} else {						\
 		    /* Lean left. */					\
 		    a_type *tnode;					\
@@ -748,9 +826,13 @@ a_prefix##insert(a_rbt_type *rbtree, a_type *node) {			\
 		    rbtn_rotate_left(a_type, a_field, cnode, tnode);	\
 		    rbtn_color_set(a_type, a_field, tnode, tred);	\
 		    rbtn_red_set(a_type, a_field, cnode);		\
+		    rbtn_augment(a_type, a_field, rbtree, cnode, a_aug);\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		    cnode = tnode;					\
 		}							\
 	    } else {							\
+		rbtn_augment_propagate(a_type, a_field, rbtree, path,	\
+		  pathp, a_aug);					\
 		return;							\
 	    }								\
 	}								\
@@ -840,6 +922,8 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    rbtn_right_set(a_type, a_field, pathp[-1].node,	\
 		      left);						\
 		}							\
+		rbtn_augment_propagate(a_type, a_field, rbtree, path,	\
+		  &pathp[-1], a_aug);					\
 	    }								\
 	    return;							\
 	} else if (pathp == path) {					\
@@ -852,6 +936,8 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 	/* Prune red node, which requires no fixup. */			\
 	assert(pathp[-1].cmp < 0);					\
 	rbtn_left_set(a_type, a_field, pathp[-1].node, NULL);		\
+	rbtn_augment_propagate(a_type, a_field, rbtree, path,		\
+	  &pathp[-1], a_aug);						\
 	return;								\
     }									\
     /* The node to be pruned is black, so unwind until balance is     */\
@@ -882,9 +968,14 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    /*                                                */\
 		    rbtn_black_set(a_type, a_field, pathp->node);	\
 		    rbtn_rotate_right(a_type, a_field, right, tnode);	\
+		    rbtn_augment(a_type, a_field, rbtree, right, a_aug);\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		    rbtn_right_set(a_type, a_field, pathp->node, tnode);\
 		    rbtn_rotate_left(a_type, a_field, pathp->node,	\
 		      tnode);						\
+		    rbtn_augment(a_type, a_field, rbtree, pathp->node,	\
+		      a_aug);						\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		} else {						\
 		    /*      ||                                        */\
 		    /*    pathp(r)                                    */\
@@ -895,6 +986,9 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    /*                                                */\
 		    rbtn_rotate_left(a_type, a_field, pathp->node,	\
 		      tnode);						\
+		    rbtn_augment(a_type, a_field, rbtree, pathp->node,	\
+		      a_aug);						\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		}							\
 		/* Balance restored, but rotation modified subtree    */\
 		/* root.                                              */\
@@ -906,6 +1000,8 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    rbtn_right_set(a_type, a_field, pathp[-1].node,	\
 		      tnode);						\
 		}							\
+		rbtn_augment_propagate(a_type, a_field, rbtree, path,	\
+		  &pathp[-1], a_aug);					\
 		return;							\
 	    } else {							\
 		a_type *right = rbtn_right_get(a_type, a_field,		\
@@ -923,9 +1019,14 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    a_type *tnode;					\
 		    rbtn_black_set(a_type, a_field, rightleft);		\
 		    rbtn_rotate_right(a_type, a_field, right, tnode);	\
+		    rbtn_augment(a_type, a_field, rbtree, right, a_aug);\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		    rbtn_right_set(a_type, a_field, pathp->node, tnode);\
 		    rbtn_rotate_left(a_type, a_field, pathp->node,	\
 		      tnode);						\
+		    rbtn_augment(a_type, a_field, rbtree, pathp->node,	\
+		      a_aug);						\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		    /* Balance restored, but rotation modified        */\
 		    /* subree root, which may actually be the tree    */\
 		    /* root.                                          */\
@@ -941,6 +1042,8 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 			      pathp[-1].node, tnode);			\
 			}						\
 		    }							\
+		    rbtn_augment_propagate(a_type, a_field, rbtree,	\
+		      path, &pathp[-1], a_aug);				\
 		    return;						\
 		} else {						\
 		    /*      ||                                        */\
@@ -953,6 +1056,9 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    rbtn_red_set(a_type, a_field, pathp->node);		\
 		    rbtn_rotate_left(a_type, a_field, pathp->node,	\
 		      tnode);						\
+		    rbtn_augment(a_type, a_field, rbtree, pathp->node,	\
+		      a_aug);						\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		    pathp->node = tnode;				\
 		}							\
 	    }								\
@@ -984,7 +1090,12 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    rbtn_rotate_right(a_type, a_field, pathp->node,	\
 		      tnode);						\
 		    rbtn_right_set(a_type, a_field, unode, tnode);	\
+		    rbtn_augment(a_type, a_field, rbtree, pathp->node,	\
+		      a_aug);						\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		    rbtn_rotate_left(a_type, a_field, unode, tnode);	\
+		    rbtn_augment(a_type, a_field, rbtree, unode, a_aug);\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		} else {						\
 		    /*      ||                                        */\
 		    /*    pathp(b)                                    */\
@@ -998,6 +1109,9 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    rbtn_red_set(a_type, a_field, leftright);		\
 		    rbtn_rotate_right(a_type, a_field, pathp->node,	\
 		      tnode);						\
+		    rbtn_augment(a_type, a_field, rbtree, pathp->node,	\
+		      a_aug);						\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		    rbtn_black_set(a_type, a_field, tnode);		\
 		}							\
 		/* Balance restored, but rotation modified subtree    */\
@@ -1014,6 +1128,8 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 			  tnode);					\
 		    }							\
 		}							\
+		rbtn_augment_propagate(a_type, a_field, rbtree, path,	\
+		  &pathp[-1], a_aug);					\
 		return;							\
 	    } else if (rbtn_red_get(a_type, a_field, pathp->node)) {	\
 		a_type *leftleft = rbtn_left_get(a_type, a_field, left);\
@@ -1031,6 +1147,9 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    rbtn_black_set(a_type, a_field, leftleft);		\
 		    rbtn_rotate_right(a_type, a_field, pathp->node,	\
 		      tnode);						\
+		    rbtn_augment(a_type, a_field, rbtree, pathp->node,	\
+		      a_aug);						\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		    /* Balance restored, but rotation modified        */\
 		    /* subtree root.                                  */\
 		    assert((uintptr_t)pathp > (uintptr_t)path);		\
@@ -1041,6 +1160,8 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 			rbtn_right_set(a_type, a_field, pathp[-1].node,	\
 			  tnode);					\
 		    }							\
+		    rbtn_augment_propagate(a_type, a_field, rbtree,	\
+		      path, &pathp[-1], a_aug);				\
 		    return;						\
 		} else {						\
 		    /*        ||                                      */\
@@ -1052,6 +1173,8 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    rbtn_red_set(a_type, a_field, left);		\
 		    rbtn_black_set(a_type, a_field, pathp->node);	\
 		    /* Balance restored. */				\
+		    rbtn_augment_propagate(a_type, a_field, rbtree,	\
+		      path, pathp, a_aug);				\
 		    return;						\
 		}							\
 	    } else {							\
@@ -1068,6 +1191,9 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    rbtn_black_set(a_type, a_field, leftleft);		\
 		    rbtn_rotate_right(a_type, a_field, pathp->node,	\
 		      tnode);						\
+		    rbtn_augment(a_type, a_field, rbtree, pathp->node,	\
+		      a_aug);						\
+		    rbtn_augment(a_type, a_field, rbtree, tnode, a_aug);\
 		    /* Balance restored, but rotation modified        */\
 		    /* subtree root, which may actually be the tree   */\
 		    /* root.                                          */\
@@ -1083,6 +1209,8 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 			      pathp[-1].node, tnode);			\
 			}						\
 		    }							\
+		    rbtn_augment_propagate(a_type, a_field, rbtree,	\
+		      path, &pathp[-1], a_aug);				\
 		    return;						\
 		} else {						\
 		    /*               ||                               */\
@@ -1092,6 +1220,8 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 		    /*          /                                     */\
 		    /*        (b)                                     */\
 		    rbtn_red_set(a_type, a_field, left);		\
+		    rbtn_augment(a_type, a_field, rbtree, pathp->node,	\
+		      a_aug);						\
 		}							\
 	    }								\
 	}								\
@@ -1411,10 +1541,76 @@ a_prefix##reverse_iter(a_rbt_type *rbtree, a_type *start,		\
 	  cb, arg);							\
     }									\
     return (ret);							\
+}									\
+struct a_prefix##walk {							\
+    struct {								\
+	a_type *node;						\
+	int dir;							\
+    } path[RB_MAX_TREE_HEIGHT];						\
+    int count;								\
+};									\
+a_attr void								\
+a_prefix##walk_init(struct a_prefix##walk *it, a_rbt_type *rbtree) {	\
+    it->count = 0;							\
+    it->path[0].node = rbtree->rbt_root;				\
+}									\
+a_attr a_type *								\
+a_prefix##walk_next(struct a_prefix##walk *it, int dir,			\
+		    a_type **r_left, a_type **r_right) {		\
+    a_type *node, *left, *right, *parent;				\
+    if (it->count == 0) {						\
+	node = it->path[0].node;					\
+	if (node == NULL)						\
+	    return NULL;						\
+	it->count++;							\
+    } else {								\
+	node = it->path[it->count - 1].node;				\
+	it->path[it->count - 1].dir = dir;				\
+	left = rbtn_left_get(a_type, a_field, node);			\
+	right = rbtn_right_get(a_type, a_field, node);			\
+	if ((dir & RB_WALK_LEFT) && left != NULL) {			\
+	    node = left;						\
+	} else if ((dir & RB_WALK_RIGHT) && right != NULL) {		\
+	    node = right;						\
+	} else {							\
+	    while (--it->count > 0) {					\
+		parent = it->path[it->count - 1].node;			\
+		right = rbtn_right_get(a_type, a_field, parent);	\
+		if ((it->path[it->count - 1].dir & RB_WALK_RIGHT) &&	\
+		    right != NULL && right != node) {	\
+			node = right;					\
+			break;						\
+		}							\
+		node = parent;						\
+	    }								\
+	    if (it->count == 0)						\
+		return NULL;						\
+	}								\
+	it->path[it->count++].node = node;				\
+    }									\
+    *r_left = rbtn_left_get(a_type, a_field, node);			\
+    *r_right = rbtn_right_get(a_type, a_field, node);			\
+    return node;							\
 }
 
-#define	rb_gen(a_attr, a_prefix, a_rbt_type, a_type, a_field, a_cmp)	\
-rb_gen_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_field, a_cmp,	\
-	       a_type *, a_cmp)
+#define rb_aug_noop(a_node, a_left, a_right) do {			\
+    (void)(a_node);							\
+    (void)(a_left);							\
+    (void)(a_right);							\
+} while (0)
+
+#define rb_gen_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_field,	\
+		       a_cmp, a_key, a_cmp_key)				\
+rb_gen_ext_key_aug(a_attr, a_prefix, a_rbt_type, a_type, a_field,	\
+		   a_cmp, a_key, a_cmp_key, rb_aug_noop)
+
+#define	rb_gen_aug(a_attr, a_prefix, a_rbt_type, a_type, a_field,	\
+		   a_cmp, a_aug)					\
+rb_gen_ext_key_aug(a_attr, a_prefix, a_rbt_type, a_type, a_field,	\
+		   a_cmp, a_type *, a_cmp, a_aug)
+
+#define rb_gen(a_attr, a_prefix, a_rbt_type, a_type, a_field, a_cmp)	\
+rb_gen_aug(a_attr, a_prefix, a_rbt_type, a_type, a_field, a_cmp,	\
+	   rb_aug_noop)
 
 #endif /* RB_H_ */

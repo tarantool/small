@@ -18,6 +18,9 @@ target_link_libraries(obuf.test small)
 add_executable(rb.test rb.c)
 target_link_libraries(rb.test small)
 
+add_executable(rb_aug.test rb_aug.c)
+target_link_libraries(rb_aug.test small)
+
 add_executable(rb_rand.test rb_rand.cc)
 set_source_files_properties(rb_rand.cc PROPERTIES
     COMPILE_FLAGS "-std=gnu++0x")
@@ -64,6 +67,7 @@ add_test(lsregion ${CMAKE_CURRENT_BUILD_DIR}/lsregion.test)
 add_test(quota ${CMAKE_CURRENT_BUILD_DIR}/quota.test)
 add_test(quota_lessor ${CMAKE_CURRENT_BUILD_DIR}/quota_lessor.test)
 add_test(rb ${CMAKE_CURRENT_BUILD_DIR}/rb.test)
+add_test(rb_aug ${CMAKE_CURRENT_BUILD_DIR}/rb_aug.test)
 add_test(rb_rand ${CMAKE_CURRENT_BUILD_DIR}/rb_rand.test)
 
 if(DEFINED SMALL_EMBEDDED)
