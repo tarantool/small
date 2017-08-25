@@ -121,61 +121,61 @@ void check_new_iter(tree_t *tree, node_t* nodes)
     test_ifirst(tree, &it);
     (void) nodes;
     int count = 0;
-    node_t *node = test_inext(tree, &it);
+    node_t *node = test_inext(&it);
     while (node) {
         fail_unless(node->key == count++);
-        node = test_inext(tree, &it);
+        node = test_inext(&it);
     }
     test_icreate(tree, nodes + 3, &it);
-    node = test_inext(tree, &it);
+    node = test_inext(&it);
     fail_unless(node);
     count = 3;
     while (node) {
         fail_unless(node->key == count++);
-        node = test_inext(tree, &it);
+        node = test_inext(&it);
     }
     test_isearch(tree, 6, &it);
-    node = test_inext(tree, &it);
+    node = test_inext(&it);
     fail_unless(node);
     count = 6;
     while (node) {
         fail_unless(node->key == count++);
-        node = test_inext(tree, &it);
+        node = test_inext(&it);
     }
     test_isearch(tree, NUMBER_NODES - 1, &it);
-    node = test_iprev(tree, &it);
+    node = test_iprev(&it);
     fail_unless(node);
     count = NUMBER_NODES - 1;
     while (node) {
         fail_unless(node->key == count--);
-        node = test_iprev(tree, &it);
+        node = test_iprev(&it);
         }
     test_isearch_lt(tree, 6, &it);
-    node = test_inext(tree, &it);
+    node = test_inext(&it);
     fail_unless(node->key == 5);
     test_isearch_gt(tree, 6, &it);
-    node = test_inext(tree, &it);
+    node = test_inext(&it);
     fail_unless(node->key == 7);
     test_isearch_ge(tree, 6, &it);
-    node = test_inext(tree, &it);
+    node = test_inext(&it);
     fail_unless(node->key == 6);
     test_isearch_le(tree, 6, &it);
-    node = test_inext(tree, &it);
+    node = test_inext(&it);
     fail_unless(node->key == 6);
 
     test_isearch_le(tree, -1, &it);
-    node = test_inext(tree, &it);
+    node = test_inext(&it);
     fail_unless(node == NULL);
     test_isearch_ge(tree, NUMBER_NODES, &it);
-    node = test_inext(tree, &it);
+    node = test_inext(&it);
     fail_unless(node == NULL);
 
     test_isearch_lt(tree, 0, &it);
-    node = test_inext(tree, &it);
+    node = test_inext(&it);
     fail_unless(node == NULL);
 
     test_isearch_gt(tree, NUMBER_NODES - 1, &it);
-    node = test_inext(tree, &it);
+    node = test_inext(&it);
     fail_unless(node == NULL);
 
     footer();

@@ -369,8 +369,7 @@ mempool_iterator_next(struct mempool_iterator *it)
 {
 	if (it->step_pool < it->alloc->step_pools + STEP_POOL_MAX)
 		return it->step_pool++;
-	struct factor_pool *factor_pool = factor_tree_inext(&it->alloc->factor_pools,
-						&it->factor_iterator);
+	struct factor_pool *factor_pool = factor_tree_inext(&it->factor_iterator);
 	if (factor_pool) {
 		return &(factor_pool->pool);
 	}
