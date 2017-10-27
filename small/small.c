@@ -176,7 +176,7 @@ small_collect_garbage(struct small_alloc *alloc)
 		return;
 
 	const int BATCH = 100;
-	if (!lifo_is_empty(&alloc->delayed)) {
+	if (!lifo_is_empty(&alloc->delayed_large)) {
 		/* Free large allocations */
 		for (int i = 0; i < BATCH; i++) {
 			void *item = lifo_pop(&alloc->delayed_large);

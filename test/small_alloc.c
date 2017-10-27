@@ -53,6 +53,27 @@ alloc_checked(int pos, int size_min, int size_max)
 	return ptrs[pos];
 }
 
+static int
+small_is_unused_cb(const struct mempool_stats *stats, void *arg)
+{
+	unsigned long *slab_total = arg;
+	*slab_total += stats->slabsize * stats->slabcount;
+	return 0;
+}
+
+static bool
+small_is_unused(void)
+{
+	struct small_stats totals;
+	unsigned long slab_total = 0;
+	small_stats(&alloc, &totals, small_is_unused_cb, &slab_total);
+	if (totals.used > 0)
+		return false;
+	if (slab_cache_used(&cache) > slab_total)
+		return false;
+	return true;
+}
+
 static void
 small_alloc_test(int size_min, int size_max, int objects_max,
 		 int oscillation_max, int iterations_max)
@@ -69,10 +90,22 @@ small_alloc_test(int size_min, int size_max, int objects_max,
 		allocating = ! allocating;
 	}
 
+	small_alloc_setopt(&alloc, SMALL_DELAYED_FREE_MODE, false);
+
 	for (int pos = 0; pos < OBJECTS_MAX; pos++) {
 		if (ptrs[pos] != NULL)
 			free_checked(ptrs[pos]);
 	}
+
+	/* Trigger garbage collection. */
+	allocating = true;
+	for (int i = 0; i < iterations_max; i++) {
+		if (small_is_unused())
+			break;
+		void *p = alloc_checked(0, size_min, size_max);
+		free_checked(p);
+	}
+	fail_unless(small_is_unused());
 
 	small_alloc_destroy(&alloc);
 }
