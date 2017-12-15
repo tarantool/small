@@ -57,6 +57,18 @@ struct obuf_svp
 };
 
 /**
+ * Reset a savepoint so that it points to the beginning
+ * of an output buffer.
+ */
+static inline void
+obuf_svp_reset(struct obuf_svp *svp)
+{
+	svp->pos = 0;
+	svp->iov_len = 0;
+	svp->used = 0;
+}
+
+/**
  * An output buffer is a vector of struct iovec
  * for writev().
  * Each iovec buffer is allocated using slab allocator.
@@ -87,21 +99,8 @@ struct obuf
 	 * as big as the previous one. The vector following the
 	 * last allocated one is always zero-initialized
 	 * (iov_base = NULL, iov_len = 0).
-	 * Make it the last member to reduce friction around
-	 * wpos/wend in iproto thread - last elements
-	 * of iov are unlikely to be updated often.
 	 */
 	struct iovec iov[SMALL_OBUF_IOV_MAX + 1];
-	/**
-	 * The below two members are used by iproto thread,
-	 * avoid false sharing by cache aligning them.
-	 */
-	struct {
-		/** Current write position in the output buffer */
-		struct obuf_svp wpos;
-		/** End of write position in the output buffer */
-		struct obuf_svp wend;
-	} __attribute__((aligned(64)));
 };
 
 void
@@ -118,12 +117,6 @@ static inline size_t
 obuf_size(struct obuf *obuf)
 {
 	return obuf->used;
-}
-
-static inline size_t
-obuf_used(struct obuf *obuf)
-{
-	return obuf->wend.used - obuf->wpos.used;
 }
 
 /** The size of iov vector in the buffer. */
@@ -276,27 +269,6 @@ obuf_dup_xc(struct obuf *buf, const void *data, size_t size)
 {
 	if (obuf_dup(buf, data, size) != size)
 		tnt_raise(OutOfMemory, size, "obuf", "dup");
-}
-
-/**
- * Reserve size bytes in the output buffer
- * and return a pointer to the reserved
- * data. Returns a pointer to a continuous piece of
- * memory.
- * Typical use case:
- * struct obuf_svp svp = obuf_book(buf, sizeof(uint32_t));
- * for (...)
- *	obuf_dup(buf, ...);
- * uint32_t total = obuf_used(buf);
- * memcpy(obuf_svp_to_ptr(&svp), &total, sizeof(total);
- */
-static inline struct obuf_svp
-obuf_book_xc(struct obuf *buf, size_t size)
-{
-	obuf_reserve_xc(buf, size);
-	struct obuf_svp svp = obuf_create_svp(buf);
-	obuf_alloc_xc(buf, size);
-	return svp;
 }
 
 #endif /* defined(__cplusplus) */

@@ -50,7 +50,7 @@ obuf_basic(struct slab_cache *slabc)
 		basic_alloc_streak(&buf);
 		fail_unless(obuf_capacity(&buf) > 0);
 		obuf_reset(&buf);
-		fail_unless(obuf_used(&buf) == 0);
+		fail_unless(obuf_size(&buf) == 0);
 	}
 	obuf_destroy(&buf);
 	fail_unless(slab_cache_used(slabc) == 0);
