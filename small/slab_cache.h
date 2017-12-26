@@ -218,6 +218,10 @@ slab_get(struct slab_cache *cache, size_t size);
 void
 slab_put(struct slab_cache *cache, struct slab *slab);
 
+/**
+ * Return the number of bytes used by this slab cache.
+ * @remark This function is thread-safe.
+ */
 static inline size_t
 slab_cache_used(struct slab_cache *slabc)
 {
