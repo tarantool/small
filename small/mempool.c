@@ -40,7 +40,7 @@
 enum { MAX_COLD_FRACTION_LB = 3 };
 
 static inline int
-mslab_cmp(struct mslab *lhs, struct mslab *rhs)
+mslab_cmp(const struct mslab *lhs, const struct mslab *rhs)
 {
 	/* pointer arithmetics may overflow int * range. */
 	return lhs > rhs ? 1 : (lhs < rhs ? -1 : 0);

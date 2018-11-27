@@ -48,7 +48,7 @@ rb_proto(, factor_tree_, factor_tree_t, struct factor_pool)
 
 /** Used for search in the tree. */
 static inline int
-factor_pool_cmp(struct factor_pool *a, struct factor_pool *b)
+factor_pool_cmp(const struct factor_pool *a, const struct factor_pool *b)
 {
 	return a->pool.objsize > b->pool.objsize ? 1 :
 		a->pool.objsize < b->pool.objsize ? -1 : 0;

@@ -295,7 +295,7 @@ a_prefix##walk_next(struct a_prefix##walk *it, int dir,			\
 		    a_type **r_left, a_type **r_right);
 
 #define	rb_proto(a_attr, a_prefix, a_rbt_type, a_type)			\
-rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, a_type *)
+rb_proto_ext_key(a_attr, a_prefix, a_rbt_type, a_type, const a_type *)
 
 /*
  * The rb_gen() macro generates a type-specific red-black tree implementation,
@@ -1607,7 +1607,7 @@ rb_gen_ext_key_aug(a_attr, a_prefix, a_rbt_type, a_type, a_field,	\
 #define	rb_gen_aug(a_attr, a_prefix, a_rbt_type, a_type, a_field,	\
 		   a_cmp, a_aug)					\
 rb_gen_ext_key_aug(a_attr, a_prefix, a_rbt_type, a_type, a_field,	\
-		   a_cmp, a_type *, a_cmp, a_aug)
+		   a_cmp, const a_type *, a_cmp, a_aug)
 
 #define rb_gen(a_attr, a_prefix, a_rbt_type, a_type, a_field, a_cmp)	\
 rb_gen_aug(a_attr, a_prefix, a_rbt_type, a_type, a_field, a_cmp,	\
