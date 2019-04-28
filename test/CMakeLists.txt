@@ -51,6 +51,9 @@ target_link_libraries(quota.test pthread)
 add_executable(quota_lessor.test quota_lessor.c unit.c)
 target_link_libraries(quota_lessor.test pthread)
 
+add_executable(static.test static.c unit.c)
+target_link_libraries(static.test pthread small)
+
 include_directories("${PROJECT_SOURCE_DIR}")
 
 add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
@@ -69,6 +72,7 @@ add_test(quota_lessor ${CMAKE_CURRENT_BUILD_DIR}/quota_lessor.test)
 add_test(rb ${CMAKE_CURRENT_BUILD_DIR}/rb.test)
 add_test(rb_aug ${CMAKE_CURRENT_BUILD_DIR}/rb_aug.test)
 add_test(rb_rand ${CMAKE_CURRENT_BUILD_DIR}/rb_rand.test)
+add_test(static ${CMAKE_CURRENT_BUILD_DIR}/static.test)
 
 if(DEFINED SMALL_EMBEDDED)
     return()

@@ -32,7 +32,8 @@ set(lib_headers
     small/slab_arena.h
     small/slab_cache.h
     small/small.h
-    small/lsregion.h)
+    small/lsregion.h
+    small/static.h)
 
 set(lib_sources
     small/slab_cache.c
@@ -43,7 +44,8 @@ set(lib_sources
     small/matras.c
     small/ibuf.c
     small/obuf.c
-    small/lsregion.c)
+    small/lsregion.c
+    small/static.c)
 
 add_library(${PROJECT_NAME} STATIC ${lib_sources})
 
