@@ -57,7 +57,7 @@ extern __thread size_t static_storage_pos;
  * needs them contiguous. Reset can prevent buffer position wrap.
  */
 static inline void
-statis_reset(void)
+static_reset(void)
 {
 	static_storage_pos = 0;
 }

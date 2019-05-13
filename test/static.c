@@ -45,7 +45,7 @@ test_unaligned(void)
 {
 	header();
 	plan(15);
-	statis_reset();
+	static_reset();
 
 	check_static_alloc(10, 0, 10);
 	int offset = 10;
@@ -88,7 +88,7 @@ test_aligned(void)
 {
 	header();
 	plan(17);
-	statis_reset();
+	static_reset();
 	size_t alignment = 8;
 
 	char *p = static_aligned_reserve(0, alignment);
