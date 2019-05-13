@@ -78,7 +78,11 @@ static_reserve(size_t size)
 			return NULL;
 		static_storage_pos = 0;
 	}
-	return &static_storage_buffer[static_storage_pos];
+	/*
+	 * Do not use &buf[...] - some compilers does not allow
+	 * &buf[len] and think it is an error.
+	 */
+	return static_storage_buffer + static_storage_pos;
 }
 
 /**
@@ -120,7 +124,7 @@ static_aligned_alloc(size_t size, size_t alignment)
 		 * Aligned reserve could add a padding. Restore
 		 * the position.
 		 */
-		static_storage_pos = (char *) res - &static_storage_buffer[0];
+		static_storage_pos = (char *) res - static_storage_buffer;
 		static_storage_pos += size;
 	}
 	return res;

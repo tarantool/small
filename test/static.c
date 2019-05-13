@@ -35,7 +35,7 @@ static inline void
 check_static_alloc(size_t size, size_t first_pos, size_t end_pos)
 {
 	char *b = static_alloc(size);
-	is(b, &static_storage_buffer[first_pos], "allocated %d from %d",
+	is(b, static_storage_buffer + first_pos, "allocated %d from %d",
 	   (int) size, (int) first_pos);
 	is(static_storage_pos, end_pos, "to %d", (int) end_pos);
 }
