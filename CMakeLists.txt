@@ -1,6 +1,9 @@
 project(small C CXX)
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
+include(CheckFunctionExists)
+include(CheckSymbolExists)
+
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
@@ -15,10 +18,26 @@ endif()
 # Enable GNU glibc extentions.
 add_definitions("-D_GNU_SOURCE")
 
+set(CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
+
+check_symbol_exists(MAP_ANON sys/mman.h TARANTOOL_SMALL_HAVE_MAP_ANON)
+check_symbol_exists(MAP_ANONYMOUS sys/mman.h TARANTOOL_SMALL_HAVE_MAP_ANONYMOUS)
+
+check_function_exists(madvise TARANTOOL_SMALL_HAVE_MADVISE)
+check_symbol_exists(MADV_DONTDUMP sys/mman.h TARANTOOL_SMALL_HAVE_MADV_DONTDUMP)
+
+configure_file(
+    "small/config.h.cmake"
+    "small/config.h"
+    )
+message (STATUS "")
+
 # Valgrind
 include_directories(third_party)
 
 set(lib_headers
+    small/config.h
+    small/features.h
     small/ibuf.h
     small/lf_lifo.h
     small/lifo.h
@@ -36,6 +55,7 @@ set(lib_headers
     small/static.h)
 
 set(lib_sources
+    small/features.c
     small/slab_cache.c
     small/region.c
     small/mempool.c

@@ -33,6 +33,7 @@
 #include "lf_lifo.h"
 #include <sys/mman.h>
 #include <limits.h>
+#include "config.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -43,6 +44,30 @@ enum {
 	SLAB_MIN_SIZE = ((size_t)USHRT_MAX) + 1,
 	/** The largest allowed amount of memory of a single arena. */
 	SMALL_UNLIMITED = SIZE_MAX/2 + 1
+};
+
+/**
+ * Backward compatible flags to be used with slab_arena_create().
+ * Initially we have been passing MAP_SHARED or MAP_PRIVATE flags
+ * only, thus to continue supporting them we need to sign new API
+ * with some predefined value. For this sake we reserve high bit
+ * as a mark which allows us to distinguish system independent
+ * SLAB_ARENA_ flags from anything else.
+ *
+ * Note the SLAB_ARENA_FLAG_MARK adds a second bit into the flags,
+ * use IS_SLAB_ARENA_FLAG helper for testing.
+ */
+#define SLAB_ARENA_FLAG_MARK	(0x80000000)
+#define SLAB_ARENA_FLAG(x)	((x) | SLAB_ARENA_FLAG_MARK)
+#define IS_SLAB_ARENA_FLAG(f,x)	(((f) & (x)) == (x))
+
+enum {
+	/* mmap() flags */
+	SLAB_ARENA_PRIVATE	= SLAB_ARENA_FLAG(1 << 0),
+	SLAB_ARENA_SHARED	= SLAB_ARENA_FLAG(1 << 1),
+
+	/* madvise() flags */
+	SLAB_ARENA_DONTDUMP	= SLAB_ARENA_FLAG(1 << 2)
 };
 
 /**
@@ -94,7 +119,7 @@ struct slab_arena {
 	 */
 	uint32_t slab_size;
 	/**
-	 * mmap() flags: MAP_SHARED or MAP_PRIVATE
+	 * SLAB_ARENA_ flags for mmap() and madvise() calls.
 	 */
 	int flags;
 };

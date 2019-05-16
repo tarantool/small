@@ -41,9 +41,32 @@
 #include <valgrind/valgrind.h>
 #include <valgrind/memcheck.h>
 
-#if !defined(MAP_ANONYMOUS)
-#define MAP_ANONYMOUS MAP_ANON
+static void
+madvise_checked(void *ptr, size_t size, int flags)
+{
+#ifdef TARANTOOL_SMALL_USE_MADVISE
+	if (!ptr)
+		return;
+
+	if (!IS_SLAB_ARENA_FLAG(flags, SLAB_ARENA_DONTDUMP))
+		return;
+
+	if (madvise(ptr, size, MADV_DONTDUMP)) {
+		intptr_t ignore_it;
+		char buf[64];
+
+		ignore_it = (intptr_t)strerror_r(errno, buf, sizeof(buf));
+		(void)ignore_it;
+
+		fprintf(stderr, "Error in madvise(%p, %zu, 0x%x): %s\n",
+			ptr, size, MADV_DONTDUMP, buf);
+	}
+#else
+	(void)ptr;
+	(void)size;
+	(void)flags;
 #endif
+}
 
 static void
 munmap_checked(void *addr, size_t size)
@@ -66,13 +89,18 @@ mmap_checked(size_t size, size_t align, int flags)
 	assert((align & (align - 1)) == 0);
 	/* The size must be a multiple of alignment */
 	assert((size & (align - 1)) == 0);
+
+	if (IS_SLAB_ARENA_FLAG(flags, SLAB_ARENA_PRIVATE))
+		flags = MAP_PRIVATE | MAP_ANONYMOUS;
+	else
+		flags = MAP_SHARED | MAP_ANONYMOUS;
+
 	/*
 	 * All mappings except the first are likely to
 	 * be aligned already.  Be optimistic by trying
 	 * to map exactly the requested amount.
 	 */
-	void *map = mmap(NULL, size, PROT_READ | PROT_WRITE,
-			 flags | MAP_ANONYMOUS, -1, 0);
+	void *map = mmap(NULL, size, PROT_READ | PROT_WRITE, flags, -1, 0);
 	if (map == MAP_FAILED)
 		return NULL;
 	if (((intptr_t) map & (align - 1)) == 0)
@@ -85,8 +113,7 @@ mmap_checked(size_t size, size_t align, int flags)
 	 * fragmentation depending on the kernels allocation
 	 * strategy.
 	 */
-	map = mmap(NULL, size + align, PROT_READ | PROT_WRITE,
-		   flags | MAP_ANONYMOUS, -1, 0);
+	map = mmap(NULL, size + align, PROT_READ | PROT_WRITE, flags, -1, 0);
 	if (map == MAP_FAILED)
 		return NULL;
 
@@ -123,11 +150,33 @@ pow2round(size_t size)
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+static void
+slab_arena_flags_init(struct slab_arena *arena, int flags)
+{
+	/*
+	 * Old interface for backward compatibility, MAP_
+	 * flags are passed directly without SLAB_ARENA_FLAG_MARK,
+	 * map them to internal ones.
+	 */
+	if (!(flags & SLAB_ARENA_FLAG_MARK)) {
+		assert(flags & (MAP_PRIVATE | MAP_SHARED));
+		if (flags == MAP_PRIVATE)
+			arena->flags = SLAB_ARENA_PRIVATE;
+		else
+			arena->flags = SLAB_ARENA_SHARED;
+		return;
+	}
+
+	assert(IS_SLAB_ARENA_FLAG(flags, SLAB_ARENA_PRIVATE) ||
+	       IS_SLAB_ARENA_FLAG(flags, SLAB_ARENA_SHARED));
+
+	arena->flags = flags;
+}
+
 int
 slab_arena_create(struct slab_arena *arena, struct quota *quota,
 		  size_t prealloc, uint32_t slab_size, int flags)
 {
-	assert(flags & (MAP_PRIVATE | MAP_SHARED));
 	lf_lifo_init(&arena->cache);
 	VALGRIND_MAKE_MEM_DEFINED(&arena->cache, sizeof(struct lf_lifo));
 
@@ -148,7 +197,7 @@ slab_arena_create(struct slab_arena *arena, struct quota *quota,
 
 	arena->used = 0;
 
-	arena->flags = flags;
+	slab_arena_flags_init(arena, flags);
 
 	if (arena->prealloc) {
 		arena->arena = mmap_checked(arena->prealloc,
@@ -157,6 +206,9 @@ slab_arena_create(struct slab_arena *arena, struct quota *quota,
 	} else {
 		arena->arena = NULL;
 	}
+
+	madvise_checked(arena->arena, arena->prealloc, arena->flags);
+
 	return arena->prealloc && !arena->arena ? -1 : 0;
 }
 
@@ -205,6 +257,9 @@ slab_map(struct slab_arena *arena)
 		__sync_sub_and_fetch(&arena->used, arena->slab_size);
 		quota_release(arena->quota, arena->slab_size);
 	}
+
+	madvise_checked(ptr, arena->slab_size, arena->flags);
+
 	VALGRIND_MAKE_MEM_UNDEFINED(ptr, arena->slab_size);
 	return ptr;
 }
