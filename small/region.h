@@ -156,6 +156,16 @@ region_reserve(struct region *region, size_t size)
 						       slab.next_in_list);
 		if (size <= rslab_unused(slab))
 			return (char *) rslab_data(slab) + slab->used;
+		/* Try to get a slab from the region cache. */
+		slab = rlist_last_entry(&region->slabs.slabs,
+					struct rslab,
+					slab.next_in_list);
+		if (slab->used == 0 && size <= rslab_unused(slab)) {
+			/* Move this slab to the head. */
+			slab_list_del(&region->slabs, &slab->slab, next_in_list);
+			slab_list_add(&region->slabs, &slab->slab, next_in_list);
+			return (char *) rslab_data(slab);
+		}
 	}
 	return region_reserve_slow(region, size);
 }
@@ -212,14 +222,14 @@ region_aligned_alloc(struct region *region, size_t size, size_t alignment)
 
 /**
  * Mark region as empty, but keep the blocks.
+ * Do not change the first slab and use previous slabs as a cache to
+ * use for future allocations.
  */
 static inline void
 region_reset(struct region *region)
 {
-	if (! rlist_empty(&region->slabs.slabs)) {
-		struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
-						       struct rslab,
-						       slab.next_in_list);
+	struct rslab *slab;
+	rlist_foreach_entry(slab, &region->slabs.slabs, slab.next_in_list) {
 		region->slabs.stats.used -= slab->used;
 		slab->used = 0;
 	}
