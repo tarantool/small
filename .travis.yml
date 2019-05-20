@@ -7,6 +7,9 @@ cache:
     directories:
       - $HOME/.cache
 
+git:
+    depth: 100500
+
 env:
     matrix:
       - OS=el DIST=6
