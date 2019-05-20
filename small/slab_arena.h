@@ -33,7 +33,6 @@
 #include "lf_lifo.h"
 #include <sys/mman.h>
 #include <limits.h>
-#include "config.h"
 
 #if defined(__cplusplus)
 extern "C" {

@@ -29,6 +29,7 @@
  * SUCH DAMAGE.
  */
 #include "slab_arena.h"
+#include "config.h"
 #include "quota.h"
 #include <stdio.h>
 #include <stdint.h>

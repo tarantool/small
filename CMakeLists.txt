@@ -26,17 +26,20 @@ check_symbol_exists(MAP_ANONYMOUS sys/mman.h TARANTOOL_SMALL_HAVE_MAP_ANONYMOUS)
 check_function_exists(madvise TARANTOOL_SMALL_HAVE_MADVISE)
 check_symbol_exists(MADV_DONTDUMP sys/mman.h TARANTOOL_SMALL_HAVE_MADV_DONTDUMP)
 
+set(config_h "${CMAKE_CURRENT_BINARY_DIR}/small/include/config.h")
 configure_file(
     "small/config.h.cmake"
-    "small/config.h"
+    "${config_h}"
     )
 message (STATUS "")
+
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/small/include")
 
 # Valgrind
 include_directories(third_party)
 
 set(lib_headers
-    small/config.h
+    "${config_h}"
     small/features.h
     small/ibuf.h
     small/lf_lifo.h
