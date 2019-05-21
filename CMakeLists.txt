@@ -26,9 +26,9 @@ check_symbol_exists(MAP_ANONYMOUS sys/mman.h TARANTOOL_SMALL_HAVE_MAP_ANONYMOUS)
 check_function_exists(madvise TARANTOOL_SMALL_HAVE_MADVISE)
 check_symbol_exists(MADV_DONTDUMP sys/mman.h TARANTOOL_SMALL_HAVE_MADV_DONTDUMP)
 
-set(config_h "${CMAKE_CURRENT_BINARY_DIR}/small/include/config.h")
+set(config_h "${CMAKE_CURRENT_BINARY_DIR}/small/include/small_config.h")
 configure_file(
-    "small/config.h.cmake"
+    "small/small_config.h.cmake"
     "${config_h}"
     )
 message (STATUS "")

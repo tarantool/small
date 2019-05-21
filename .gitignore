@@ -17,4 +17,4 @@ build/
 CTestTestfile.cmake
 Testing
 CTestTestfile.cmake
-small/config.h
+small/include/small_config.h
