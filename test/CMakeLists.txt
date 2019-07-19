@@ -15,6 +15,9 @@ target_link_libraries(ibuf.test small)
 add_executable(obuf.test obuf.c)
 target_link_libraries(obuf.test small)
 
+add_executable(rlist.test rlist.c unit.c)
+target_link_libraries(rlist.test small)
+
 add_executable(rb.test rb.c)
 target_link_libraries(rb.test small)
 
@@ -73,6 +76,7 @@ add_test(rb ${CMAKE_CURRENT_BUILD_DIR}/rb.test)
 add_test(rb_aug ${CMAKE_CURRENT_BUILD_DIR}/rb_aug.test)
 add_test(rb_rand ${CMAKE_CURRENT_BUILD_DIR}/rb_rand.test)
 add_test(static ${CMAKE_CURRENT_BUILD_DIR}/static.test)
+add_test(rlist ${CMAKE_CURRENT_BUILD_DIR}/rlist.test)
 
 if(DEFINED SMALL_EMBEDDED)
     return()
