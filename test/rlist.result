@@ -1,5 +1,5 @@
 	*** main ***
-1..87
+1..104
 ok 1 - list is empty
 ok 2 - rlist_nil is empty
 ok 3 - head2 is empty
@@ -87,4 +87,21 @@ ok 84 - element (foreach_entry) 2
 ok 85 - element (foreach_entry) 1
 ok 86 - element (foreach_entry) 0
 ok 87 - prev is null
+ok 88 - list is empty
+ok 89 - element (reverse) 0
+ok 90 - element (reverse) 1
+ok 91 - element (reverse) 2
+ok 92 - element (reverse) 3
+ok 93 - element (reverse) 4
+ok 94 - element (reverse) 5
+ok 95 - element (reverse) 6
+ok 96 - list is empty
+ok 97 - list is empty
+ok 98 - element (first half) 0
+ok 99 - element (first half) 1
+ok 100 - element (first half) 2
+ok 101 - element (second half) 3
+ok 102 - element (second half) 4
+ok 103 - element (second half) 5
+ok 104 - element (second half) 6
 	*** main: done ***

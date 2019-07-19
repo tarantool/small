@@ -234,6 +234,25 @@ rlist_splice_tail(struct rlist *head1, struct rlist *head2)
 }
 
 /**
+ * move the initial part of list head2, up to but excluding item,
+ * to list head1; the old content of head1 is discarded
+ */
+static inline void
+rlist_cut_before(struct rlist *head1, struct rlist *head2, struct rlist *item)
+{
+	if (head1->next == item) {
+		rlist_create(head1);
+		return;
+	}
+	head1->next = head2->next;
+	head1->next->prev = head1;
+	head1->prev = item->prev;
+	head1->prev->next = head1;
+	head2->next = item;
+	item->prev = head2;
+}
+
+/**
  * list head initializer
  */
 #define RLIST_HEAD_INITIALIZER(name) { &(name), &(name) }
@@ -362,6 +381,15 @@ delete from one list and add_tail as another's head
 	for ((item) = rlist_first_entry((head), typeof(*item), member);	\
 	     &item->member != (head) &&                                 \
 	     ((tmp) = rlist_next_entry((item), member));                \
+	     (item) = (tmp))
+
+/**
+ * foreach backward through all list entries safe against removal
+ */
+#define rlist_foreach_entry_safe_reverse(item, head, member, tmp)	\
+	for ((item) = rlist_last_entry((head), typeof(*item), member);	\
+	     &item->member != (head) &&					\
+	     ((tmp) = rlist_prev_entry((item), member));		\
 	     (item) = (tmp))
 
 #if defined(__cplusplus)

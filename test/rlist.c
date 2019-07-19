@@ -17,11 +17,11 @@ int
 main(void)
 {
 	int i;
-	struct test *it;
+	struct test *it, *tmp;
 	struct rlist *rlist;
 
 	header();
-	plan(87);
+	plan(104);
 	ok(rlist_empty(&head), "list is empty");
 	for (i = 0; i < ITEMS; i++) {
 		items[i].no = i;
@@ -127,6 +127,41 @@ main(void)
 	rlist_add_entry(&head, &items[0], list);
 	ok(rlist_prev_entry_safe(&items[0], &head, list) == NULL,
 	   "prev is null");
+
+	rlist_create(&head);
+	i = 0;
+	rlist_foreach_entry_safe_reverse(it, &head, list, tmp)
+		++i;
+	ok(i == 0, "list is empty")
+	for (i = 0; i < ITEMS; i++) {
+		items[i].no = i;
+		rlist_add(&head, &(items[i].list));
+	}
+	i = 0;
+	rlist_foreach_entry_safe_reverse(it, &head, list, tmp) {
+		rlist_del_entry(it, list);
+		is(it, items + i, "element (reverse) %d", i);
+		i++;
+	}
+	rlist_add(&head, &items[0].list);
+	rlist_cut_before(&head2, &head, head.next);
+	ok(rlist_empty(&head2), "list is empty");
+	for (i = 1; i < ITEMS; i++) {
+		items[i].no = i;
+		rlist_add_tail(&head, &(items[i].list));
+	}
+	rlist_cut_before(&head2, &head, head.next);
+	ok(rlist_empty(&head2), "list is empty");
+	rlist_cut_before(&head2, &head, &items[ITEMS / 2].list);
+	i = 0;
+	rlist_foreach_entry(it, &head2, list) {
+		is(it, items + i, "element (first half) %d", i);
+		i++;
+	}
+	rlist_foreach_entry(it, &head, list) {
+		is(it, items + i, "element (second half) %d", i);
+		i++;
+	}
 
 	int rc = check_plan();
 	footer();
