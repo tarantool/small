@@ -157,14 +157,20 @@ region_reserve(struct region *region, size_t size)
 		if (size <= rslab_unused(slab))
 			return (char *) rslab_data(slab) + slab->used;
 		/* Try to get a slab from the region cache. */
-		slab = rlist_last_entry(&region->slabs.slabs,
-					struct rslab,
-					slab.next_in_list);
-		if (slab->used == 0 && size <= rslab_unused(slab)) {
-			/* Move this slab to the head. */
+		while ((slab = rlist_last_entry(&region->slabs.slabs,
+						struct rslab,
+						slab.next_in_list))->used == 0) {
 			slab_list_del(&region->slabs, &slab->slab, next_in_list);
-			slab_list_add(&region->slabs, &slab->slab, next_in_list);
-			return (char *) rslab_data(slab);
+			if (size <= rslab_unused(slab)) {
+				/* Move this slab to the head. */
+				slab_list_add(&region->slabs, &slab->slab, next_in_list);
+				return (char *) rslab_data(slab);
+			}
+			/*
+			 * This cached slab could not be used so free it
+			 * and try to use the next one.
+			 */
+			slab_put(region->cache, (struct slab *)slab);
 		}
 	}
 	return region_reserve_slow(region, size);
