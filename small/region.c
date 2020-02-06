@@ -79,7 +79,7 @@ region_truncate(struct region *region, size_t used)
 		struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
 						       struct rslab,
 						       slab.next_in_list);
-		if (slab->used > cut_size) {
+		if (slab->used >= cut_size) {
 			/* This is the last slab to trim. */
 			slab->used -= cut_size;
 			cut_size = 0;
