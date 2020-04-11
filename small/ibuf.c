@@ -104,3 +104,14 @@ ibuf_reserve_slow(struct ibuf *ibuf, size_t size)
 	return ibuf->wpos;
 }
 
+void **
+small_ibuf_export_syms(void)
+{
+	static void *syms[] = {
+		(void *)ibuf_create,
+		(void *)ibuf_destroy,
+		(void *)ibuf_reinit,
+		(void *)ibuf_reserve_slow,
+	};
+	return syms;
+}
