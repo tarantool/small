@@ -95,6 +95,9 @@ mmap_checked(size_t size, size_t align, int flags)
 		flags = MAP_PRIVATE | MAP_ANONYMOUS;
 	else
 		flags = MAP_SHARED | MAP_ANONYMOUS;
+#if defined(__OpenBSD__)
+	flags |= MAP_STACK;
+#endif
 
 	/*
 	 * All mappings except the first are likely to
@@ -160,7 +163,11 @@ slab_arena_flags_init(struct slab_arena *arena, int flags)
 	 * map them to internal ones.
 	 */
 	if (!(flags & SLAB_ARENA_FLAG_MARK)) {
+#if defined(__OpenBSD__)
+		assert(flags & (MAP_PRIVATE | MAP_SHARED | MAP_STACK));
+#else
 		assert(flags & (MAP_PRIVATE | MAP_SHARED));
+#endif
 		if (flags == MAP_PRIVATE)
 			arena->flags = SLAB_ARENA_PRIVATE;
 		else

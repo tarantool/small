@@ -72,7 +72,11 @@ test_dontdump(void)
 	 * and work on it.
 	 */
 
+#if defined(__OpenBSD__)
+	ptr = mmap(NULL, size, PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE | MAP_STACK, -1, 0);
+#else
 	ptr = mmap(NULL, size, PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+#endif
 	if (ptr == MAP_FAILED) {
 		/*
 		 * We're out of memory, and cant guarantee anything.
