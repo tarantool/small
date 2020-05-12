@@ -40,6 +40,10 @@ extern "C" {
 #define typeof __typeof__
 #endif
 
+#ifndef offsetof
+#define offsetof(type, member) ((size_t) &((type *)0)->member)
+#endif
+
 /**
  * list entry and head structure
  */
@@ -273,7 +277,8 @@ rlist_cut_before(struct rlist *head1, struct rlist *head2, struct rlist *item)
  */
 #define rlist_entry(item, type, member) ({				\
 	const typeof( ((type *)0)->member ) *__mptr = (item);		\
-	(type *)( (char *)__mptr - ((size_t) &((type *)0)->member) ); })
+	(type *)( (char *)__mptr - offsetof(type,member));		\
+})
 
 /**
  * return first entry
