@@ -45,7 +45,7 @@ lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id)
 	}
 	if ((slab != NULL && size > lslab_unused(slab)) ||
 	    slab == NULL) {
-		if (size + lslab_sizeof() >= slab_size) {
+		if (size + lslab_sizeof() > slab_size) {
 			/* Large allocation, use malloc() */
 			slab_size = size + lslab_sizeof();
 			struct quota *quota = lsregion->arena->quota;

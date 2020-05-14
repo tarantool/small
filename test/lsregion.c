@@ -140,6 +140,13 @@ test_basic()
 	is(lsregion_slab_count(&allocator), 0,
 	   "slab count after large gc()");
 
+	/*
+	 * Allocate exactly slab size.
+	 */
+	++id;
+	data = lsregion_alloc(&allocator, arena.slab_size - lslab_sizeof(), id);
+	lsregion_gc(&allocator, id);
+
 	lsregion_destroy(&allocator);
 	/* Sic: slabs are cached by arena */
 	is(arena.used, 2 * arena.slab_size, "arena used after destroy");
