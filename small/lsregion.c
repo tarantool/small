@@ -32,59 +32,62 @@
 #include "lsregion.h"
 
 void *
-lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id)
+lsregion_aligned_reserve_slow(struct lsregion *lsregion, size_t size,
+			      size_t alignment, void **unaligned)
 {
-	struct lslab *slab = NULL;
-	size_t slab_size = lsregion->arena->slab_size;
+	void *pos;
+	struct lslab *slab;
+	struct slab_arena *arena = lsregion->arena;
+	size_t slab_size = arena->slab_size;
 
 	/* If there is an existing slab then try to use it. */
 	if (! rlist_empty(&lsregion->slabs.slabs)) {
 		slab = rlist_last_entry(&lsregion->slabs.slabs, struct lslab,
 					next_in_list);
 		assert(slab != NULL);
+		*unaligned = lslab_pos(slab);
+		pos = (void *)small_align((size_t)*unaligned, alignment);
+		if ((char *)pos + size <= (char *)lslab_end(slab))
+			return pos;
 	}
-	if ((slab != NULL && size > lslab_unused(slab)) ||
-	    slab == NULL) {
-		if (size + lslab_sizeof() > slab_size) {
-			/* Large allocation, use malloc() */
-			slab_size = size + lslab_sizeof();
-			struct quota *quota = lsregion->arena->quota;
-			if (quota_use(quota, slab_size) < 0)
-				return NULL;
-			slab = malloc(slab_size);
-			if (slab == NULL) {
-				quota_release(quota, slab_size);
-				return NULL;
-			}
-			lslab_create(slab, slab_size);
-			rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
-					     next_in_list);
-			lsregion->slabs.stats.total += slab_size;
-		} else if (lsregion->cached != NULL) {
-			/* If there is the cached slab then use it. */
-			slab = lsregion->cached;
-			lsregion->cached = NULL;
-			rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
-					     next_in_list);
-		} else {
-			slab = (struct lslab *) slab_map(lsregion->arena);
-			if (slab == NULL)
-				return NULL;
-			lslab_create(slab, slab_size);
-			rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
-					     next_in_list);
-			lsregion->slabs.stats.total += slab_size;
+	/*
+	 * Need to allocate more, since it can happen, that the
+	 * new slab won't be aligned by the needed alignment, and
+	 * after alignment its size won't be enough.
+	 */
+	size_t aligned_size = size + alignment - 1;
+	if (aligned_size + lslab_sizeof() > slab_size) {
+		/* Large allocation, use malloc() */
+		slab_size = aligned_size + lslab_sizeof();
+		struct quota *quota = arena->quota;
+		if (quota_use(quota, slab_size) < 0)
+			return NULL;
+		slab = malloc(slab_size);
+		if (slab == NULL) {
+			quota_release(quota, slab_size);
+			return NULL;
 		}
+		lslab_create(slab, slab_size);
+		rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
+				     next_in_list);
+		lsregion->slabs.stats.total += slab_size;
+	} else if (lsregion->cached != NULL) {
+		/* If there is the cached slab then use it. */
+		slab = lsregion->cached;
+		lsregion->cached = NULL;
+		rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
+				     next_in_list);
+	} else {
+		slab = (struct lslab *) slab_map(arena);
+		if (slab == NULL)
+			return NULL;
+		lslab_create(slab, slab_size);
+		rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
+				     next_in_list);
+		lsregion->slabs.stats.total += slab_size;
 	}
-	assert(slab != NULL);
-	assert(slab->max_id <= id);
-	assert(size <= lslab_unused(slab));
-	void *res = lslab_pos(slab);
-	slab->slab_used += size;
-
-	/* Update the memory block meta info. */
-	assert(slab->max_id <= id);
-	slab->max_id = id;
-	lsregion->slabs.stats.used += size;
-	return res;
+	*unaligned = lslab_pos(slab);
+	pos = (void *)small_align((size_t)*unaligned, alignment);
+	assert((char *)pos + size <= (char *)lslab_end(slab));
+	return pos;
 }

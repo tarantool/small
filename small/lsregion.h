@@ -128,6 +128,18 @@ lslab_unused(const struct lslab *slab)
 }
 
 /**
+ * Update slab statistics and meta according to new allocation.
+ */
+static inline void
+lslab_use(struct lslab *slab, size_t size, int64_t id)
+{
+	assert(size <= lslab_unused(slab));
+	assert(slab->max_id <= id);
+	slab->slab_used += size;
+	slab->max_id = id;
+}
+
+/**
  * Pointer to the end of the used part of the slab.
  * @param slab Slab container.
  * @retval Pointer to the unused part of the slab.
@@ -136,6 +148,13 @@ static inline void *
 lslab_pos(struct lslab *slab)
 {
 	return (char *) slab + slab->slab_used;
+}
+
+/** Pointer to the end of the slab memory. */
+static inline void *
+lslab_end(struct lslab *slab)
+{
+	return (char *)slab + slab->slab_size;
 }
 
 /**
@@ -153,22 +172,30 @@ lsregion_create(struct lsregion *lsregion, struct slab_arena *arena)
 	lsregion->cached = NULL;
 }
 
-/** @sa lsregion_alloc().  */
+/** @sa lsregion_aligned_reserve(). */
 void *
-lsregion_alloc_slow(struct lsregion *lsregion, size_t size, int64_t id);
+lsregion_aligned_reserve_slow(struct lsregion *lsregion, size_t size,
+			      size_t alignment, void **unaligned);
 
 /**
- * Allocate \p size bytes and assicoate the allocated block
- * with \p id.
+ * Make sure a next allocation of at least @a size bytes will not
+ * fail, and will return the same result as this call, aligned by
+ * @a alignment.
  * @param lsregion Allocator object.
  * @param size     Size to allocate.
- * @param id       Memory chunk identifier.
+ * @param alignment Byte alignment required for the result
+ *        address.
+ * @param[out] unaligned When the function succeeds, it returns
+ *        aligned address, and stores base unaligned address to
+ *        this variable. That helps to find how many bytes were
+ *        wasted to make the alignment.
  *
  * @retval not NULL Success.
  * @retval NULL     Memory error.
  */
 static inline void *
-lsregion_alloc(struct lsregion *lsregion, size_t size, int64_t id)
+lsregion_aligned_reserve(struct lsregion *lsregion, size_t size,
+			 size_t alignment, void **unaligned)
 {
 	/* If there is an existing slab then try to use it. */
 	if (! rlist_empty(&lsregion->slabs.slabs)) {
@@ -176,16 +203,75 @@ lsregion_alloc(struct lsregion *lsregion, size_t size, int64_t id)
 		slab = rlist_last_entry(&lsregion->slabs.slabs, struct lslab,
 					next_in_list);
 		assert(slab != NULL);
-		assert(slab->max_id <= id);
-		if (size <= lslab_unused(slab)) {
-			void *res = lslab_pos(slab);
-			slab->slab_used += size;
-			slab->max_id = id;
-			lsregion->slabs.stats.used += size;
-			return res;
-		}
+		*unaligned = lslab_pos(slab);
+		void *pos = (void *)small_align((size_t)*unaligned, alignment);
+		if ((char *)pos + size <= (char *)lslab_end(slab))
+			return pos;
 	}
-	return lsregion_alloc_slow(lsregion, size, id);
+	return lsregion_aligned_reserve_slow(lsregion, size, alignment,
+					     unaligned);
+}
+
+/**
+ * Make sure a next allocation of at least @a size bytes will not
+ * fail, and will return the same result as this call.
+ * @param lsregion Allocator object.
+ * @param size Size to allocate.
+ *
+ * @retval not-NULL Success.
+ * @retval NULL Memory error.
+ */
+static inline void *
+lsregion_reserve(struct lsregion *lsregion, size_t size)
+{
+	void *unaligned = NULL;
+	void *res = lsregion_aligned_reserve(lsregion, size, 1, &unaligned);
+	assert(res == NULL || res == unaligned);
+	return res;
+}
+
+/**
+ * Allocate @a size bytes and associate the allocated block
+ * with @a id.
+ * @param lsregion Allocator object.
+ * @param size Size to allocate.
+ * @param id Memory chunk identifier.
+ *
+ * @retval not-NULL Success.
+ * @retval NULL Memory error.
+ */
+static inline void *
+lsregion_alloc(struct lsregion *lsregion, size_t size, int64_t id)
+{
+	void *res = lsregion_reserve(lsregion, size);
+	if (res == NULL)
+		return NULL;
+	struct lslab *slab = rlist_last_entry(&lsregion->slabs.slabs,
+					      struct lslab, next_in_list);
+	lslab_use(slab, size, id);
+	lsregion->slabs.stats.used += size;
+	return res;
+}
+
+/**
+ * The same as normal alloc, but the resulting pointer is aligned
+ * by @a alignment.
+ */
+static inline void *
+lsregion_aligned_alloc(struct lsregion *lsregion, size_t size, size_t alignment,
+		       int64_t id)
+{
+	void *unaligned;
+	void *res = lsregion_aligned_reserve(lsregion, size, alignment,
+					     &unaligned);
+	if (res == NULL)
+		return NULL;
+	struct lslab *slab = rlist_last_entry(&lsregion->slabs.slabs,
+					      struct lslab, next_in_list);
+	size += res - unaligned;
+	lslab_use(slab, size, id);
+	lsregion->slabs.stats.used += size;
+	return res;
 }
 
 /**

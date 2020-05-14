@@ -358,15 +358,108 @@ test_big_data_small_slabs()
 	check_plan();
 }
 
+static void
+test_reserve(void)
+{
+	header();
+	plan(10);
+
+	struct quota quota;
+	struct slab_arena arena;
+	struct lsregion allocator;
+	quota_init(&quota, 16 * SLAB_MIN_SIZE);
+	is(slab_arena_create(&arena, &quota, 0, 0, MAP_PRIVATE), 0, "init");
+	lsregion_create(&allocator, &arena);
+
+	void *p1 = lsregion_reserve(&allocator, 100);
+	is(lsregion_used(&allocator), 0, "reserve does not occupy memory");
+	is(lsregion_total(&allocator), arena.slab_size, "reserve creates slabs");
+	void *p2 = lsregion_alloc(&allocator, 80, 1);
+	is(p1, p2, "alloc returns the same as reserve, even if size is less");
+	is(lsregion_used(&allocator), 80, "alloc updated 'used'");
+
+	p1 = lsregion_reserve(&allocator, arena.slab_size - lslab_sizeof());
+	is(lsregion_used(&allocator), 80, "next reserve didn't touch 'used'");
+	is(lsregion_total(&allocator), arena.slab_size * 2, "but changed "
+	   "'total' because second slab is allocated");
+	is(lsregion_slab_count(&allocator), 2, "slab count is 2 now");
+	lsregion_gc(&allocator, 1);
+
+	is(lsregion_used(&allocator), 0, "gc works fine with empty reserved "
+	   "slabs");
+	is(lsregion_slab_count(&allocator), 0, "all slabs are removed");
+
+	lsregion_destroy(&allocator);
+	slab_arena_destroy(&arena);
+
+	check_plan();
+	footer();
+}
+
+static void
+test_aligned(void)
+{
+	header();
+	plan(12);
+
+	struct quota quota;
+	struct slab_arena arena;
+	struct lsregion allocator;
+	quota_init(&quota, 16 * SLAB_MIN_SIZE);
+	is(slab_arena_create(&arena, &quota, 0, 0, MAP_PRIVATE), 0, "init");
+	lsregion_create(&allocator, &arena);
+	int id = 0;
+
+	++id;
+	void *p1 = lsregion_aligned_alloc(&allocator, 8, 8, id);
+	ok((unsigned long)p1 % 8 == 0, "trivial aligned");
+	is(lsregion_used(&allocator), 8, "'used'");
+
+	++id;
+	void *p2 = lsregion_aligned_alloc(&allocator, 1, 16, id);
+	ok((unsigned long)p2 % 16 == 0, "16 byte alignment for 1 byte");
+	void *p3 = lsregion_aligned_alloc(&allocator, 1, 16, id);
+	ok(p3 == (char *)p2 + 16, "second 16 aligned alloc of 1 byte is far "
+	   "from first");
+	ok((unsigned long)p3 % 16 == 0, "aligned by 16 too");
+
+	is(lsregion_used(&allocator), (size_t)(p3 + 1 - p1), "'used'");
+
+	++id;
+	void *p4 = lsregion_aligned_alloc(&allocator, 3, 4, id);
+	ok(p4 == (char *)p3 + 4, "align next by 4 bytes, should be closer to "
+	   "previous");
+	ok((unsigned long)p4 % 4 == 0, "aligned by 4");
+	is(lsregion_used(&allocator), (size_t)(p4 + 3 - p1), "'used'");
+
+	lsregion_gc(&allocator, id);
+
+	++id;
+	p1 = lsregion_aligned_alloc(&allocator,
+				    arena.slab_size - lslab_sizeof(), 32, id);
+	ok((unsigned long)p1 % 32 == 0, "32 byte aligned alloc of slab size");
+
+	lsregion_gc(&allocator, id);
+	is(lsregion_used(&allocator), 0, "gc deleted all");
+
+	lsregion_destroy(&allocator);
+	slab_arena_destroy(&arena);
+
+	check_plan();
+	footer();
+}
+
 int
 main()
 {
-	plan(4);
+	plan(6);
 
 	test_basic();
 	test_many_allocs_one_slab();
 	test_many_allocs_many_slabs();
 	test_big_data_small_slabs();
+	test_reserve();
+	test_aligned();
 
 	return check_plan();
 }

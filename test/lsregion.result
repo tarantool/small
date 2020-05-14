@@ -1,4 +1,4 @@
-1..4
+1..6
 # basic
     1..42
     ok 1 - init
@@ -76,3 +76,33 @@ ok 3 - subtests
     ok 6 - slab count after gc (id / 2)
     ok 7 - arena used after gc(id / 2)
 ok 4 - subtests
+    1..10
+	*** test_reserve ***
+    ok 1 - init
+    ok 2 - reserve does not occupy memory
+    ok 3 - reserve creates slabs
+    ok 4 - alloc returns the same as reserve, even if size is less
+    ok 5 - alloc updated 'used'
+    ok 6 - next reserve didn't touch 'used'
+    ok 7 - but changed 'total' because second slab is allocated
+    ok 8 - slab count is 2 now
+    ok 9 - gc works fine with empty reserved slabs
+    ok 10 - all slabs are removed
+	*** test_reserve: done ***
+ok 5 - subtests
+    1..12
+	*** test_aligned ***
+    ok 1 - init
+    ok 2 - trivial aligned
+    ok 3 - 'used'
+    ok 4 - 16 byte alignment for 1 byte
+    ok 5 - second 16 aligned alloc of 1 byte is far from first
+    ok 6 - aligned by 16 too
+    ok 7 - 'used'
+    ok 8 - align next by 4 bytes, should be closer to previous
+    ok 9 - aligned by 4
+    ok 10 - 'used'
+    ok 11 - 32 byte aligned alloc of slab size
+    ok 12 - gc deleted all
+	*** test_aligned: done ***
+ok 6 - subtests
