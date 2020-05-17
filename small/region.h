@@ -386,10 +386,15 @@ struct RegionGuard {
 };
 #endif /* __cplusplus */
 
-#define region_reserve_object(region, T) \
-	(T *)region_aligned_reserve((region), sizeof(T), alignof(T))
+#define region_alloc_object(region, T, size) ({					\
+	*(size) = sizeof(T);							\
+	(T *)region_aligned_alloc((region), sizeof(T), alignof(T));		\
+})
 
-#define region_alloc_object(region, T) \
-	(T *)region_aligned_alloc((region), sizeof(T), alignof(T))
+#define region_alloc_array(region, T, count, size) ({				\
+	int _tmp_ = sizeof(T) * (count);					\
+	*(size) = _tmp_;							\
+	(T *)region_aligned_alloc((region), _tmp_, alignof(T));			\
+})
 
 #endif /* INCLUDES_TARANTOOL_SMALL_REGION_H */
