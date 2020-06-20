@@ -1,3 +1,4 @@
+#include "trivia/util.h"
 #include <small/mempool.h>
 #include <small/quota.h>
 #include <stdio.h>
@@ -121,6 +122,12 @@ int main()
 	objsize = rand() % OBJSIZE_MAX;
 	if (objsize < OBJSIZE_MIN)
 		objsize = OBJSIZE_MIN;
+	/*
+	 * Mempool does not work with not aligned sizes. Because
+	 * it utilizes the unused blocks for storing internal
+	 * info, which needs alignment.
+	 */
+	objsize = small_align(objsize, alignof(uint64_t));
 
 	quota_init(&quota, UINT_MAX);
 
