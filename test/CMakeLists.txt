@@ -57,6 +57,9 @@ target_link_libraries(quota_lessor.test pthread)
 add_executable(static.test static.c unit.c)
 target_link_libraries(static.test pthread small)
 
+add_executable(cpbuf.test cpbuf.cpp)
+target_link_libraries(cpbuf.test small)
+
 include_directories("${PROJECT_SOURCE_DIR}")
 
 add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
@@ -77,6 +80,8 @@ add_test(rb_aug ${CMAKE_CURRENT_BUILD_DIR}/rb_aug.test)
 add_test(rb_rand ${CMAKE_CURRENT_BUILD_DIR}/rb_rand.test)
 add_test(static ${CMAKE_CURRENT_BUILD_DIR}/static.test)
 add_test(rlist ${CMAKE_CURRENT_BUILD_DIR}/rlist.test)
+add_test(cpbuf ${CMAKE_CURRENT_BUILD_DIR}/cpbuf.test)
+
 
 if(DEFINED SMALL_EMBEDDED)
     return()
@@ -91,5 +96,5 @@ add_custom_target(test
     COMMAND ctest
     DEPENDS slab_cache.test region.test ibuf.test obuf.test mempool.test
             small_alloc.test lf_lifo.test slab_arena.test arena_mt.test
-            matras.test lsregion.test quota.test rb.test
+            matras.test lsregion.test quota.test rb.test cpbuf.test
 )
