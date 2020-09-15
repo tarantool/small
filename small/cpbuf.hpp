@@ -31,13 +31,11 @@
  * SUCH DAMAGE.
  */
 
-#include <assert.h>
 #include <sys/uio.h> /* struct iovec */
 
 #include <algorithm>
+#include <cassert>
 #include <cstring>
-#include <iostream>
-#include <vector>
 
 #include "rlist.h"
 
@@ -48,14 +46,13 @@ struct ScopeGuard {
 	bool is_active;
 
 	explicit ScopeGuard(const Functor& fun) : f(fun), is_active(true) { }
-	ScopeGuard(ScopeGuard&& guard) : f(guard.f), is_active(true)
+	ScopeGuard(ScopeGuard&& guard) : f(std::move(guard.f)), is_active(guard.is_active)
 	{
 		guard.is_active = false;
-		abort();
 	}
 	~ScopeGuard() { if (is_active) f(); }
-private:
-	explicit ScopeGuard(const ScopeGuard&) = delete;
+
+	ScopeGuard(const ScopeGuard&) = delete;
 	ScopeGuard& operator=(const ScopeGuard&) = delete;
 };
 
@@ -67,34 +64,17 @@ make_scope_guard(Functor guard)
 }
 
 /**
- * Very basic allocator. It is based on standard malloc/free functions.
+ * Very basic allocator, wrapper around new/delete with certain API.
  */
 template <size_t N>
 class DefaultAllocator
 {
 public:
-	static char *alloc();
-	static void free(char *ptr);
+	static char *alloc() { return new char [N]; }
+	static void free(char *ptr) { delete [] ptr; }
 	/** Malloc requires no *visible* memory overhead. */
 	static constexpr size_t REAL_SIZE = N;
 };
-
-template <size_t N>
-char *
-DefaultAllocator<N>::alloc()
-{
-	char *res =  (char *) malloc(N);
-	if (res == nullptr)
-		throw throw std::bad_alloc("Default allocator has failed!");
-	return res;
-}
-
-template <size_t N>
-void
-DefaultAllocator<N>::free(char *ptr)
-{
-	free(ptr);
-}
 
 /** Forward declaration. */
 template <size_t N, class allocator>
@@ -108,8 +88,8 @@ class CpBufferDataPosition;
  * Returns chunk of memory of @REAL_SIZE size (which is less or equal to N).
  * free() - static release method, takes pointer to memory allocated by @alloc
  * and frees it. Must not throw an exception.
- * REAL_SIZE - constant determines real size of allocated chunk (i.e. overhead
- * taken by allocator).
+ * REAL_SIZE - constant determines real size of allocated chunk (excluding
+ * overhead taken by allocator).
  */
 template <size_t N, class allocator = DefaultAllocator<N>>
 class CpBuffer
@@ -124,7 +104,7 @@ public:
 	struct CpBufferBlock : public CpBufferBlockBase
 	{
 		static constexpr size_t BLOCK_DATA_SIZE =
-			allocator::REAL_SIZE - sizeof(CpBufferBlock);
+			allocator::REAL_SIZE - sizeof(CpBufferBlockBase);
 		//static constexpr
 		/** Block itself is allocated in the same chunk. */
 		char data[BLOCK_DATA_SIZE];
@@ -198,9 +178,7 @@ public:
 	/** Only default constructor is available. */
 	CpBuffer();
 	CpBuffer(const CpBuffer& buf) = delete;
-	CpBuffer(CpBuffer&& buf) = delete;
 	CpBuffer& operator = (const CpBuffer& buf) = delete;
-
 	~CpBuffer();
 
 	/**
