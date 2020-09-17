@@ -36,32 +36,9 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <type_traits>
 
 #include "rlist.h"
-
-/** Scope guard implementation borrowed from scoped_guard.h */
-template <typename Functor>
-struct ScopeGuard {
-	Functor f;
-	bool is_active;
-
-	explicit ScopeGuard(const Functor& fun) : f(fun), is_active(true) { }
-	ScopeGuard(ScopeGuard&& guard) : f(std::move(guard.f)), is_active(guard.is_active)
-	{
-		guard.is_active = false;
-	}
-	~ScopeGuard() { if (is_active) f(); }
-
-	ScopeGuard(const ScopeGuard&) = delete;
-	ScopeGuard& operator=(const ScopeGuard&) = delete;
-};
-
-template <typename Functor>
-inline ScopeGuard<Functor>
-make_scope_guard(Functor guard)
-{
-	return ScopeGuard<Functor>(guard);
-}
 
 /**
  * Very basic allocator, wrapper around new/delete with certain API.
@@ -91,28 +68,62 @@ class CpBufferDataPosition;
  * REAL_SIZE - constant determines real size of allocated chunk (excluding
  * overhead taken by allocator).
  */
-template <size_t N, class allocator = DefaultAllocator<N>>
+template <size_t CpBufferBlock, class allocator = DefaultAllocator<N>>
 class CpBuffer
 {
-public:
+private:
 	/** =============== Block definition =============== */
-	struct CpBufferBlockBase
+	struct BlockBase
 	{
 		/** Blocks are organized into linked list. */
 		struct rlist in_blocks;
 	};
-	struct CpBufferBlock : public CpBufferBlockBase
+	struct Block : BlockBase
 	{
 		static constexpr size_t BLOCK_DATA_SIZE =
-			allocator::REAL_SIZE - sizeof(CpBufferBlockBase);
-		//static constexpr
+			allocator::REAL_SIZE - sizeof(BlockBase);
 		/** Block itself is allocated in the same chunk. */
 		char data[BLOCK_DATA_SIZE];
-		void* operator new(size_t size, char *where)
+		static_assert(sizeof(Block) == allocator::REAL_SIZE);
+
+		void* operator new(size_t size)
 		{
-			CpBufferBlock *newBlock = (CpBufferBlock *) where;
-			memset(newBlock->data, 0, BLOCK_DATA_SIZE);
-			return (void *) newBlock;
+			assert(size == sizeof(CpBufferBlock));
+			return allocator::alloc();
+		}
+		void operator delete(void *ptr)
+		{
+			allocator::free(ptr);
+		}
+		// Forbid array allocation.
+		void* operator new[](size_t size) = delete;
+		void operator delete[](void *) = delete;
+		// Forbid placement new.
+		void* operator new(size_t size, char *where) = delete;
+		void* operator new[](size_t size, char *where) = delete;
+
+		char *begin() { return data; }
+		char *end() { return data + BLOCK_DATA_SIZE; }
+	};
+	// Allocate a number of blocks to fit required size.
+	using ssize_t = std::make_signed_t<size_t>;
+	struct Blocks {
+		struct rlist block_list;
+		Blocks(ssize_t size)
+		{
+			while (size > 0) {
+				Block *b = new Block;
+				rlist_add_tail(&block_list, &b->in_blocks);
+				size -= Block::BLOCK_DATA_SIZE;
+			}
+		}
+		~Blocks()
+		{
+			while (!rlist_empty(&block_list)) {
+				Block *b = rlist_first_entry(&block_list, Block, in_blocks);
+				rlist_del(&b->in_blocks);
+				delete b;
+			}
 		}
 	};
 
@@ -120,59 +131,63 @@ public:
 	class iterator : public std::iterator<std::input_iterator_tag, char>
 	{
 	public:
-		iterator(CpBuffer<N, allocator> *buffer,
-			 const CpBufferBlock &block) :
-			 mBuffer(buffer),
-			 mPosition(block, block.data)
-		{ rlist_add(mBuffer->m_iterators, this, in_iters); };
-		iterator(CpBuffer<N, allocator> *buffer,
-			 const CpBufferBlock &block, char *pos) :
-			 mBuffer(buffer), mPosition(block, pos)
-		{ rlist_add(mBuffer->m_iterators, this, in_iters); };
-		iterator(iterator &other) : mPosition(other.mPosition)
+		iterator(CpBuffer &buffer, Block *block, char *offset)
+			: m_buffer(buffer), m_position(block, offset)
 		{
-			rlist_add(&other.in_iters, this, in_iters);
+			rlist_add(&m_buffer.m_iterators, &in_iters);
+		}
+		iterator(iterator &other)
+			: m_buffer(other.m_buffer), m_position(other.m_position)
+		{
+			rlist_add(&other.in_iters, &in_iters);
 		}
 		iterator& operator = (const iterator& other)
 		{
 			if (this == &other)
 				return *this;
-			mPosition = other.mPosition;
-			in_iters = other.in_iters;
+			assert(&m_buffer == &other.m_buffer);
+			m_position = other.m_position;
+			rlist_del(&m_buffer);
+			rlist_add(&other.in_iters, &in_iters);
 			return *this;
 		}
-		iterator& operator ++ ()
+		iterator& operator ++ (int)
 		{
-			if (mPosition.offset ==
-			    mPosition.block.data[CpBufferBlock::BLOCK_DATA_SIZE]) {
-				mPosition.block =
-					rlist_next_entry(mPosition.block, in_blocks);
-				mPosition.offset = mPosition.block.data[0];
-			} else {
-				mPosition.offset++;
+			if (++m_position.offset == m_position.block->end()) {
+				m_position.block = rlist_next_entry(m_position.block, in_blocks);
+				m_position.offset = m_position.block->begin();
 			}
 			return *this;
 		}
+		iterator& operator += (size_t step)
+		{
+			while (m_position.offset + step >= m_position.block->end())
+			{
+			}
+			m_position.offset += step;
+			return *this;
+		}
+		friend bool operator == (const iterator &a, const iterator &b)
+		{
+			assert(&a.m_buffer == &b.m_buffer);
+			return a.m_position.offset == b.m_position.offset;
+		}
 		~iterator()
 		{
-			mPosition.block = nullptr;
-			mPosition.offset = nullptr;
-			mBuffer = nullptr;
 			rlist_del_entry(this, in_iters);
 		}
 	private:
-		bool isLast()
-		{
-			return this == rlist_last_entry(&mBuffer->m_iterators,
-							iterator, in_iters);
-		}
 		struct rlist in_iters;
-		struct {
-			CpBufferBlock *block;
+		struct Position {
+			Block *block;
 			char *offset;
-		} mPosition;
+
+			Position(Block *a_block, char *a_offset)
+				: block(a_block), offset(a_offset) {}
+		} m_position;
 		/** Link to the buffer iterator belongs to. */
-		CpBuffer<N, allocator> *mBuffer;
+		CpBuffer& m_buffer;
+
 	};
 	/** =============== Buffer definition =============== */
 	/** Only default constructor is available. */
@@ -291,9 +306,9 @@ private:
 	 * Offset of the data in the first block. Data may start not from
 	 * the beginning of the block due to ::dropFront invocation.
 	 */
-	size_t mStartOffset;
+	char *m_begin;
 	/** Last block can be partially filled, so let's store end border. */
-	size_t mEndOffset;
+	char *m_end;
 };
 
 /**
