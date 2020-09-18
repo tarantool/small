@@ -1,5 +1,4 @@
-#ifndef TARANTOOL_CPBUF_H_INCLUDED
-#define TARANTOOL_CPBUF_H_INCLUDED
+#pragma once
 /*
  * Copyright 2010-2020, Tarantool AUTHORS, please see AUTHORS file.
  *
@@ -40,6 +39,8 @@
 
 #include "rlist.h"
 
+namespace tnt {
+
 /**
  * Very basic allocator, wrapper around new/delete with certain API.
  */
@@ -47,15 +48,15 @@ template <size_t N>
 class DefaultAllocator
 {
 public:
+	/*
+ 	 * TODO: avoid releasing blocks but keep them for further
+ 	 * allocations instead.
+	 */
 	static char *alloc() { return new char [N]; }
 	static void free(char *ptr) { delete [] ptr; }
 	/** Malloc requires no *visible* memory overhead. */
 	static constexpr size_t REAL_SIZE = N;
 };
-
-/** Forward declaration. */
-template <size_t N, class allocator>
-class CpBufferDataPosition;
 
 /**
  * Exception safe C++ IO buffer.
@@ -68,8 +69,8 @@ class CpBufferDataPosition;
  * REAL_SIZE - constant determines real size of allocated chunk (excluding
  * overhead taken by allocator).
  */
-template <size_t CpBufferBlock, class allocator = DefaultAllocator<N>>
-class CpBuffer
+template <size_t N, class allocator = DefaultAllocator<N>>
+class Buffer
 {
 private:
 	/** =============== Block definition =============== */
@@ -88,41 +89,54 @@ private:
 
 		void* operator new(size_t size)
 		{
-			assert(size == sizeof(CpBufferBlock));
+			assert(size == sizeof(Block)); (void)size;
 			return allocator::alloc();
 		}
 		void operator delete(void *ptr)
 		{
 			allocator::free(ptr);
 		}
-		// Forbid array allocation.
-		void* operator new[](size_t size) = delete;
-		void operator delete[](void *) = delete;
-		// Forbid placement new.
-		void* operator new(size_t size, char *where) = delete;
-		void* operator new[](size_t size, char *where) = delete;
 
 		char *begin() { return data; }
 		char *end() { return data + BLOCK_DATA_SIZE; }
+		Block *prev() { return rlist_prev_entry(this, in_blocks); }
+		Block *next() { return rlist_prev_entry(this, in_blocks); }
 	};
+	static Block *newBlock(struct rlist *addToList)
+	{
+		Block *b = new Block;
+		rlist_add_tail(addToList, &b->in_blocks);
+		return b;
+	}
+	static void delBlock(Block *b)
+	{
+		rlist_del(&b->in_blocks);
+		delete b;
+	}
+	static Block *delBlockAndPrev(Block *b)
+	{
+		Block *tmp = b->prev();
+		delBlock(b);
+		return tmp;
+	}
+	static Block *delBlockAndNext(Block *b)
+	{
+		Block *tmp = b->prev();
+		delBlock(b);
+		return tmp;
+	}
+
 	// Allocate a number of blocks to fit required size.
-	using ssize_t = std::make_signed_t<size_t>;
-	struct Blocks {
-		struct rlist block_list;
-		Blocks(ssize_t size)
+	struct Blocks : rlist {
+		Blocks()
 		{
-			while (size > 0) {
-				Block *b = new Block;
-				rlist_add_tail(&block_list, &b->in_blocks);
-				size -= Block::BLOCK_DATA_SIZE;
-			}
+			rlist_create(this);
 		}
 		~Blocks()
 		{
-			while (!rlist_empty(&block_list)) {
-				Block *b = rlist_first_entry(&block_list, Block, in_blocks);
-				rlist_del(&b->in_blocks);
-				delete b;
+			while (!rlist_empty(this)) {
+				Block *b = rlist_first_entry(this, Block, in_blocks);
+				delBlock(b);
 			}
 		}
 	};
@@ -131,13 +145,17 @@ private:
 	class iterator : public std::iterator<std::input_iterator_tag, char>
 	{
 	public:
-		iterator(CpBuffer &buffer, Block *block, char *offset)
-			: m_buffer(buffer), m_position(block, offset)
+		iterator(Buffer &buffer, Block *block, char *offset, bool is_head)
+			: m_buffer(buffer), m_block(block), m_offset(offset)
 		{
-			rlist_add(&m_buffer.m_iterators, &in_iters);
+			if (is_head)
+				rlist_add(&m_buffer.m_iterators, &in_iters);
+			else
+				rlist_add_tail(&m_buffer.m_iterators, &in_iters);
 		}
 		iterator(iterator &other)
-			: m_buffer(other.m_buffer), m_position(other.m_position)
+			: m_buffer(other.m_buffer),
+			  m_block(other.m_block), m_offset(other.m_offset)
 		{
 			rlist_add(&other.in_iters, &in_iters);
 		}
@@ -146,31 +164,35 @@ private:
 			if (this == &other)
 				return *this;
 			assert(&m_buffer == &other.m_buffer);
-			m_position = other.m_position;
+			m_block = other.m_block;
+			m_offset = other.m_offset;
 			rlist_del(&m_buffer);
 			rlist_add(&other.in_iters, &in_iters);
 			return *this;
 		}
-		iterator& operator ++ (int)
+		iterator& operator ++ ()
 		{
-			if (++m_position.offset == m_position.block->end()) {
-				m_position.block = rlist_next_entry(m_position.block, in_blocks);
-				m_position.offset = m_position.block->begin();
+			if (++m_offset == m_block->end()) {
+				m_block = rlist_next_entry(m_block, in_blocks);
+				m_offset = m_block->begin();
 			}
 			return *this;
 		}
 		iterator& operator += (size_t step)
 		{
-			while (m_position.offset + step >= m_position.block->end())
+			while (step >= m_block->end() - m_offset)
 			{
+				step -= m_block->end() - m_offset;
+				m_block = rlist_next_entry(m_block, in_blocks);
+				m_offset = m_block->begin();
 			}
-			m_position.offset += step;
+			m_offset += step;
 			return *this;
 		}
 		friend bool operator == (const iterator &a, const iterator &b)
 		{
 			assert(&a.m_buffer == &b.m_buffer);
-			return a.m_position.offset == b.m_position.offset;
+			return a.m_offset == b.m_offset;
 		}
 		~iterator()
 		{
@@ -178,29 +200,25 @@ private:
 		}
 	private:
 		struct rlist in_iters;
-		struct Position {
-			Block *block;
-			char *offset;
-
-			Position(Block *a_block, char *a_offset)
-				: block(a_block), offset(a_offset) {}
-		} m_position;
+		Block *m_block;
+		// TODO: rename to position?
+		char *m_offset;
 		/** Link to the buffer iterator belongs to. */
-		CpBuffer& m_buffer;
+		Buffer& m_buffer;
 
 	};
 	/** =============== Buffer definition =============== */
 	/** Only default constructor is available. */
-	CpBuffer();
-	CpBuffer(const CpBuffer& buf) = delete;
-	CpBuffer& operator = (const CpBuffer& buf) = delete;
-	~CpBuffer();
+	Buffer();
+	Buffer(const Buffer& buf) = delete;
+	Buffer& operator = (const Buffer& buf) = delete;
+	~Buffer();
 
 	/**
 	 * Return iterator pointing to the start/end of buffer.
 	 */
-	iterator& begin();
-	iterator& end();
+	iterator begin();
+	iterator end();
 
 	/**
 	 * Copy content of @a buf (or object @a t) to the buffer's tail
@@ -227,23 +245,23 @@ private:
 	 * Move other iterators and reallocate space on demand. @a size must
 	 * be less than block size.
 	 */
-	void insert(iterator itr, size_t size);
+	void insert(const iterator &itr, size_t size);
 
 	/**
 	 * Release memory of size @a size at the position @a itr pointing to.
 	 */
-	void release(iterator itr, size_t size);
+	void release(const iterator &itr, size_t size);
 
 	/** Resize memory chunk @a itr pointing to. */
-	void resize(iterator itr, size_t old_size, size_t new_size);
+	void resize(const iterator &itr, size_t old_size, size_t new_size);
 
 	/**
 	 * Copy content of @a buf of size @a size (or object @a t) to the
 	 * position in buffer @a itr pointing to.
 	 */
-	void set(iterator itr, const char *buf, size_t size);
+	void set(const iterator &itr, const char *buf, size_t size);
 	template <class T>
-	void set(iterator itr, T&& t);
+	void set(const iterator &itr, T&& t);
 
 	/**
 	 * Copy content of data iterator pointing to to the buffer @a buf of
@@ -265,40 +283,20 @@ private:
 	bool empty() const;
 
 	template <size_t alloc_sz, class alloc>
-	friend void dataPosMoveForward(const CpBuffer &buffer,
+	friend void dataPosMoveForward(const Buffer &buffer,
 				       CpBufferDataPosition<N, allocator> &prevDataPos,
 				       CpBufferDataPosition<N, allocator> &newDataPos,
 				       size_t size);
 	template <size_t alloc_sz, class alloc>
-	friend void dataPosMoveBack(const CpBuffer &buffer,
+	friend void dataPosMoveBack(const Buffer &buffer,
 				    CpBufferDataPosition<N, allocator> &prevDataPos,
 				    CpBufferDataPosition<N, allocator> &newDataPos,
 				    size_t size);
 private:
-	bool blockIsLast(CpBufferBlock *block)
-	{
-		return block ==
-			rlist_last_entry(&m_blocks, CpBufferBlock, in_blocks);
-	}
-	bool blockIsFirst(CpBufferBlock *block)
-	{
-		return block ==
-		       rlist_first_entry(&m_blocks, CpBufferBlock, in_blocks);
-	}
-	/** Return size of memory available in the given block. */
-	size_t blockAvailableSize(CpBufferBlock *block);
-	/** Return size of memory occupied in the given block.*/
-	size_t blockUsedSize(CpBufferBlock *block);
-	/**
-	 * Return pointer to the end of block: for all blocks except for the
-	 * last one it is data[BLOCK_DATA_SIZE].
-	 */
-	const char * blockEnd(CpBufferBlock *block);
-	void dropBlock(CpBufferBlock *block);
-	/**
-	 * Double-linked list of blocks. Each block is allocated using
-	 * @a allocator template parameter.
-	 */
+	char *virtualEnd();// TODO: very strange, please remove.
+	Block *firstBlock();
+	Block *lastBlock();
+
 	struct rlist m_blocks;
 	/** List of all data iterators created via @a begin method. */
 	struct rlist m_iterators;
@@ -311,256 +309,182 @@ private:
 	char *m_end;
 };
 
-/**
- * Data's (iterator's) position consists of two components: block and offset
- * inside block.
- */
-template <size_t N, class allocator>
-class CpBufferDataPosition
-{
-public:
-	CpBufferDataPosition(typename CpBuffer<N, allocator>::CpBufferBlock *block,
-			     char *offset) : block(block), offset(offset) {};
-	CpBufferDataPosition() = default;
-	typename CpBuffer<N, allocator>::CpBufferBlock *block;
-	char *offset;
-};
 
 template <size_t N, class allocator>
-const char *
-CpBuffer<N, allocator>::blockEnd(CpBufferBlock *block)
+char *
+Buffer<N, allocator>::virtualEnd()
 {
-	if (blockIsLast(block))
-		return block->data[mEndOffset];
-	return block->data[CpBufferBlock::BLOCK_DATA_SIZE - 1];
+	Block *virtualBlock = rlist_entry(&m_blocks, Block, in_blocks);
+	return virtualBlock->begin();
 }
 
 template <size_t N, class allocator>
-size_t
-CpBuffer<N, allocator>::blockAvailableSize(CpBufferBlock *block)
+typename Buffer<N, allocator>::Block *
+Buffer<N, allocator>::firstBlock()
 {
-	/*
-	 * We account only last part of memory in the last block as reusable.
-	 * All other blocks are considered to be filled fully.
-	 */
-	if (blockIsLast(block))
-		return CpBufferBlock::BLOCK_DATA_SIZE - mEndOffset;
-	return 0;
+	return rlist_first_entry(&m_blocks, Block, in_blocks);
 }
 
 template <size_t N, class allocator>
-size_t
-CpBuffer<N, allocator>::blockUsedSize(CpBufferBlock *block)
+typename Buffer<N, allocator>::Block *
+Buffer<N, allocator>::lastBlock()
 {
-
-	if (blockIsLast(block))
-		return mEndOffset;
-	return CpBufferBlock::BLOCK_DATA_SIZE;
-}
-
-template <size_t N, class allocator = DefaultAllocator<N>>
-static typename CpBuffer<N, allocator>::CpBufferBlock *
-CpBufferBlockCreate()
-{
-	char *mem = allocator::alloc();
-	return new (mem) typename CpBuffer<N, allocator>::CpBufferBlock;
+	return rlist_last_entry(&m_blocks, Block, in_blocks);
 }
 
 template <size_t N, class allocator>
-CpBuffer<N, allocator>::CpBuffer() : mStartOffset(0), mEndOffset(0)
+Buffer<N, allocator>::Buffer()
 {
 	rlist_create(&m_blocks);
 	rlist_create(&m_iterators);
+	Block *virtualBlock = rlist_first_entry(&m_blocks, Block, in_blocks);
+	m_begin = m_end = virtualEnd();
 }
 
 template <size_t N, class allocator>
-static void
-releaseBlocks(struct rlist *blocks)
-{
-	typename CpBuffer<N, allocator>::CpBufferBlock *block, *tmp;
-	rlist_foreach_entry_safe(block, blocks, in_blocks, tmp) {
-		rlist_del_entry(block, in_blocks);
-		block->~CpBufferBlock();
-		allocator::free(block);
-	}
-}
-
-template <size_t N, class allocator>
-CpBuffer<N, allocator>::~CpBuffer()
+Buffer<N, allocator>::~Buffer()
 {
 	/* Delete blocks and release occupied memory. */
-	releaseBlocks<N, allocator>(&m_blocks);
-	mEndOffset = 0;
-	mStartOffset = 0;
-}
-
-template <size_t N, class allocator>
-typename CpBuffer<N, allocator>::iterator&
-CpBuffer<N, allocator>::begin()
-{
-	CpBufferBlock *firstBlock =
-		rlist_first_entry(&m_blocks, CpBufferBlock, in_blocks);
-	return iterator(firstBlock, mStartOffset);
-}
-
-template <size_t N, class allocator>
-typename CpBuffer<N, allocator>::iterator&
-CpBuffer<N, allocator>::end()
-{
-	CpBufferBlock *lastBlock =
-		rlist_last_entry(&m_blocks, CpBufferBlock, in_blocks);
-	return iterator(lastBlock, mEndOffset);
-}
-
-template <size_t N, class allocator>
-typename CpBuffer<N, allocator>::iterator
-CpBuffer<N, allocator>::appendBack(size_t size)
-{
-	struct rlist newBlocks;
-	rlist_create(&newBlocks);
-	size_t availableBlockSize = 0;
-	CpBufferBlock *startBlock = nullptr;
-	char *startPos = mEndOffset;
-	if (! rlist_empty(&m_blocks)) {
-		startBlock = rlist_last_entry(&m_blocks, CpBufferBlock,
-					      in_blocks);
-		availableBlockSize = blockAvailableSize(startBlock);
-	}
-	/*
-	 * If requested chunk is larger than free space in the last block
-	 * than allocate new one.
-	 * CpBufferBlockCreate may throw so let's use guard to follow
-	 * all-or-nothing policy.
+	/**
+	 * TODO: that part is identical to Blocks::~Blocks().
+	 * Perhaps that functionality should be moved to common parent.
 	 */
-	auto blocksGuard = make_scope_guard([=] {
-		releaseBlocks<N, allocator>(&newBlocks);
-	});
-	while (size > availableBlockSize) {
-		CpBufferBlock *newBlock = CpBufferBlockCreate<N, allocator>();
-		assert(newBlock != nullptr);
-		rlist_add_entry(&newBlocks, newBlock, in_blocks);
-		size -= CpBufferBlock::BLOCK_DATA_SIZE;
-		availableBlockSize = CpBufferBlock::BLOCK_DATA_SIZE;
-		mEndOffset = 0;
+	while (!rlist_empty(&m_blocks)) {
+		Block *b = rlist_first_entry(&m_blocks, Block, in_blocks);
+		rlist_del(&b->in_blocks);
+		delete b;
 	}
-	/*
-	 * After all blocks are successfully allocated we can transfer them
-	 * to the buffer's list.
-	 */
-	rlist_splice_tail(&m_blocks, &newBlocks);
-	mEndOffset += size;
-	if (startBlock == nullptr) {
-		startBlock = rlist_first_entry(&m_blocks, CpBufferBlock,
-					       in_blocks);
+}
+
+template <size_t N, class allocator>
+typename Buffer<N, allocator>::iterator
+Buffer<N, allocator>::begin()
+{
+	return iterator(*this, firstBlock(), m_begin, true);
+}
+
+template <size_t N, class allocator>
+typename Buffer<N, allocator>::iterator
+Buffer<N, allocator>::end()
+{
+	return iterator(*this, lastBlock(), m_end, false);
+}
+
+template <size_t N, class allocator>
+typename Buffer<N, allocator>::iterator
+Buffer<N, allocator>::appendBack(size_t size)
+{
+	assert(size != 0);
+
+	bool is_virtual_begin = m_begin == virtualEnd();
+	bool is_virtual_end = m_end == virtualEnd();
+	Block *block = lastBlock();
+	size_t left_in_block = is_virtual_end ? 0 : block->end() - m_end;
+
+	char *new_end = m_end, *itr_offset = m_end;
+	Blocks new_blocks;
+	while (size > left_in_block) {
+		Block *b = newBlock(&new_blocks);
+		new_end = b->begin();
+		size -= left_in_block;
+		left_in_block = Block::BLOCK_DATA_SIZE;
 	}
-	return iterator(startBlock, startPos);
+
+	if (is_virtual_end) {
+		block = rlist_first_entry(&new_blocks, Block, in_blocks);
+		itr_offset = block->begin();
+	}
+	rlist_splice_tail(&m_blocks, &new_blocks);
+
+	if (is_virtual_begin)
+		m_begin = firstBlock()->begin();
+
+	if (size == left_in_block)
+		m_end = virtualEnd();
+	else
+		m_end = new_end + size;
+
+	return iterator(*this, block, itr_offset, false);
 }
 
 template <size_t N, class allocator>
 void
-CpBuffer<N, allocator>::dropBack(size_t size)
+Buffer<N, allocator>::dropBack(size_t size)
 {
-	CpBufferBlock *lastBlock =
-		rlist_last_entry(&m_blocks, CpBufferBlock, in_blocks);
-	size_t blockUsedSize = mEndOffset;
-	while (size > blockUsedSize) {
-		assert(rlist_empty(&m_blocks));
-		CpBufferBlock *prevBlock =
-			rlist_prev_entry(lastBlock, in_blocks);
-		size -= blockUsedSize;
-		blockUsedSize = CpBufferBlock::BLOCK_DATA_SIZE;
-		mEndOffset = CpBufferBlock::BLOCK_DATA_SIZE;
-		rlist_del_entry(lastBlock, in_blocks);
-		/*
-		 * TODO: avoid releasing blocks but keep them for further
-		 * allocations instead.
-		 */
-		allocator::free(lastBlock);
-		lastBlock = prevBlock;
-	}
-	assert(mEndOffset >= size);
-	mEndOffset -= size;
-}
-
-template <size_t N, class allocator>
-void
-CpBuffer<N, allocator>::dropFront(size_t size)
-{
+	assert(size != 0);
 	assert(rlist_empty(&m_blocks));
-	CpBufferBlock *firstBlock =
-		rlist_first_entry(&m_blocks, struct CpBuffer, in_blocks);
-	/*
-	 * Drop all blocks until truncating size is less than size of
-	 * single block.
-	 */
-	size_t blockUsedSize = mEndOffset;
-	while (size > blockUsedSize) {
-		assert(rlist_empty(&m_blocks));
-		CpBufferBlock *nextBlock =
-			rlist_next_entry(firstBlock, in_blocks);
-		size -= blockUsedSize;
-		blockUsedSize = CpBufferBlock::BLOCK_DATA_SIZE;
-		rlist_del_entry(firstBlock, in_blocks);
-		allocator::free(firstBlock);
-		firstBlock = nextBlock;
-		mStartOffset = 0;
+
+	Block *block = lastBlock();
+	if (m_end == virtualEnd())
+		m_end = block->end();
+	size_t left_in_block = m_end - block->begin();
+
+	while (size >= left_in_block) {
+		block = delBlockAndPrev(block);
+		m_end = block->end();
+		size -= left_in_block;
+		left_in_block = Block::BLOCK_DATA_SIZE;
 	}
-	/* Data in the first block can start with offset. */
-	if (size > CpBufferBlock::BLOCK_DATA_SIZE - mStartOffset) {
-		size -= CpBufferBlock::BLOCK_DATA_SIZE - mStartOffset;
-		rlist_del_entry(firstBlock, in_blocks);
-		allocator::free(firstBlock);
+
+	m_end = size == 0 ? virtualEnd() : m_end - size;
+}
+
+template <size_t N, class allocator>
+void
+Buffer<N, allocator>::dropFront(size_t size)
+{
+	assert(size != 0);
+	assert(rlist_empty(&m_blocks));
+
+	Block *block = firstBlock();
+	size_t left_in_block = block->end() - m_begin;
+
+	while (size >= left_in_block) {
+		block = delBlockAndNext(block);
+		m_begin = block->begin();
+		size -= left_in_block;
+		left_in_block = Block::BLOCK_DATA_SIZE;
 	}
-	mStartOffset = mStartOffset + size;
+	m_begin += size;
 }
 
 template <size_t N, class allocator>
 size_t
-CpBuffer<N, allocator>::addBack(const char *buf, size_t size)
+Buffer<N, allocator>::addBack(const char *buf, size_t size)
 {
-	iterator iter = appendBack(size);
-	set(iter, buf, size);
+	// TODO: optimization: rewrite without iterators.
+	iterator itr = appendBack(size);
+	set(itr, buf, size);
 	return size;
 }
 
 template <size_t N, class allocator>
 template <class T>
 size_t
-CpBuffer<N, allocator>::addBack(T&& t)
+Buffer<N, allocator>::addBack(T&& t)
 {
 	static_assert(std::is_standard_layout<typename std::remove_reference<T>::type>::value);
-	constexpr size_t t_size = sizeof(t);
-	iterator iter = appendBack(t_size);
-	/*
-	 * If object doesn't fit into single block, then let's fallback to
-	 * block-by-block copy.
-	 */
-	CpBufferBlock *lastBlock =
-		rlist_last_entry(&m_blocks, CpBufferBlock, in_blocks);
-	if (t_size <= blockAvailableSize(iter.mPosition.block)) {
-		char *bufPos = iter.mPosition.offset;
-		memcpy(bufPos, &t, t_size);
-	} else {
-		set(iter, reinterpret_cast<char *>(&t), t_size);
-	}
-	return t_size;
+	// TODO: optimization: rewrite without iterators.
+	iterator itr = appendBack(sizeof(T));
+	set(itr, std::forward<T>(t));
+	return sizeof(T);
 }
 
 template <size_t N, class allocator>
 struct CpBufferDataPosition<N, allocator>
-dataPosMoveForward(const CpBuffer<N, allocator> &buffer,
+dataPosMoveForward(const Buffer<N, allocator> &buffer,
 		   CpBufferDataPosition<N, allocator> &prevDataPos,
 		   CpBufferDataPosition<N, allocator> &newDataPos,
 		   size_t size)
 {
-	typename CpBuffer<N, allocator>::CpBufferBlock *block = prevDataPos.block;
+	typename Buffer<N, allocator>::Block *block = prevDataPos.block;
 	char *pos = prevDataPos.offset;
 	size_t blockSz = buffer.blockEnd(block) - pos;
 	/* Find suitable block for iterator's new position. */
 	while (size > blockSz) {
 		size -= blockSz;
 		block = rlist_next_entry(block, in_blocks);
-		blockSz = CpBuffer<N, allocator>::CpBufferBlock::BLOCK_DATA_SIZE;
+		blockSz = Buffer<N, allocator>::Block::BLOCK_DATA_SIZE;
 	}
 	newDataPos.offset = pos + size;
 	assert(newDataPos.offset <= blockSz);
@@ -569,11 +493,15 @@ dataPosMoveForward(const CpBuffer<N, allocator> &buffer,
 
 template <size_t N, class allocator>
 void
-CpBuffer<N, allocator>::insert(iterator iter, size_t size)
+Buffer<N, allocator>::insert(const iterator &itr, size_t size)
 {
 	/* Firstly move data in blocks. */
-	struct CpBufferBlock *lastBlock =
-		rlist_last_entry(&m_blocks, struct CpBufferBlock, in_blocks);
+	//TODO: rewrite without iterators.
+	appendBack(size);
+	//...TODO: don not alloc here.
+
+	struct Block *lastBlock =
+		rlist_last_entry(&m_blocks, struct Block, in_blocks);
 	size_t availableSz = blockAvailableSize(lastBlock);
 	struct rlist newBlocks;
 	rlist_create(&newBlocks);
@@ -582,15 +510,15 @@ CpBuffer<N, allocator>::insert(iterator iter, size_t size)
 	});
 	while (availableSz < size) {
 		/* Allocate enough blocs at the end of list to fit insertion. */
-		struct CpBufferBlock *newBlock = CpBufferBlockCreate<N, allocator>();
+		struct Block *newBlock = CpBufferBlockCreate<N, allocator>();
 		assert(newBlock != nullptr);
 		rlist_add_entry(&newBlocks, newBlock, in_blocks);
-		availableSz += CpBufferBlock::BLOCK_DATA_SIZE;
+		availableSz += Block::BLOCK_DATA_SIZE;
 	}
 	rlist_splice_tail(&m_blocks, &newBlocks);
-	struct CpBufferBlock *startBlock = iter.mPosition.block;
-	struct CpBufferBlock *srcBlock = lastBlock;
-	char *src = iter.mPosition.offset;
+	struct Block *startBlock = itr.mPosition.block;
+	struct Block *srcBlock = lastBlock;
+	char *src = itr.mPosition.offset;
 	struct CpIterPosition dstPos;
 	struct CpIterPosition newPos;
 	do {
@@ -601,7 +529,7 @@ CpBuffer<N, allocator>::insert(iterator iter, size_t size)
 		 */
 		dstPos = { srcBlock, src };
 		dataPosMoveForward(this, dstPos, newPos, size);
-		struct CpBufferBlock *dstBlock = newPos.block;
+		struct Block *dstBlock = newPos.block;
 		char *dst = newPos.offset;
 		size_t dstCopySz = blockEnd(dstBlock) - dst;
 		std::memmove(dst, src, dstCopySz);
@@ -619,10 +547,11 @@ CpBuffer<N, allocator>::insert(iterator iter, size_t size)
 		srcBlock = rlist_prev_entry(srcBlock, in_blocks);
 		src = &srcBlock->data;
 	} while (srcBlock != startBlock);
-	mEndOffset = (mEndOffset + size) % CpBufferBlock::BLOCK_DATA_SIZE;
+	mEndOffset = (mEndOffset + size) % Block::BLOCK_DATA_SIZE;
 	/* Now adjust iterators' positions. */
-	iterator curIter = iter;
+	iterator curIter = itr;
 	while (! curIter.isLast()) {
+		//TODO: check equal iterators.
 		curIter = rlist_next_entry(&curIter, in_iters);
 		dstPos = curIter.mPosition;
 		dataPosMoveForward(this, dstPos, curIter.mPosition, size);
@@ -631,19 +560,19 @@ CpBuffer<N, allocator>::insert(iterator iter, size_t size)
 
 template <size_t N, class allocator>
 void
-dataPosMoveBack(const CpBuffer<N, allocator> &buffer,
+dataPosMoveBack(const Buffer<N, allocator> &buffer,
 		CpBufferDataPosition<N, allocator> &prevDataPos,
 		CpBufferDataPosition<N, allocator> &newDataPos,
 		size_t size)
 {
-	typename CpBuffer<N, allocator>::CpBufferBlock *block = prevDataPos.block;
+	typename Buffer<N, allocator>::Block *block = prevDataPos.block;
 	char *pos = prevDataPos.offset;
 	size_t blockSz = blockEnd(block) - pos;
 	/* Find suitable block for iterator's new position. */
 	while (blockSz < size) {
 		size -= blockSz;
 		block = rlist_prev_entry(block, in_blocks);
-		blockSz = CpBuffer<N, allocator>::CpBufferBlock::BLOCK_DATA_SIZE;
+		blockSz = Buffer<N, allocator>::Block::BLOCK_DATA_SIZE;
 	}
 	newDataPos.offset = (char *) buffer.blockEnd(block) - size;
 	assert(newDataPos.offset <= blockSz);
@@ -652,12 +581,12 @@ dataPosMoveBack(const CpBuffer<N, allocator> &buffer,
 
 template <size_t N, class allocator>
 void
-CpBuffer<N, allocator>::release(iterator iter, size_t size)
+Buffer<N, allocator>::release(iterator itr, size_t size)
 {
-	struct CpBufferBlock *firstBlock =
-		rlist_first_entry(&m_blocks, CpBufferBlock, in_blocks);
-	struct CpBufferBlock *srcBlock = iter.mPosition.block;
-	char *src = iter.mPosition.offset;
+	struct Block *firstBlock =
+		rlist_first_entry(&m_blocks, Block, in_blocks);
+	struct Block *srcBlock = itr.mPosition.block;
+	char *src = itr.mPosition.offset;
 	struct CpIterPosition dstPos;
 	struct CpIterPosition newPos;
 	do {
@@ -668,7 +597,7 @@ CpBuffer<N, allocator>::release(iterator iter, size_t size)
 		 */
 		dstPos = {srcBlock, src};
 		dataPosMoveBack(this, dstPos, newPos, size);
-		struct CpBufferBlock *dstBlock = dstPos.block;
+		struct Block *dstBlock = dstPos.block;
 		char *dst = newPos.offset;
 		size_t dstCopySz = blockEnd(dstBlock) - dst;
 		std::memmove(dst, src, dstCopySz);
@@ -688,16 +617,16 @@ CpBuffer<N, allocator>::release(iterator iter, size_t size)
 	} while (srcBlock != firstBlock);
 	/* Now adjust iterators' positions. */
 	iterator curIter = rlist_last_entry(&m_iterators, iterator, in_iters);
-	while (curIter != iter) {
+	while (curIter != itr) {
 		dstPos = curIter.mPosition;
 		dataPosMoveBack(this, dstPos, curIter.mPosition, size);
 		curIter = rlist_next_entry(&curIter, in_iters);
 	};
 	/* Release all unused for now blocks. */
-	struct CpBufferBlock *lastBlock =
-		rlist_last_entry(&m_blocks, struct CpBufferBlock, in_blocks);
+	struct Block *lastBlock =
+		rlist_last_entry(&m_blocks, struct Block, in_blocks);
 	while (size > blockUsedSize(lastBlock)) {
-		struct CpBufferBlock *prevBlock =
+		struct Block *prevBlock =
 			rlist_prev_entry(lastBlock, in_blocks);
 		rlist_del_entry(lastBlock, in_blocks);
 		size -= blockUsedSize(lastBlock);
@@ -710,20 +639,21 @@ CpBuffer<N, allocator>::release(iterator iter, size_t size)
 
 template <size_t N, class allocator>
 void
-CpBuffer<N, allocator>::resize(iterator iter, size_t size, size_t new_size)
+Buffer<N, allocator>::resize(const iterator &itr, size_t size, size_t new_size)
 {
 	if (new_size > size)
-		insert(iter, new_size - size);
-	release(iter, size - new_size);
+		insert(itr, new_size - size);
+	else
+		release(itr, size - new_size);
 }
 
 template <size_t N, class allocator>
 size_t
-CpBuffer<N, allocator>::getIOV(iterator itr, struct iovec *vecs,
+Buffer<N, allocator>::getIOV(iterator itr, struct iovec *vecs,
 			       size_t max_size)
 {
 	assert(vecs != NULL);
-	CpBufferBlock *block = itr.mPosition.block;
+	Block *block = itr.mPosition.block;
 	char *pos = itr.mPosition.offset;
 	char *posEnd = blockEnd(block);
 	size_t vec_cnt = 0;
@@ -742,10 +672,10 @@ CpBuffer<N, allocator>::getIOV(iterator itr, struct iovec *vecs,
 
 template <size_t N, class allocator>
 void
-CpBuffer<N, allocator>::set(iterator itr, const char *buf, size_t size)
+Buffer<N, allocator>::set(const iterator &itr, const char *buf, size_t size)
 {
 	struct CpBufferDataPosition<N, allocator> iterPos = itr.mPosition;
-	struct CpBufferBlock *block = iterPos.block;
+	struct Block *block = iterPos.block;
 	char *bufPos = iterPos.offset;
 	size_t blockSz = blockEnd(block) - iterPos.offset;
 	const char *dataPos = buf;
@@ -765,7 +695,7 @@ CpBuffer<N, allocator>::set(iterator itr, const char *buf, size_t size)
 template <size_t N, class allocator>
 template <class T>
 void
-CpBuffer<N, allocator>::set(iterator itr, T&& t)
+Buffer<N, allocator>::set(iterator itr, T&& t)
 {
 	/*
 	 * Do not even attempt at copying non-standard classes (such as
@@ -784,14 +714,14 @@ CpBuffer<N, allocator>::set(iterator itr, T&& t)
 
 template <size_t N, class allocator>
 void
-CpBuffer<N, allocator>::get(iterator itr, char *buf, size_t size)
+Buffer<N, allocator>::get(iterator itr, char *buf, size_t size)
 {
 	/*
 	 * The same implementation as in ::set() method buf vice versa:
 	 * buffer and data sources are swapped.
 	 */
 	struct CpBufferDataPosition<N, allocator> iterPos = itr.mPosition;
-	struct CpBufferBlock *block = iterPos.block;
+	struct Block *block = iterPos.block;
 	char *bufPos = buf;
 	size_t blockSz = blockEnd(block) - iterPos.offset;
 	char *dataPos = iterPos.offset;
@@ -811,7 +741,7 @@ CpBuffer<N, allocator>::get(iterator itr, char *buf, size_t size)
 template <size_t N, class allocator>
 template <class T>
 void
-CpBuffer<N, allocator>::get(iterator itr, T& t)
+Buffer<N, allocator>::get(iterator itr, T& t)
 {
 	static_assert(! std::is_standard_layout<T>::value);
 	size_t t_size = sizeof(t);
@@ -826,9 +756,9 @@ CpBuffer<N, allocator>::get(iterator itr, T& t)
 
 template <size_t N, class allocator>
 bool
-CpBuffer<N, allocator>::empty() const
+Buffer<N, allocator>::empty() const
 {
-	return 0;
+	return m_begin == m_end;
 }
 
-#endif /* TARANTOOL_CPBUF_H_INCLUDED */
+} // namespace tnt {
