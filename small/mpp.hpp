@@ -32,11 +32,51 @@
 
 
 #include <cstdint>
+#include <iosfwd>
+#include <tuple>
 #include <type_traits>
 
 namespace mpp {
 
+// TODO: move to mpp_dec.hpp ?
+enum Types : uint8_t {
+	MP_NIL,
+	MP_UINT,
+	MP_INT,
+	MP_STR,
+	MP_BIN,
+	MP_ARR,
+	MP_MAP,
+	MP_BOOL,
+	MP_FLT,
+	MP_DBL,
+	MP_EXT,
+	MP_END
+};
 
+inline const char *TypeNames[] = {
+	"MP_NIL",
+	"MP_UINT",
+	"MP_INT",
+	"MP_STR",
+	"MP_BIN",
+	"MP_ARR",
+	"MP_MAP",
+	"MP_BOOL",
+	"MP_FLT",
+	"MP_DBL",
+	"MP_EXT",
+	"MP_BAD" // note that "MP_BAD" stands for MP_END.
+};
+
+std::ostream& operator<<(std::ostream& strm, Types t) {
+	if (t >= Types::MP_END)
+		return strm << TypeNames[Types::MP_END]
+			    << "(" << static_cast<uint32_t>(t) << ")";
+	return strm << TypeNames[t];
+}
+
+// TODO: move to mpp_utils.hpp ?
 uint8_t  bswap8(uint8_t x)   { return x; }
 uint16_t bswap16(uint16_t x) { return __builtin_bswap16(x); }
 uint32_t bswap32(uint32_t x) { return __builtin_bswap32(x); }
@@ -51,7 +91,84 @@ uint16_t bswap(uint16_t x) { return bswap16(x); }
 uint32_t bswap(uint32_t x) { return bswap32(x); }
 uint64_t bswap(uint64_t x) { return bswap64(x); }
 
+[[noreturn]] void unreachable() { assert(false); }
 
+// TODO: move to mpp_utils.hpp or mpp_traits?
+template<typename T, typename _ = void>
+struct is_iterable : std::false_type {};
+
+template<typename T>
+struct is_iterable<
+	T,
+	std::conditional_t<
+		false,
+		std::tuple<
+			decltype(*std::cbegin(std::declval<T>())),
+			decltype(*std::cend(std::declval<T>()))
+		>,
+		void
+	>
+> : public std::true_type {};
+
+template<typename T>
+constexpr bool is_iterable_v = is_iterable<T>::value;
+
+template<typename T, typename _ = void>
+struct is_kv_iterable : std::false_type {};
+
+template<typename T>
+struct is_kv_iterable<
+	T,
+	std::conditional_t<
+		false,
+		std::tuple<
+			decltype(std::cbegin(std::declval<T>())->first),
+			decltype(std::cbegin(std::declval<T>())->second),
+			decltype(*std::cend(std::declval<T>()))
+		>,
+		void
+	>
+> : public std::true_type {};
+
+template<typename T>
+constexpr bool is_kv_iterable_v = is_kv_iterable<T>::value;
+
+template<typename T>
+struct is_tuple : std::false_type {};
+
+template<class... Args>
+struct is_tuple<std::tuple<Args...>> : std::true_type {};
+
+template<typename T>
+constexpr bool is_tuple_v = is_tuple::value;
+
+#define DEFINE_WRAPPER(name) \
+template <class T> \
+struct name { \
+	const T& value; \
+	name(const T& arg) : value(arg) {} \
+}; \
+\
+template <class T> \
+struct name<T> as_##name(const T& t) { return name<T>{t}; } \
+\
+template<typename T> \
+struct is_##name : std::false_type {}; \
+\
+template<class... Args> \
+struct is_##name<name<Args...>> : std::true_type {}; \
+\
+template<typename T> \
+constexpr bool is_##name##_v = is_##name::value
+
+DEFINE_WRAPPER(arr);
+DEFINE_WRAPPER(map);
+
+#undef DEFINE_WRAPPER
+
+
+
+// TODO: move to mpp_enc.hpp ?
 template <class BUFFER>
 class Enc
 {
@@ -176,23 +293,132 @@ public:
 		m_Buf.set(res, tag);
 		return res;
 	}
-	template <class T>
-	iterator add(T&& t) {
-		using U = std::remove_reference_t<T>;
-		if constexpr (std::is_integral_v<U> && std::is_unsigned_v<U>)
-			return add_uint(t);
-		else if constexpr (std::is_integral_v<U> && std::is_signed_v<U>)
-			return add_int(t);
-		else
-			unreachable();
-
+	iterator add_arr_tag(uint32_t size)
+	{
+		iterator res = m_Buf.appendBack(1);
+		if (size < 16) {
+			uint8_t tag = 0x80 + size;
+			m_Buf.set(res, tag);
+		} else if (size <= UINT16_MAX) {
+			uint8_t tag = 0xdc;
+			m_Buf.set(res, tag);
+			m_Buf.appendBack(bswap16(size));
+		} else {
+			uint8_t tag = 0xdd;
+			m_Buf.set(res, tag);
+			m_Buf.appendBack(bswap32(size));
+		}
+		return res;
+	}
+	iterator add_map_tag(uint32_t size)
+	{
+		iterator res = m_Buf.appendBack(1);
+		if (size < 16) {
+			uint8_t tag = 0x80 + size;
+			m_Buf.set(res, tag);
+		} else if (size <= UINT16_MAX) {
+			uint8_t tag = 0xdc;
+			m_Buf.set(res, tag);
+			m_Buf.appendBack(bswap16(size));
+		} else {
+			uint8_t tag = 0xdd;
+			m_Buf.set(res, tag);
+			m_Buf.appendBack(bswap32(size));
+		}
+		return res;
 	}
 
+	iterator add(const T& t) {
+		if constexpr (std::is_integral_v<T> && std::is_unsigned_v<T>) {
+			return add_uint(t);
+		} else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>) {
+			return add_int(t);
+		} else if constexpr (is_arr_v<T>) {
+			if constexpr (is_iterable_v<T>) {
+				iterator itr = add_arr_tag(t.size());
+				for (const auto& x : t)
+					add(x);
+				return itr;
+			} else if constexpr (is_tuple_v<T>) {
+				iterator itr = add_arr_tag(std::tuple_size<T>::value);
+				std::visit([](const auto& a){ add(a); }, t);
+				return itr;
+			} else {
+				static_assert(fasle, "Wrong tuple was passed as array");
+			}
+		} else if constexpr (is_map_v<T>) {
+			if constexpr (is_kv_iterable_v<T>) {
+				iterator itr = add_map_tag(t.size());
+				for (const auto& x : t) {
+					add(x.first);
+					add(x.second);
+				}
+				return itr;
+			} else if constexpr (is_iterable_v<T>) {
+				assert(t.size() % 2 == 0);
+				iterator itr = add_map_tag(t.size() / 2);
+				for (const auto& x : t)
+					add(x);
+				return itr;
+			} else if constexpr (is_tuple_v<T>) {
+				static_assert(std::tuple_size<T>::value % 2 == 0,
+					      "Map expects even number of elements");
+				iterator itr = add_map_tag(std::tuple_size<T>::value / 2);
+				std::visit([](const auto& a){ add(a); }, t);
+				return itr;
+			} else {
+				static_assert(fasle, "Wrong tuple was passed as map");
+			}
+		} else if constexpr (is_kv_iterable_v<T>::value) {
+			return add(as_map(t));
+		} else if constexpr (is_iterable_v<T>::value) {
+			return add(as_arr(t));
+		} else if constexpr (is_tuple_v<T>::value) {
+			return add(as_arr(t));
+		} else {
+			static_assert(false, "Unknown type!");
+		}
+
+	}
 
 private:
 	BUFFER& m_Buf;
 };
 
+// TODO: move to mpp_enc.hpp ?
+template <class BUFFER>
+class Dec
+{
+	using Buffer_t = BUFFER;
+	using iterator_base_t = typename BUFFER::iterator;
+
+public:
+	Dec(Buffer_t& buf) : m_Buf(buf) {}
+
+	struct Item {
+		Types type;
+		uint8_t flags;
+		union {
+			int64_t uint_value;
+			uint64_t int_value;
+			uint32_t str_size;
+			uint32_t bin_size;
+			uint32_t arr_size;
+			uint32_t map_size;
+			bool bool_value;
+			float flt_value;
+			double dbl_value;
+			// TODO: MP_EXT
+		};
+		Item *child;
+		Item *next1;
+		Item *next2;
+
+	};
+
+private:
+	BUFFER& m_Buf;
+};
 
 
 } // namespace mpp {
