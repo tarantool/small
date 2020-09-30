@@ -104,7 +104,8 @@ struct is_iterable<
 		false,
 		std::tuple<
 			decltype(*std::cbegin(std::declval<T>())),
-			decltype(*std::cend(std::declval<T>()))
+			decltype(*std::cend(std::declval<T>())),
+			decltype(std::size(std::declval<T>()))
 		>,
 		void
 	>
@@ -124,7 +125,8 @@ struct is_kv_iterable<
 		std::tuple<
 			decltype(std::cbegin(std::declval<T>())->first),
 			decltype(std::cbegin(std::declval<T>())->second),
-			decltype(*std::cend(std::declval<T>()))
+			decltype(*std::cend(std::declval<T>())),
+			decltype(std::size(std::declval<T>()))
 		>,
 		void
 	>
@@ -289,7 +291,7 @@ public:
 	iterator add_bool(bool b)
 	{
 		iterator res = m_Buf.appendBack(1);
-		uint8_t tag = b ? 0xc3 : 0xc2;
+		uint8_t tag = 0xc2 + b;
 		m_Buf.set(res, tag);
 		return res;
 	}
@@ -334,8 +336,9 @@ public:
 		} else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>) {
 			return add_int(t);
 		} else if constexpr (is_arr_v<T>) {
+			// TODO: Full rollback in case of any failure.
 			if constexpr (is_iterable_v<T>) {
-				iterator itr = add_arr_tag(t.size());
+				iterator itr = add_arr_tag(std::size(t));
 				for (const auto& x : t)
 					add(x);
 				return itr;
@@ -347,16 +350,17 @@ public:
 				static_assert(fasle, "Wrong tuple was passed as array");
 			}
 		} else if constexpr (is_map_v<T>) {
+			// TODO: Full rollback in case of any failure.
 			if constexpr (is_kv_iterable_v<T>) {
-				iterator itr = add_map_tag(t.size());
+				iterator itr = add_map_tag(std::size(t));
 				for (const auto& x : t) {
 					add(x.first);
 					add(x.second);
 				}
 				return itr;
 			} else if constexpr (is_iterable_v<T>) {
-				assert(t.size() % 2 == 0);
-				iterator itr = add_map_tag(t.size() / 2);
+				assert(std::size(t) % 2 == 0);
+				iterator itr = add_map_tag(std::size(t) / 2);
 				for (const auto& x : t)
 					add(x);
 				return itr;
@@ -396,8 +400,14 @@ public:
 	Dec(Buffer_t& buf) : m_Buf(buf) {}
 
 	struct Item {
+		~Item()
+		{
+		}
+
 		Types type;
-		uint8_t flags;
+		int8_t ext_type;
+		uint8_t data_offset;
+		uint8_t flags = 0;
 		union {
 			int64_t uint_value;
 			uint64_t int_value;
@@ -410,10 +420,9 @@ public:
 			double dbl_value;
 			// TODO: MP_EXT
 		};
-		Item *child;
-		Item *next1;
-		Item *next2;
-
+		Item *next = nullptr;
+		Item *child = nullptr;
+		Item *shortcut[2] = {nullptr, nullptr};
 	};
 
 private:
