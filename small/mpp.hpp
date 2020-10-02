@@ -135,6 +135,40 @@ struct is_kv_iterable<
 template<typename T>
 constexpr bool is_kv_iterable_v = is_kv_iterable<T>::value;
 
+#if __cplusplus <= 201799L
+template< class T >
+struct remove_cvref {
+	typedef std::remove_cv_t<std::remove_reference_t<T>> type;
+};
+template< class T >
+using remove_cvref_t = typename remove_cvref<T>::type;
+#endif
+
+template<class T>
+struct is_char : public std::is_same<char, remove_cvref_t<T>> {};
+
+template<class T>
+constexpr bool is_char_v = is_char<T>::value;
+
+template<typename T, typename _ = void>
+struct is_iterable_string : std::false_type {};
+
+template<typename T>
+struct is_iterable_string<
+	T,
+	std::conditional_t<
+		false,
+		std::tuple<
+			decltype(*std::cbegin(std::declval<T>())),
+			decltype(*std::cend(std::declval<T>()))
+		>,
+		void
+	>
+> : public is_char<decltype(*std::cbegin(std::declval<T>()))> {};
+
+template<typename T>
+constexpr bool is_iterable_string_v = is_iterable_string<T>::value;
+
 template<typename T>
 struct is_tuple : std::false_type {};
 
@@ -400,8 +434,16 @@ public:
 	Dec(Buffer_t& buf) : m_Buf(buf) {}
 
 	struct Item {
+		Item() = default;
+		Item(const Item&) = delete;
+		void operator=(const Item&) = delete;
 		~Item()
 		{
+			while (child != nullptr) {
+				Item * del = child;
+				child = child->next;
+				delete del;
+			}
 		}
 
 		Types type;
