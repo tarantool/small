@@ -94,30 +94,70 @@ uint64_t bswap(uint64_t x) { return bswap64(x); }
 [[noreturn]] void unreachable() { assert(false); }
 
 // TODO: move to mpp_utils.hpp or mpp_traits?
-template<typename T, typename _ = void>
-struct is_iterable : std::false_type {};
+template <class ...ARGS>
+using valid_types = void;
 
-template<typename T>
-struct is_iterable<
+template<class T>
+using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
+
+template<class T>
+constexpr bool is_cvref_char_v = std::is_same_v<char, remove_cvref_t<T>>;
+
+
+template<class T>
+struct is_tuple : std::false_type {};
+
+template<class... Args>
+struct is_tuple<std::tuple<Args...>> : std::true_type {};
+
+template<class T>
+constexpr bool is_tuple_v = is_tuple<T>::value;
+
+
+template<class T, class _ = void>
+struct looks_like_arr : std::false_type {};
+
+template<class T>
+struct looks_like_arr<
 	T,
-	std::conditional_t<
-		false,
-		std::tuple<
-			decltype(*std::cbegin(std::declval<T>())),
-			decltype(*std::cend(std::declval<T>())),
-			decltype(std::size(std::declval<T>()))
-		>,
-		void
+	valid_types<
+		decltype(*std::cbegin(std::declval<T>())),
+		decltype(*std::cend(std::declval<T>())),
+		decltype(std::size(std::declval<T>()))
 	>
 > : public std::true_type {};
 
-template<typename T>
-constexpr bool is_iterable_v = is_iterable<T>::value;
+template<class T>
+constexpr bool looks_like_arr_v = looks_like_arr<T>::value;
 
-template<typename T, typename _ = void>
+
+// Note that everything that looks like map also looks like array.
+template<class T, class _ = void>
+struct looks_like_map : std::false_type {};
+
+template<class T>
+struct looks_like_map<
+	T,
+	valid_types<
+		decltype(std::cbegin(std::declval<T>())->first),
+		decltype(std::cbegin(std::declval<T>())->second),
+		decltype(std::cend(std::declval<T>())),
+		decltype(std::size(std::declval<T>()))
+	>
+> : public std::true_type {};
+
+template<class T>
+constexpr bool looks_like_map_v = looks_like_map<T>::value;
+
+
+
+
+
+
+template<class T, class _ = void>
 struct is_kv_iterable : std::false_type {};
 
-template<typename T>
+template<class T>
 struct is_kv_iterable<
 	T,
 	std::conditional_t<
@@ -125,35 +165,22 @@ struct is_kv_iterable<
 		std::tuple<
 			decltype(std::cbegin(std::declval<T>())->first),
 			decltype(std::cbegin(std::declval<T>())->second),
-			decltype(*std::cend(std::declval<T>())),
+			decltype(std::cend(std::declval<T>())),
 			decltype(std::size(std::declval<T>()))
 		>,
 		void
 	>
 > : public std::true_type {};
 
-template<typename T>
+template<class T>
 constexpr bool is_kv_iterable_v = is_kv_iterable<T>::value;
 
-#if __cplusplus <= 201799L
-template< class T >
-struct remove_cvref {
-	typedef std::remove_cv_t<std::remove_reference_t<T>> type;
-};
-template< class T >
-using remove_cvref_t = typename remove_cvref<T>::type;
-#endif
 
-template<class T>
-struct is_char : public std::is_same<char, remove_cvref_t<T>> {};
 
-template<class T>
-constexpr bool is_char_v = is_char<T>::value;
-
-template<typename T, typename _ = void>
+template<class T, class _ = void>
 struct is_iterable_string : std::false_type {};
 
-template<typename T>
+template<class T>
 struct is_iterable_string<
 	T,
 	std::conditional_t<
@@ -166,17 +193,9 @@ struct is_iterable_string<
 	>
 > : public is_char<decltype(*std::cbegin(std::declval<T>()))> {};
 
-template<typename T>
+template<class T>
 constexpr bool is_iterable_string_v = is_iterable_string<T>::value;
 
-template<typename T>
-struct is_tuple : std::false_type {};
-
-template<class... Args>
-struct is_tuple<std::tuple<Args...>> : std::true_type {};
-
-template<typename T>
-constexpr bool is_tuple_v = is_tuple::value;
 
 #define DEFINE_WRAPPER(name) \
 template <class T> \
@@ -188,17 +207,19 @@ struct name { \
 template <class T> \
 struct name<T> as_##name(const T& t) { return name<T>{t}; } \
 \
-template<typename T> \
+template<class T> \
 struct is_##name : std::false_type {}; \
 \
 template<class... Args> \
 struct is_##name<name<Args...>> : std::true_type {}; \
 \
-template<typename T> \
+template<class T> \
 constexpr bool is_##name##_v = is_##name::value
 
 DEFINE_WRAPPER(arr);
 DEFINE_WRAPPER(map);
+DEFINE_WRAPPER(str);
+DEFINE_WRAPPER(bin);
 
 #undef DEFINE_WRAPPER
 
