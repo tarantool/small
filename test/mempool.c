@@ -1,10 +1,26 @@
 #include <small/mempool.h>
 #include <small/quota.h>
-#include <stdalign.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include "unit.h"
+
+/**
+ * C11/C++11 operator. Returns the alignment, in bytes, required for any
+ * instance of the type indicated by type-id, which is either complete type,
+ * an array type, or a reference type.
+ */
+#if !defined(alignof) && !defined(__alignof_is_defined)
+#  if __has_feature(c_alignof) || (defined(__GNUC__) && __GNUC__ >= 5)
+#    include <stdalign.h>
+#  elif defined(__GNUC__)
+#    define alignof(_T) __alignof(_T)
+#    define __alignof_is_defined 1
+#  else
+#    define alignof(_T) offsetof(struct { char c; _T member; }, member)
+#    define __alignof_is_defined 1
+#  endif
+#endif
 
 enum {
 	OBJSIZE_MIN = 2 * sizeof(int),
