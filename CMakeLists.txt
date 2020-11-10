@@ -53,6 +53,7 @@ set(lib_headers
     small/rlist.h
     small/slab_arena.h
     small/slab_cache.h
+    small/small_class.h
     small/small.h
     small/lsregion.h
     small/static.h)
@@ -63,6 +64,7 @@ set(lib_sources
     small/region.c
     small/mempool.c
     small/slab_arena.c
+    small/small_class.c
     small/small.c
     small/matras.c
     small/ibuf.c
@@ -71,6 +73,7 @@ set(lib_sources
     small/static.c)
 
 add_library(${PROJECT_NAME} STATIC ${lib_sources})
+target_link_libraries(${PROJECT_NAME} m)
 
 enable_testing()
 add_subdirectory(test)
@@ -87,6 +90,7 @@ if (NOT ENABLE_VALGRIND)
 endif()
 
 add_library(${PROJECT_NAME}_shared SHARED ${lib_sources})
+target_link_libraries(${PROJECT_NAME}_shared m)
 set_target_properties(${PROJECT_NAME}_shared PROPERTIES VERSION 1.0 SOVERSION 1)
 set_target_properties(${PROJECT_NAME}_shared PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
 
