@@ -31,6 +31,13 @@ set_source_files_properties(rb_rand.cc PROPERTIES
 add_executable(mempool.test mempool.c)
 target_link_libraries(mempool.test small)
 
+add_executable(small_class.test small_class.c unit.c)
+target_link_libraries(small_class.test small)
+
+add_executable(small_class_branchless.test small_class.c unit.c)
+target_link_libraries(small_class_branchless.test small)
+target_compile_definitions(small_class_branchless.test PUBLIC SMALL_CLASS_BRANCHLESS)
+
 add_executable(small_alloc.test small_alloc.c)
 target_link_libraries(small_alloc.test small)
 
@@ -64,6 +71,8 @@ add_test(region ${CMAKE_CURRENT_BUILD_DIR}/region.test)
 add_test(ibuf ${CMAKE_CURRENT_BUILD_DIR}/ibuf.test)
 add_test(obuf ${CMAKE_CURRENT_BUILD_DIR}/obuf.test)
 add_test(mempool ${CMAKE_CURRENT_BUILD_DIR}/mempool.test)
+add_test(small_class ${CMAKE_CURRENT_BUILD_DIR}/small_class.test)
+add_test(small_class_branchless ${CMAKE_CURRENT_BUILD_DIR}/small_class_branchless.test)
 add_test(small_alloc ${CMAKE_CURRENT_BUILD_DIR}/small_alloc.test)
 add_test(lf_lifo ${CMAKE_CURRENT_BUILD_DIR}/lf_lifo.test)
 add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
