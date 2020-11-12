@@ -77,6 +77,7 @@ target_link_libraries(${PROJECT_NAME} m)
 
 enable_testing()
 add_subdirectory(test)
+add_subdirectory(perf)
 
 if(DEFINED SMALL_EMBEDDED)
     # Don't build shared library and skip INSTALL() targets if this
