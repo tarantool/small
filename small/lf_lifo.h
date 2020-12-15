@@ -84,7 +84,7 @@ lf_lifo_push(struct lf_lifo *head, void *elem)
 		 * coerce to unsigned short
 		 */
 		void *newhead = (char *) elem + aba_value((char *) tail + 1);
-		if (pm_atomic_compare_exchange_strong(&head->next, &tail, newhead))
+		if (pm_atomic_compare_exchange_weak(&head->next, &tail, newhead))
 			return head;
 	} while (true);
 }
@@ -106,7 +106,7 @@ lf_lifo_pop(struct lf_lifo *head)
 		 */
 		void *newhead = ((char *) lf_lifo(elem->next) +
 				 aba_value(tail));
-		if (pm_atomic_compare_exchange_strong(&head->next, &tail, newhead))
+		if (pm_atomic_compare_exchange_weak(&head->next, &tail, newhead))
 			return elem;
 	} while (true);
 }
