@@ -7,7 +7,10 @@ License: BSD
 URL: https://github.com/tarantool/small
 Source0: https://github.com/tarantool/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
 BuildRequires: cmake >= 2.8
+%if (0%{?fedora} >= 22 || 0%{?rhel} >= 7 || 0%{?sle_version} >= 1500)
+# RHEL 6 requires devtoolset
 BuildRequires: gcc >= 4.5
+%endif
 %description
 Collection of Specialized Memory ALLocators for small allocations
 
