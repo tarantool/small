@@ -1,6 +1,6 @@
-#include "trivia/util.h"
 #include <small/mempool.h>
 #include <small/quota.h>
+#include <stdalign.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
