@@ -209,8 +209,10 @@ small_alloc_basic(unsigned int slab_size)
 	slab_arena_create(&arena, &quota, 0, slab_size, MAP_PRIVATE);
 	slab_cache_create(&cache, &arena);
 	for (unsigned int i = 0; i < SZR(slab_alloc_factor); i++) {
+		float actual_alloc_factor;
 		small_alloc_create(&alloc, &cache,
-				   OBJSIZE_MIN, slab_alloc_factor[i]);
+				   OBJSIZE_MIN, slab_alloc_factor[i],
+				   &actual_alloc_factor);
 		int size_min = OBJSIZE_MIN;
 		int size_max = (int)alloc.objsize_max - 1;
 		fail_unless(clock_gettime (CLOCK_MONOTONIC, &tm1) == 0);
@@ -248,8 +250,10 @@ small_alloc_basic(unsigned int slab_size)
 		print_json_test_header("exponent");
 	}
 	for (unsigned int i = 0; i < SZR(slab_alloc_factor); i++) {
+		float actual_alloc_factor;
 		small_alloc_create(&alloc, &cache,
-				   OBJSIZE_MIN, slab_alloc_factor[i]);
+				   OBJSIZE_MIN, slab_alloc_factor[i],
+				   &actual_alloc_factor);
 		int size_min = OBJSIZE_MIN;
 		int size_max = (int)alloc.objsize_max - 1;
 		fail_unless(clock_gettime (CLOCK_MONOTONIC, &tm1) == 0);
@@ -295,8 +299,9 @@ small_alloc_large()
 		print_json_test_header("large");
 	}
 	for (unsigned int i = 0; i < SZR(slab_alloc_factor); i++) {
+		float actual_alloc_factor;
 		small_alloc_create(&alloc, &cache, OBJSIZE_MIN,
-				   slab_alloc_factor[i]);
+				   slab_alloc_factor[i], &actual_alloc_factor);
 		fail_unless(clock_gettime (CLOCK_MONOTONIC, &tm1) == 0);
 		small_alloc_test(large_size_min, large_size_max, 200, 1, 25);
 		fail_unless(clock_gettime (CLOCK_MONOTONIC, &tm2) == 0);

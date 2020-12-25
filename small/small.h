@@ -34,6 +34,7 @@
 #include "mempool.h"
 #include "slab_arena.h"
 #include "lifo.h"
+#include "small_class.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -86,10 +87,8 @@ extern "C" {
 
 /** Basic constants of small object allocator. */
 enum {
-	/** How many stepped pools there is. */
-	STEP_POOL_MAX = 32,
 	/** How many factored pools there can be. */
-	FACTOR_POOL_MAX = 256,
+	FACTOR_POOL_MAX = 1024,
 };
 
 enum small_opt {
@@ -107,8 +106,6 @@ enum small_opt {
  */
 struct factor_pool
 {
-	/** rb_tree entry */
-	rb_node(struct factor_pool) node;
 	/** the pool itself. */
 	struct mempool pool;
 	/**
@@ -117,11 +114,7 @@ struct factor_pool
 	 * pool.
 	 */
 	size_t objsize_min;
-	/** next free factor pool in the cache. */
-	struct factor_pool *next;
 };
-
-typedef rb_tree(struct factor_pool) factor_tree_t;
 
 /**
  * Free mode
@@ -138,26 +131,10 @@ enum small_free_mode {
 /** A slab allocator for a wide range of object sizes. */
 struct small_alloc {
 	struct slab_cache *cache;
-	uint32_t step_pool_objsize_max;
-	/**
-	 * All slabs in all pools must be of the same order,
-	 * otherwise small_free() has no way to derive from
-	 * pointer its slab and then the pool.
-	 */
-	/**
-	 * An array of "stepped" pools, pool->objsize of adjacent
-	 * pools differ by a fixed size (step).
-	 */
-	struct mempool step_pools[STEP_POOL_MAX];
 	/** A cache for nodes in the factor_pools tree. */
 	struct factor_pool factor_pool_cache[FACTOR_POOL_MAX];
-	/** First free element in factor_pool_cache. */
-	struct factor_pool *factor_pool_next;
-	/**
-	 * A red-black tree with "factored" pools, i.e.
-	 * each pool differs from its neighbor by a factor.
-	 */
-	factor_tree_t factor_pools;
+	/* factor_pool_cache array real size */
+	uint32_t factor_pool_cache_size;
 	/**
 	 * List of mempool which objects to be freed if delayed free mode.
 	 */
@@ -171,22 +148,29 @@ struct small_alloc {
 	 * Is provided during initialization.
 	 */
 	float factor;
+	/** Small class for this allocator */
+	struct small_class small_class;
 	uint32_t objsize_max;
 	/**
 	 * Free mode.
 	 */
 	enum small_free_mode free_mode;
-	/**
-	 * Object size of step pool 0 divided by STEP_SIZE, to
-	 * quickly find the right stepped pool given object size.
-	 */
-	uint32_t step_pool0_step_count;
 };
 
-/** Initialize a small memory allocator. */
+/**
+ * Initialize a small memory allocator.
+ * @param alloc - instance to create.
+ * @param cache - pointer to used slab cache.
+ * @param objsize_min - minimal object size.
+ * @param alloc_factor - desired factor of growth object size.
+ * Must be in (1, 2] range.
+ * @param actual_alloc_factor real allocation factor calculated the basis of
+ *        desired alloc_factor
+ */
 void
 small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
-		   uint32_t objsize_min, float alloc_factor);
+		   uint32_t objsize_min, float alloc_factor,
+		   float *actual_alloc_factor);
 
 /**
  * Enter or leave delayed mode - in delayed mode smfree_delayed()
@@ -213,10 +197,6 @@ smalloc(struct small_alloc *alloc, size_t size);
  *
  * This boils down to finding the object's mempool and delegating
  * to mempool_free().
- *
- * If the pool becomes completely empty, and it's a factored pool,
- * and the factored pool's cache is empty, put back the empty
- * factored pool into the factored pool cache.
  */
 void
 smfree(struct small_alloc *alloc, void *ptr, size_t size);
