@@ -138,10 +138,11 @@ struct small_class {
  *  Must be in (1, 2] range. Actual factor can be different.
  * @param min_alloc - the lowest class size, must be greater than zero.
  *  The good choice is the same value as granularity.
+ * @param actual_factor calculated on the basis of desired factor
  */
 void
 small_class_create(struct small_class *sc, unsigned granularity,
-		   float desired_factor, unsigned min_alloc);
+		   float desired_factor, unsigned min_alloc, float *actual_factor);
 
 /**
  * Find position of the most significant bit in a value.

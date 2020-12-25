@@ -43,7 +43,8 @@ test_class(void)
 	plan(0);
 
 	struct small_class sc;
-	small_class_create(&sc, 2, 1.2, 12);
+	float actual_factor;
+	small_class_create(&sc, 2, 1.2, 12, &actual_factor);
 	unsigned class = small_class_calc_offset_by_size(&sc, 0);
 	unsigned class_size = small_class_calc_size_by_offset(&sc, class);
 
@@ -106,7 +107,8 @@ check_expectation()
 		}
 
 		struct small_class sc;
-		small_class_create(&sc, granularity, factor, min_alloc);
+		float actual_factor;
+		small_class_create(&sc, granularity, factor, min_alloc, &actual_factor);
 		fail_unless(sc.effective_size == eff_size);
 
 		for (unsigned s = 0; s <= test_sizes; s++) {
@@ -135,7 +137,8 @@ check_factor()
 	for (unsigned granularity = 1; granularity <= 4; granularity *= 4) {
 		for(float factor = 1.01; factor < 1.995; factor += 0.01) {
 			struct small_class sc;
-			small_class_create(&sc, granularity, factor, granularity);
+			float actual_factor;
+			small_class_create(&sc, granularity, factor, granularity, &actual_factor);
 			float k = powf(factor, 0.5f);
 			fail_unless(sc.actual_factor >= factor / k && sc.actual_factor <= factor * k);
 

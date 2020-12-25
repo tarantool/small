@@ -33,122 +33,59 @@
 #include <string.h>
 #include <stdio.h>
 
-enum {
-	/** Step size for stepped pools, in bytes */
-	STEP_SIZE = 8,
-	/**
-	 * LB stands for logarithm with binary base, this constant
-	 * is used for bit shifts, when we need to divide by
-	 * STEP_SIZE.
-	 */
-	STEP_SIZE_LB = 3,
-};
-
-rb_proto(, factor_tree_, factor_tree_t, struct factor_pool)
-
-/** Used for search in the tree. */
-static inline int
-factor_pool_cmp(const struct factor_pool *a, const struct factor_pool *b)
+static inline struct factor_pool *
+factor_pool_search(struct small_alloc *alloc, size_t size)
 {
-	return a->pool.objsize > b->pool.objsize ? 1 :
-		a->pool.objsize < b->pool.objsize ? -1 : 0;
+	if (size > alloc->objsize_max)
+		return NULL;
+	unsigned cls = small_class_calc_offset_by_size(&alloc->small_class, size);
+	struct factor_pool *pool = &alloc->factor_pool_cache[cls];
+	return pool;
 }
 
-rb_gen(, factor_tree_, factor_tree_t, struct factor_pool, node,
-       factor_pool_cmp)
-
-static inline struct factor_pool *
-factor_pool_create(struct small_alloc *alloc,
-		   struct factor_pool *upper_bound,
-		   size_t size)
+static inline void
+factor_pool_create(struct small_alloc *alloc)
 {
-	assert(size > alloc->step_pool_objsize_max);
-	assert(size <= alloc->objsize_max);
-
-	if (alloc->factor_pool_next == NULL) {
-		/**
-		 * Too many factored pools already, fall back
-		 * to an imperfect one.
-		 */
-		return upper_bound;
+	size_t objsize = 0;
+	for (alloc->factor_pool_cache_size = 0;
+	     objsize < alloc->objsize_max && alloc->factor_pool_cache_size < FACTOR_POOL_MAX;
+	     alloc->factor_pool_cache_size++) {
+		size_t prevsize = objsize;
+		objsize = small_class_calc_size_by_offset(&alloc->small_class,
+			alloc->factor_pool_cache_size);
+		if (objsize > alloc->objsize_max)
+			objsize = alloc->objsize_max;
+		struct factor_pool *pool =
+			&alloc->factor_pool_cache[alloc->factor_pool_cache_size];
+		mempool_create(&pool->pool, alloc->cache, objsize);
+		pool->objsize_min = prevsize + 1;
 	}
-	size_t objsize = alloc->step_pool_objsize_max;
-	size_t prevsize;
-	do {
-		prevsize = objsize;
-		/*
-		 * Align objsize after each multiplication to
-		 * ensure that the distance between objsizes of
-		 * factored pools is a multiple of STEP_SIZE.
-		 */
-		objsize = small_align(objsize * alloc->factor,
-				      sizeof(intptr_t));
-		assert(objsize > alloc->step_pool_objsize_max);
-	} while (objsize < size);
-	if (objsize > alloc->objsize_max)
-		objsize = alloc->objsize_max;
-	struct factor_pool *pool = alloc->factor_pool_next;
-	alloc->factor_pool_next = pool->next;
-	mempool_create(&pool->pool, alloc->cache, objsize);
-	pool->objsize_min = prevsize + 1;
-	factor_tree_insert(&alloc->factor_pools, pool);
-	return pool;
+	alloc->objsize_max = objsize;
 }
 
 /** Initialize the small allocator. */
 void
 small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
-		   uint32_t objsize_min, float alloc_factor)
+		   uint32_t objsize_min, float alloc_factor,
+		   float *actual_alloc_factor)
 {
 	alloc->cache = cache;
 	/* Align sizes. */
-	objsize_min = small_align(objsize_min, STEP_SIZE);
-	alloc->step_pool0_step_count = (objsize_min - 1) >> STEP_SIZE_LB;
+	objsize_min = small_align(objsize_min, sizeof(intptr_t));
 	/* Make sure at least 4 largest objects can fit in a slab. */
 	alloc->objsize_max =
 		mempool_objsize_max(slab_order_size(cache, cache->order_max));
 
-	if (!(alloc->objsize_max > objsize_min + STEP_POOL_MAX * STEP_SIZE)) {
-		fprintf(stderr, "Can't create small alloc, small "
-			"object min size should not be greather than %u\n",
-			alloc->objsize_max - (STEP_POOL_MAX + 1) * STEP_SIZE);
-		abort();
-	}
+	assert(alloc_factor > 1. && alloc_factor <= 2.);
 
-	struct mempool *step_pool;
-	for (step_pool = alloc->step_pools;
-	     step_pool < alloc->step_pools + STEP_POOL_MAX;
-	     step_pool++) {
-		mempool_create(step_pool, alloc->cache, objsize_min);
-		objsize_min += STEP_SIZE;
-	}
-	alloc->step_pool_objsize_max = (step_pool - 1)->objsize;
-	if (alloc_factor > 2.0)
-		alloc_factor = 2.0;
-	/*
-	 * Correct the user-supplied alloc_factor to ensure that
-	 * it actually produces growing object sizes.
-	 */
-	if (alloc->step_pool_objsize_max * alloc_factor <
-	    alloc->step_pool_objsize_max + STEP_SIZE) {
-
-		alloc_factor =
-			(alloc->step_pool_objsize_max + STEP_SIZE + 0.5)/
-			alloc->step_pool_objsize_max;
-	}
 	alloc->factor = alloc_factor;
-
-	/* Initialize the factored pool cache. */
-	struct factor_pool *factor_pool = alloc->factor_pool_cache;
-	do {
-		factor_pool->next = factor_pool + 1;
-		factor_pool++;
-	} while (factor_pool !=
-		 alloc->factor_pool_cache + FACTOR_POOL_MAX - 1);
-	factor_pool->next = NULL;
-	alloc->factor_pool_next = alloc->factor_pool_cache;
-	factor_tree_new(&alloc->factor_pools);
-	(void) factor_pool_create(alloc, NULL, alloc->objsize_max);
+	/*
+	 * Second parameter (uintptr_t) - granularity,
+	 * determines alignment.
+	 */
+	small_class_create(&alloc->small_class, sizeof(intptr_t),
+			   alloc->factor, objsize_min, actual_alloc_factor);
+	factor_pool_create(alloc);
 
 	lifo_init(&alloc->delayed);
 	lifo_init(&alloc->delayed_large);
@@ -225,72 +162,27 @@ smalloc(struct small_alloc *alloc, size_t size)
 {
 	small_collect_garbage(alloc);
 
-	struct mempool *pool;
-	int idx = (size - 1) >> STEP_SIZE_LB;
-	idx = (idx > (int) alloc->step_pool0_step_count) ? idx - alloc->step_pool0_step_count : 0;
-	if (idx < STEP_POOL_MAX) {
-		/* Allocate in a stepped pool. */
-		pool = &alloc->step_pools[idx];
-		assert(size <= pool->objsize &&
-		       (size + STEP_SIZE > pool->objsize || idx == 0));
-	} else {
-		struct factor_pool pattern;
-		pattern.pool.objsize = size;
-		struct factor_pool *upper_bound =
-			factor_tree_nsearch(&alloc->factor_pools, &pattern);
-		if (upper_bound == NULL) {
-			/* Object is too large, fallback to slab_cache */
-			struct slab *slab = slab_get_large(alloc->cache, size);
-			if (slab == NULL)
-				return NULL;
-			return slab_data(slab);
-		}
-
-		if (size < upper_bound->objsize_min)
-			upper_bound = factor_pool_create(alloc, upper_bound,
-							 size);
-		pool = &upper_bound->pool;
+	struct factor_pool *upper_bound = factor_pool_search(alloc, size);
+	if (upper_bound == NULL) {
+		/* Object is too large, fallback to slab_cache */
+		struct slab *slab = slab_get_large(alloc->cache, size);
+		if (slab == NULL)
+			return NULL;
+		return slab_data(slab);
 	}
+	struct mempool *pool = &upper_bound->pool;
 	assert(size <= pool->objsize);
 	return mempool_alloc(pool);
-}
-
-static void
-small_recycle_pool(struct small_alloc *alloc, struct mempool *pool)
-{
-	if (mempool_used(pool) == 0 &&
-	    pool->objsize > alloc->step_pool_objsize_max &&
-	    alloc->factor_pool_next == NULL) {
-		struct factor_pool *factor_pool = (struct factor_pool *)
-			((char *) pool - (intptr_t)
-			 &((struct factor_pool *) NULL)->pool);
-		factor_tree_remove(&alloc->factor_pools, factor_pool);
-		mempool_destroy(pool);
-		alloc->factor_pool_next = factor_pool;
-	}
 }
 
 static inline struct mempool *
 mempool_find(struct small_alloc *alloc, size_t size)
 {
-	struct mempool *pool;
-	int idx = (size - 1) >> STEP_SIZE_LB;
-	idx = (idx > (int) alloc->step_pool0_step_count) ? idx - alloc->step_pool0_step_count : 0;
-	if (idx < STEP_POOL_MAX) {
-		/* Allocated in a stepped pool. */
-			pool = &alloc->step_pools[idx];
-			assert((size + STEP_SIZE > pool->objsize) || (idx == 0));
-	} else {
-		/* Allocated in a factor pool. */
-		struct factor_pool pattern;
-		pattern.pool.objsize = size;
-		struct factor_pool *upper_bound =
-			factor_tree_nsearch(&alloc->factor_pools, &pattern);
-		if (upper_bound == NULL)
-			return NULL; /* Allocated by slab_cache. */
-		assert(size >= upper_bound->objsize_min);
-		pool = &upper_bound->pool;
-	}
+	struct factor_pool *upper_bound = factor_pool_search(alloc, size);
+	if (upper_bound == NULL)
+		return NULL; /* Allocated by slab_cache. */
+	assert(size >= upper_bound->objsize_min);
+	struct mempool *pool = &upper_bound->pool;
 	assert(size <= pool->objsize);
 	return pool;
 }
@@ -319,8 +211,6 @@ smfree(struct small_alloc *alloc, void *ptr, size_t size)
 
 	/* Regular allocation in mempools */
 	mempool_free(pool, ptr);
-	if (mempool_used(pool) == 0)
-		small_recycle_pool(alloc, pool);
 }
 
 /**
@@ -351,8 +241,7 @@ smfree_delayed(struct small_alloc *alloc, void *ptr, size_t size)
 struct mempool_iterator
 {
 	struct small_alloc *alloc;
-	struct mempool *step_pool;
-	struct factor_tree_iterator factor_iterator;
+	uint32_t factor_iterator;
 };
 
 void
@@ -360,19 +249,19 @@ mempool_iterator_create(struct mempool_iterator *it,
 			struct small_alloc *alloc)
 {
 	it->alloc = alloc;
-	it->step_pool = alloc->step_pools;
-	factor_tree_ifirst(&alloc->factor_pools, &it->factor_iterator);
+	it->factor_iterator = 0;
 }
 
 struct mempool *
 mempool_iterator_next(struct mempool_iterator *it)
 {
-	if (it->step_pool < it->alloc->step_pools + STEP_POOL_MAX)
-		return it->step_pool++;
-	struct factor_pool *factor_pool = factor_tree_inext(&it->factor_iterator);
-	if (factor_pool) {
+	struct factor_pool *factor_pool = NULL;
+	if (it->factor_iterator < it->alloc->factor_pool_cache_size)
+		factor_pool =
+			&it->alloc->factor_pool_cache[(it->factor_iterator)++];
+	if (factor_pool)
 		return &(factor_pool->pool);
-	}
+
 	return NULL;
 }
 
