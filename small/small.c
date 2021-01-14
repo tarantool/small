@@ -66,24 +66,25 @@ factor_pool_create(struct small_alloc *alloc)
 /** Initialize the small allocator. */
 void
 small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
-		   uint32_t objsize_min, float alloc_factor,
-		   float *actual_alloc_factor)
+		   uint32_t objsize_min, unsigned granularity,
+		   float alloc_factor, float *actual_alloc_factor)
 {
 	alloc->cache = cache;
 	/* Align sizes. */
-	objsize_min = small_align(objsize_min, sizeof(intptr_t));
+	objsize_min = small_align(objsize_min, granularity);
 	/* Make sure at least 4 largest objects can fit in a slab. */
 	alloc->objsize_max =
 		mempool_objsize_max(slab_order_size(cache, cache->order_max));
+	alloc->objsize_max = small_align(alloc->objsize_max, granularity);
 
+	assert((granularity & (granularity - 1)) == 0);
 	assert(alloc_factor > 1. && alloc_factor <= 2.);
 
 	alloc->factor = alloc_factor;
 	/*
-	 * Second parameter (uintptr_t) - granularity,
-	 * determines alignment.
+	 * Second parameter granularity, determines alignment.
 	 */
-	small_class_create(&alloc->small_class, sizeof(intptr_t),
+	small_class_create(&alloc->small_class, granularity,
 			   alloc->factor, objsize_min, actual_alloc_factor);
 	factor_pool_create(alloc);
 

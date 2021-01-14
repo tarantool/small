@@ -41,6 +41,9 @@ target_compile_definitions(small_class_branchless.test PUBLIC SMALL_CLASS_BRANCH
 add_executable(small_alloc.test small_alloc.c)
 target_link_libraries(small_alloc.test small)
 
+add_executable(small_granularity.test small_granularity.c)
+target_link_libraries(small_granularity.test small)
+
 add_executable(lf_lifo.test lf_lifo.c)
 
 add_executable(slab_arena.test slab_arena.c)
@@ -74,6 +77,7 @@ add_test(mempool ${CMAKE_CURRENT_BUILD_DIR}/mempool.test)
 add_test(small_class ${CMAKE_CURRENT_BUILD_DIR}/small_class.test)
 add_test(small_class_branchless ${CMAKE_CURRENT_BUILD_DIR}/small_class_branchless.test)
 add_test(small_alloc ${CMAKE_CURRENT_BUILD_DIR}/small_alloc.test)
+add_test(small_granularity ${CMAKE_CURRENT_BUILD_DIR}/small_granularity.test)
 add_test(lf_lifo ${CMAKE_CURRENT_BUILD_DIR}/lf_lifo.test)
 add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
 add_test(arena_mt ${CMAKE_CURRENT_BUILD_DIR}/arena_mt.test)
@@ -99,6 +103,6 @@ add_custom_target(test
     WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
     COMMAND ctest
     DEPENDS slab_cache.test region.test ibuf.test obuf.test mempool.test
-            small_alloc.test lf_lifo.test slab_arena.test arena_mt.test
-            matras.test lsregion.test quota.test rb.test
+            small_alloc.test small_granularity.test lf_lifo.test slab_arena.test
+            arena_mt.test matras.test lsregion.test quota.test rb.test
 )

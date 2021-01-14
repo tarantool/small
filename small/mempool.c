@@ -68,7 +68,14 @@ mslab_alloc(struct mempool *pool, struct mslab *slab)
 	if (slab->free_list) {
 		/* Recycle an object from the garbage pool. */
 		result = slab->free_list;
-		slab->free_list = *(void **)slab->free_list;
+		/*
+		 * In case when pool objsize is not aligned sizeof(intptr_t)
+		 * boundary we can't use *(void **)slab->free_list construction,
+		 * because (void **)slab->free_list has not necessary aligment.
+		 * memcpy can work with misaligned address.
+		 */
+		memcpy(&slab->free_list, (void **)slab->free_list,
+		       sizeof(void *));
 	} else {
 		/* Use an object from the "untouched" area of the slab. */
 		result = (char *)slab + slab->free_offset;
@@ -90,8 +97,14 @@ mslab_alloc(struct mempool *pool, struct mslab *slab)
 void
 mslab_free(struct mempool *pool, struct mslab *slab, void *ptr)
 {
-	/* put object to garbage list */
-	*(void **)ptr = slab->free_list;
+	/*
+	 * Put object to garbage list.
+	 * In case when pool objsize is not aligned sizeof(intptr_t) boundary
+	 * we can't use *(void **)ptr = slab->free_list construction,
+	 * because ptr has not necessary aligment. memcpy can work
+	 * with misaligned address.
+	 */
+	memcpy((void **)ptr, &slab->free_list, sizeof(void *));
 	slab->free_list = ptr;
 	VALGRIND_FREELIKE_BLOCK(ptr, 0);
 	VALGRIND_MAKE_MEM_DEFINED(ptr, sizeof(void *));

@@ -79,7 +79,9 @@ small_alloc_test(int size_min, int size_max, int objects_max,
 		 int oscillation_max, int iterations_max)
 {
 	float actual_alloc_factor;
-	small_alloc_create(&alloc, &cache, OBJSIZE_MIN, 1.3, &actual_alloc_factor);
+	small_alloc_create(&alloc, &cache, OBJSIZE_MIN,
+			   sizeof(intptr_t), 1.3,
+			   &actual_alloc_factor);
 
 	for (int i = 0; i < iterations_max; i++) {
 		small_alloc_setopt(&alloc, SMALL_DELAYED_FREE_MODE, i % 5 == 0);
