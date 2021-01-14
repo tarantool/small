@@ -162,6 +162,7 @@ struct small_alloc {
  * @param alloc - instance to create.
  * @param cache - pointer to used slab cache.
  * @param objsize_min - minimal object size.
+ * @param granularity - alignment of objects in pools
  * @param alloc_factor - desired factor of growth object size.
  * Must be in (1, 2] range.
  * @param actual_alloc_factor real allocation factor calculated the basis of
@@ -169,8 +170,8 @@ struct small_alloc {
  */
 void
 small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
-		   uint32_t objsize_min, float alloc_factor,
-		   float *actual_alloc_factor);
+		   uint32_t objsize_min, unsigned granularity,
+		   float alloc_factor, float *actual_alloc_factor);
 
 /**
  * Enter or leave delayed mode - in delayed mode smfree_delayed()
