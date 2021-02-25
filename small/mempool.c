@@ -86,7 +86,7 @@ mslab_alloc(struct mempool *pool, struct mslab *slab)
 	if (--slab->nfree == 0) {
 		if (slab == pool->first_hot_slab) {
 			pool->first_hot_slab = mslab_tree_next(&pool->hot_slabs,
-								slab);
+							       slab);
 		}
 		mslab_tree_remove(&pool->hot_slabs, slab);
 		slab->in_hot_slabs = false;
@@ -126,7 +126,6 @@ mslab_free(struct mempool *pool, struct mslab *slab, void *ptr)
 		 */
 		if (pool->first_hot_slab == NULL ||
 		    mslab_cmp(pool->first_hot_slab, slab) == 1) {
-
 			pool->first_hot_slab = slab;
 		}
 	} else if (slab->nfree == 1) {
@@ -144,13 +143,13 @@ mslab_free(struct mempool *pool, struct mslab *slab, void *ptr)
 				      next_in_list);
 			slab_put_with_order(pool->cache, &pool->spare->slab);
 			pool->spare = slab;
-		 } else if (pool->spare) {
-			 slab_list_del(&pool->slabs, &slab->slab,
-				       next_in_list);
-			 slab_put_with_order(pool->cache, &slab->slab);
-		 } else {
-			 pool->spare = slab;
-		 }
+		} else if (pool->spare) {
+			slab_list_del(&pool->slabs, &slab->slab,
+				      next_in_list);
+			slab_put_with_order(pool->cache, &slab->slab);
+		} else {
+			pool->spare = slab;
+		}
 	}
 }
 

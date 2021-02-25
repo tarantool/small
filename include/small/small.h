@@ -104,8 +104,7 @@ enum small_opt {
  * instance of factor_pool for objects of size from 300 to 330,
  * from 330 to 363, and so on.
  */
-struct factor_pool
-{
+struct factor_pool {
 	/** the pool itself. */
 	struct mempool pool;
 	/**
