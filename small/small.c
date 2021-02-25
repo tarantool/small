@@ -38,7 +38,8 @@ factor_pool_search(struct small_alloc *alloc, size_t size)
 {
 	if (size > alloc->objsize_max)
 		return NULL;
-	unsigned cls = small_class_calc_offset_by_size(&alloc->small_class, size);
+	unsigned cls =
+		small_class_calc_offset_by_size(&alloc->small_class, size);
 	struct factor_pool *pool = &alloc->factor_pool_cache[cls];
 	return pool;
 }
@@ -48,7 +49,8 @@ factor_pool_create(struct small_alloc *alloc)
 {
 	size_t objsize = 0;
 	for (alloc->factor_pool_cache_size = 0;
-	     objsize < alloc->objsize_max && alloc->factor_pool_cache_size < FACTOR_POOL_MAX;
+	     objsize < alloc->objsize_max &&
+	     alloc->factor_pool_cache_size < FACTOR_POOL_MAX;
 	     alloc->factor_pool_cache_size++) {
 		size_t prevsize = objsize;
 		objsize = small_class_calc_size_by_offset(&alloc->small_class,
