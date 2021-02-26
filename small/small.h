@@ -64,6 +64,8 @@ enum small_opt {
 	SMALL_DELAYED_FREE_MODE
 };
 
+struct small_mempool_group;
+
 /**
  * A mempool to store objects sized from objsize_min to pool->objsize.
  * Is a member of small_mempool_cache array which contains all such pools.
@@ -80,6 +82,50 @@ struct small_mempool {
 	 * pool.
 	 */
 	size_t objsize_min;
+	/** Small mempool group that this pool belongs to. */
+	struct small_mempool_group *group;
+	/**
+	 * Currently used pool for memory allocation. In case waste is
+	 * less than @waste_max of corresponding mempool_group, @used_pool
+	 * points to this structure itself.
+	 */
+	struct small_mempool *used_pool;
+	/**
+	 * Mask of appropriate pools. It is calculated once pool is created.
+	 * Values of mask for:
+	 * Pool 0: 0x0001 (0000 0000 0000 0001)
+	 * Pool 1: 0x0003 (0000 0000 0000 0011)
+	 * Pool 2: 0x0007 (0000 0000 0000 0111)
+	 * And so forth.
+	 */
+	uint32_t appropriate_pool_mask;
+	/**
+	 * Currently memory waste for a given mempool. Waste is calculated as
+	 * amount of excess memory spent for storing small object in pools
+	 * with large object size. For instance, if we store object with size
+	 * of 15 bytes in a 64-byte pool having inactive 32-byte pool, the loss
+	 * will be: 64 bytes - 32 bytes = 32 bytes.
+	 */
+	size_t waste;
+};
+
+struct small_mempool_group {
+	/** The first pool in the group. */
+	struct small_mempool *first;
+	/** The last pool in the group. */
+	struct small_mempool *last;
+	/**
+	 * Raised bit on position n means that the pool with index n can be
+	 * used for allocations. At the start only one pool (the last one)
+	 * is available. Also note that once pool become active, it can't
+	 * become
+	 */
+	uint32_t active_pool_mask;
+	/**
+	 * Pre-calculated waste threshold reaching which small_mempool becomes
+	 * activated. It is equal to slab_order_size / 4.
+	 */
+	size_t waste_max;
 };
 
 /**
@@ -101,6 +147,14 @@ struct small_alloc {
 	struct small_mempool small_mempool_cache[SMALL_MEMPOOL_MAX];
 	/* small_mempool_cache array real size */
 	uint32_t small_mempool_cache_size;
+	/** Array of all small mempool groups of a given allocator */
+	struct small_mempool_group small_mempool_groups[SMALL_MEMPOOL_MAX];
+	/*
+	 * small_mempool_groups array real size. In the worst case each
+	 * group will contain only one pool, so the number of groups is
+	 * also limited by SMALL_MEMPOOL_MAX.
+	 */
+	uint32_t small_mempool_groups_size;
 	/**
 	 * List of mempool which objects to be freed if delayed free mode.
 	 */
