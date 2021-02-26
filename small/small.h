@@ -64,6 +64,8 @@ enum small_opt {
 	SMALL_DELAYED_FREE_MODE
 };
 
+struct small_mempool_group;
+
 /**
  * A mempool to store objects sized from objsize_min to pool->objsize.
  * Is a member of small_mempool_cache array which contains all such pools.
@@ -80,6 +82,37 @@ struct small_mempool {
 	 * pool.
 	 */
 	size_t objsize_min;
+	/** Small mempool group that this pool belongs to. */
+	struct small_mempool_group *group;
+	/** Currently used pool for memory allocation. */
+	struct small_mempool *used_pool;
+	/** Mask of appropriate pools. */
+	uint32_t appropriate_pool_mask;
+	/**
+	 * Currently memory waste for a given mempool.
+	 * We only take into account memory losses for allocations
+	 * from mempools with larger object size.
+	 */
+	size_t waste;
+};
+
+struct small_mempool_group {
+	/** First pool in group. */
+	struct small_mempool *first;
+	/** Last pool in group. */
+	struct small_mempool *last;
+	/**
+	 * Mask for this group, which shows all pools in the
+	 * group from which there was at least one allocation.
+	 */
+	uint32_t used_pool_mask;
+	/**
+	 * Maximum memory waste for a given mempool in group
+	 * caused by memory allocation from mempools with large
+	 * object sizes. If waste >= waste_max we start to allocate
+	 * memory from a given mempool.
+	 */
+	size_t waste_max;
 };
 
 /**
@@ -101,6 +134,10 @@ struct small_alloc {
 	struct small_mempool small_mempool_cache[SMALL_MEMPOOL_MAX];
 	/* small_mempool_cache array real size */
 	uint32_t small_mempool_cache_size;
+	/** Array of all small mempool groups of a given allocator */
+	struct small_mempool_group small_mempool_groups[SMALL_MEMPOOL_MAX];
+	/* small_mempool_groups array real size */
+	uint32_t small_mempool_groups_size;
 	/**
 	 * List of mempool which objects to be freed if delayed free mode.
 	 */

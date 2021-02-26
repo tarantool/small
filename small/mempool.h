@@ -74,6 +74,8 @@ extern "C" {
  * error in case of failure.
  */
 
+struct mempool;
+
 /** mslab - a standard slab formatted to store objects of equal size. */
 struct mslab {
 	struct slab slab;
@@ -89,6 +91,8 @@ struct mslab {
 	struct rlist next_in_cold;
 	/** Set if this slab is a member of hot_slabs tree */
 	bool in_hot_slabs;
+	/** Pointer to mempool, the owner of this mslab */
+	struct mempool *mempool;
 };
 
 /**
@@ -117,6 +121,8 @@ mempool_objsize_max(uint32_t slab_size)
 }
 
 typedef rb_tree(struct mslab) mslab_tree_t;
+
+struct small_mempool;
 
 /** A memory pool. */
 struct mempool
@@ -175,6 +181,13 @@ struct mempool
 	uint32_t offset;
 	/** Address mask to translate ptr to slab */
 	intptr_t slab_ptr_mask;
+	/**
+	 * Small allocator pool, the owner of this mempool in case
+	 * this mempool used as a part of small_alloc, otherwise
+	 * NULL
+	 */
+	struct small_mempool *small_mempool;
+
 };
 
 /** Allocation statistics. */
@@ -261,21 +274,35 @@ void
 mslab_free(struct mempool *pool, struct mslab *slab, void *ptr);
 
 /**
+ * Helper function for quick free up memory. In case we know
+ * slab we don't need to find it from ptr. Used in case when
+ * mempool is a part of small_alloc. We find slab from ptr in
+ * smfree function and we don't need to search for it again to
+ * free up memory.
+ */
+static inline void
+mempool_free_slab(struct mempool *pool, struct mslab *slab, void *ptr)
+{
+	assert(ptr);
+#ifndef NDEBUG
+	memset(ptr, '#', pool->objsize);
+#endif
+	assert(slab->slab.order == pool->slab_order);
+	pool->slabs.stats.used -= pool->objsize;
+	mslab_free(pool, slab, ptr);
+}
+
+/**
  * Free a single object.
  * @pre the object is allocated in this pool.
  */
 static inline void
 mempool_free(struct mempool *pool, void *ptr)
 {
-#ifndef NDEBUG
-	memset(ptr, '#', pool->objsize);
-#endif
 	assert(ptr);
 	struct mslab *slab = (struct mslab *)
 		slab_from_ptr(ptr, pool->slab_ptr_mask);
-	assert(slab->slab.order == pool->slab_order);
-	pool->slabs.stats.used -= pool->objsize;
-	mslab_free(pool, slab, ptr);
+	mempool_free_slab(pool, slab, ptr);
 }
 
 
