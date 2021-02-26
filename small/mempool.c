@@ -57,6 +57,8 @@ mslab_create(struct mslab *slab, struct mempool *pool)
 	slab->free_offset = pool->offset;
 	slab->free_list = NULL;
 	slab->in_hot_slabs = false;
+	slab->mempool = pool;
+
 	rlist_create(&slab->next_in_cold);
 }
 
@@ -175,6 +177,7 @@ mempool_create_with_order(struct mempool *pool, struct slab_cache *cache,
 	assert(pool->objcount);
 	pool->offset = slab_size - pool->objcount * pool->objsize;
 	pool->slab_ptr_mask = ~(slab_order_size(cache, order) - 1);
+	pool->small_mempool = NULL;
 }
 
 void
