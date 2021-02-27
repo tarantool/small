@@ -296,24 +296,6 @@ mempool_total(struct mempool *pool)
 
 #if defined(__cplusplus)
 } /* extern "C" */
-#include "exception.h"
-
-static inline void *
-mempool_alloc_xc(struct mempool *pool)
-{
-	void *ptr = mempool_alloc(pool);
-	if (ptr == NULL)
-		tnt_raise(OutOfMemory, pool->objsize,
-			  "mempool", "new slab");
-	return ptr;
-}
-
-static inline void *
-mempool_alloc0_xc(struct mempool *pool)
-{
-	return memset(mempool_alloc_xc(pool), 0, pool->objsize);
-}
-
 #endif /* defined(__cplusplus) */
 
 #endif /* INCLUDES_TARANTOOL_SMALL_MEMPOOL_H */
