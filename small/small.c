@@ -315,71 +315,7 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 	small_class_create(&alloc->small_class, granularity,
 			   alloc->factor, objsize_min, actual_alloc_factor);
 	small_mempool_create(alloc);
-
-	lifo_init(&alloc->delayed);
-	lifo_init(&alloc->delayed_large);
-	alloc->free_mode = SMALL_FREE;
 }
-
-void
-small_alloc_setopt(struct small_alloc *alloc, enum small_opt opt, bool val)
-{
-	switch (opt) {
-	case SMALL_DELAYED_FREE_MODE:
-		alloc->free_mode = val ? SMALL_DELAYED_FREE :
-			SMALL_COLLECT_GARBAGE;
-		break;
-	default:
-		assert(false);
-		break;
-	}
-}
-
-static inline void
-small_collect_garbage(struct small_alloc *alloc)
-{
-	if (alloc->free_mode != SMALL_COLLECT_GARBAGE)
-		return;
-
-	const int BATCH = 100;
-	if (!lifo_is_empty(&alloc->delayed_large)) {
-		/* Free large allocations */
-		for (int i = 0; i < BATCH; i++) {
-			void *item = lifo_pop(&alloc->delayed_large);
-			if (item == NULL)
-				break;
-			struct slab *slab = slab_from_data(item);
-			slab_put_large(alloc->cache, slab);
-		}
-	} else if (!lifo_is_empty(&alloc->delayed)) {
-		/* Free regular allocations */
-		struct mempool *pool = lifo_peek(&alloc->delayed);
-		for (int i = 0; i < BATCH; i++) {
-			void *item = lifo_pop(&pool->delayed);
-			if (item == NULL) {
-				(void) lifo_pop(&alloc->delayed);
-				pool = lifo_peek(&alloc->delayed);
-				if (pool == NULL)
-					break;
-				continue;
-			}
-
-			/*
-			 * Find mempool from which the memory was actually
-			 * allocated and recalculate waste.
-			 */
-			struct mslab *slab = (struct mslab *)
-				slab_from_ptr(item, pool->slab_ptr_mask);
-			pool->small_mempool->waste -=
-				(slab->mempool->objsize - pool->objsize);
-			mempool_free_slab(slab->mempool, slab, item);
-		}
-	} else {
-		/* Finish garbage collection and switch to regular mode */
-		alloc->free_mode = SMALL_FREE;
-	}
-}
-
 
 /**
  * Allocate a small object.
@@ -393,8 +329,6 @@ small_collect_garbage(struct small_alloc *alloc)
 void *
 smalloc(struct small_alloc *alloc, size_t size)
 {
-	small_collect_garbage(alloc);
-
 	struct small_mempool *small_mempool = small_mempool_search(alloc, size);
 	if (small_mempool == NULL) {
 		/* Object is too large, fallback to slab_cache */
@@ -437,18 +371,6 @@ smalloc(struct small_alloc *alloc, size_t size)
 	return ptr;
 }
 
-static inline struct mempool *
-mempool_find(struct small_alloc *alloc, size_t size)
-{
-	struct small_mempool *small_mempool = small_mempool_search(alloc, size);
-	if (small_mempool == NULL)
-		return NULL; /* Allocated by slab_cache. */
-	assert(size >= small_mempool->objsize_min);
-	struct mempool *pool = &small_mempool->pool;
-	assert(size <= pool->objsize);
-	return pool;
-}
-
 /** Free memory chunk allocated by the small allocator. */
 /**
  * Free a small object.
@@ -478,30 +400,6 @@ smfree(struct small_alloc *alloc, void *ptr, size_t size)
 	pool->waste -= slab->mempool->objsize - pool->pool.objsize;
 	/* Regular allocation in mempools */
 	mempool_free_slab(slab->mempool, slab, ptr);
-}
-
-/**
- * Free memory chunk allocated by the small allocator
- * if not in snapshot mode, otherwise put to the delayed
- * free list.
- */
-void
-smfree_delayed(struct small_alloc *alloc, void *ptr, size_t size)
-{
-	if (alloc->free_mode == SMALL_DELAYED_FREE && ptr) {
-		struct mempool *pool = mempool_find(alloc, size);
-		if (pool == NULL) {
-			/* Large-object allocation by slab_cache. */
-			lifo_push(&alloc->delayed_large, ptr);
-			return;
-		}
-		/* Regular allocation in mempools */
-		if (lifo_is_empty(&pool->delayed))
-			lifo_push(&alloc->delayed, &pool->link);
-		lifo_push(&pool->delayed, ptr);
-	} else {
-		smfree(alloc, ptr, size);
-	}
 }
 
 /** Simplify iteration over small allocator mempools. */
@@ -541,14 +439,6 @@ small_alloc_destroy(struct small_alloc *alloc)
 	struct mempool *pool;
 	while ((pool = mempool_iterator_next(&it))) {
 		mempool_destroy(pool);
-	}
-	lifo_init(&alloc->delayed);
-
-	/* Free large allocations */
-	void *item;
-	while ((item = lifo_pop(&alloc->delayed_large))) {
-		struct slab *slab = slab_from_data(item);
-		slab_put_large(alloc->cache, slab);
 	}
 }
 

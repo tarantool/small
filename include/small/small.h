@@ -60,10 +60,6 @@ enum {
 	SMALL_MEMPOOL_MAX = 1024,
 };
 
-enum small_opt {
-	SMALL_DELAYED_FREE_MODE
-};
-
 struct small_mempool_group;
 
 /**
@@ -128,18 +124,6 @@ struct small_mempool_group {
 	size_t waste_max;
 };
 
-/**
- * Free mode
- */
-enum small_free_mode {
-	/** Free objects immediately. */
-	SMALL_FREE,
-	/** Collect garbage after delayed free. */
-	SMALL_COLLECT_GARBAGE,
-	/** Postpone deletion of objects. */
-	SMALL_DELAYED_FREE,
-};
-
 /** A slab allocator for a wide range of object sizes. */
 struct small_alloc {
 	struct slab_cache *cache;
@@ -156,14 +140,6 @@ struct small_alloc {
 	 */
 	uint32_t small_mempool_groups_size;
 	/**
-	 * List of mempool which objects to be freed if delayed free mode.
-	 */
-	struct lifo delayed;
-	/**
-	 * List of large allocations by malloc() to be freed in delayed mode.
-	 */
-	struct lifo delayed_large;
-	/**
 	 * The factor used for factored pools. Must be > 1.
 	 * Is provided during initialization.
 	 */
@@ -171,10 +147,6 @@ struct small_alloc {
 	/** Small class for this allocator */
 	struct small_class small_class;
 	uint32_t objsize_max;
-	/**
-	 * Free mode.
-	 */
-	enum small_free_mode free_mode;
 };
 
 /**
@@ -192,13 +164,6 @@ void
 small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 		   uint32_t objsize_min, unsigned granularity,
 		   float alloc_factor, float *actual_alloc_factor);
-
-/**
- * Enter or leave delayed mode - in delayed mode smfree_delayed()
- * doesn't free chunks but puts them into a pool.
- */
-void
-small_alloc_setopt(struct small_alloc *alloc, enum small_opt opt, bool val);
 
 /** Destroy the allocator and all allocated memory. */
 void
@@ -221,14 +186,6 @@ smalloc(struct small_alloc *alloc, size_t size);
  */
 void
 smfree(struct small_alloc *alloc, void *ptr, size_t size);
-
-/**
- * Free memory chunk allocated by the small allocator
- * if not in snapshot mode, otherwise put to the delayed
- * free list.
- */
-void
-smfree_delayed(struct small_alloc *alloc, void *ptr, size_t size);
 
 /**
  * @brief Return an unique index associated with a chunk allocated
