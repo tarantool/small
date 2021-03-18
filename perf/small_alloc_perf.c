@@ -46,7 +46,7 @@ static inline void
 free_checked(int *ptr)
 {
 	int pos = ptr[0];
-	smfree_delayed(&alloc, ptrs[pos], ptrs[pos][1]);
+	smfree(&alloc, ptrs[pos], ptrs[pos][1]);
 	ptrs[pos] = NULL;
 }
 
@@ -106,40 +106,17 @@ small_alloc_test(int size_min, int size_max, int iterations_max,
 {
 	double pow_factor = calculate_pow_factor(size_max, cnt, 256);
 	for (int i = 0; i <= iterations_max; i++) {
-		int mode = i % 3;
-		switch (mode) {
-		case 1:
-			small_alloc_setopt(&alloc,
-					   SMALL_DELAYED_FREE_MODE, false);
-			break;
-		case 2:
-			small_alloc_setopt(&alloc,
-					   SMALL_DELAYED_FREE_MODE, true);
-			break;
-		default:
-			break;
-		}
 		for (int j = 0; j < cnt; ++j)
 			alloc_checked(j, size_min, size_max, rnd, pow_factor);
 		allocating = !allocating;
 	}
-
-	small_alloc_setopt(&alloc, SMALL_DELAYED_FREE_MODE, false);
 
 	for (int pos = 0; pos < cnt; pos++) {
 		if (ptrs[pos] != NULL)
 			free_checked(ptrs[pos]);
 	}
 
-	/* Trigger garbage collection. */
-	allocating = true;
-	for (int i = 0; i < iterations_max; i++) {
-		if (small_is_unused())
-			break;
-		void *p = alloc_checked(0, size_min, size_max, rnd, pow_factor);
-		if (p != NULL)
-			free_checked(p);
-	}
+	fail_unless(small_is_unused());
 }
 
 static void

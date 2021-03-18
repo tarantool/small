@@ -87,62 +87,7 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 	small_class_create(&alloc->small_class, granularity,
 			   alloc->factor, objsize_min, actual_alloc_factor);
 	factor_pool_create(alloc);
-
-	lifo_init(&alloc->delayed);
-	lifo_init(&alloc->delayed_large);
-	alloc->free_mode = SMALL_FREE;
 }
-
-void
-small_alloc_setopt(struct small_alloc *alloc, enum small_opt opt, bool val)
-{
-	switch (opt) {
-	case SMALL_DELAYED_FREE_MODE:
-		alloc->free_mode = val ? SMALL_DELAYED_FREE :
-			SMALL_COLLECT_GARBAGE;
-		break;
-	default:
-		assert(false);
-		break;
-	}
-}
-
-static inline void
-small_collect_garbage(struct small_alloc *alloc)
-{
-	if (alloc->free_mode != SMALL_COLLECT_GARBAGE)
-		return;
-
-	const int BATCH = 100;
-	if (!lifo_is_empty(&alloc->delayed_large)) {
-		/* Free large allocations */
-		for (int i = 0; i < BATCH; i++) {
-			void *item = lifo_pop(&alloc->delayed_large);
-			if (item == NULL)
-				break;
-			struct slab *slab = slab_from_data(item);
-			slab_put_large(alloc->cache, slab);
-		}
-	} else if (!lifo_is_empty(&alloc->delayed)) {
-		/* Free regular allocations */
-		struct mempool *pool = lifo_peek(&alloc->delayed);
-		for (int i = 0; i < BATCH; i++) {
-			void *item = lifo_pop(&pool->delayed);
-			if (item == NULL) {
-				(void) lifo_pop(&alloc->delayed);
-				pool = lifo_peek(&alloc->delayed);
-				if (pool == NULL)
-					break;
-				continue;
-			}
-			mempool_free(pool, item);
-		}
-	} else {
-		/* Finish garbage collection and switch to regular mode */
-		alloc->free_mode = SMALL_FREE;
-	}
-}
-
 
 /**
  * Allocate a small object.
@@ -161,8 +106,6 @@ small_collect_garbage(struct small_alloc *alloc)
 void *
 smalloc(struct small_alloc *alloc, size_t size)
 {
-	small_collect_garbage(alloc);
-
 	struct factor_pool *upper_bound = factor_pool_search(alloc, size);
 	if (upper_bound == NULL) {
 		/* Object is too large, fallback to slab_cache */
@@ -214,30 +157,6 @@ smfree(struct small_alloc *alloc, void *ptr, size_t size)
 	mempool_free(pool, ptr);
 }
 
-/**
- * Free memory chunk allocated by the small allocator
- * if not in snapshot mode, otherwise put to the delayed
- * free list.
- */
-void
-smfree_delayed(struct small_alloc *alloc, void *ptr, size_t size)
-{
-	if (alloc->free_mode == SMALL_DELAYED_FREE && ptr) {
-		struct mempool *pool = mempool_find(alloc, size);
-		if (pool == NULL) {
-			/* Large-object allocation by slab_cache. */
-			lifo_push(&alloc->delayed_large, ptr);
-			return;
-		}
-		/* Regular allocation in mempools */
-		if (lifo_is_empty(&pool->delayed))
-			lifo_push(&alloc->delayed, &pool->link);
-		lifo_push(&pool->delayed, ptr);
-	} else {
-		smfree(alloc, ptr, size);
-	}
-}
-
 /** Simplify iteration over small allocator mempools. */
 struct mempool_iterator
 {
@@ -275,14 +194,6 @@ small_alloc_destroy(struct small_alloc *alloc)
 	struct mempool *pool;
 	while ((pool = mempool_iterator_next(&it))) {
 		mempool_destroy(pool);
-	}
-	lifo_init(&alloc->delayed);
-
-	/* Free large allocations */
-	void *item;
-	while ((item = lifo_pop(&alloc->delayed_large))) {
-		struct slab *slab = slab_from_data(item);
-		slab_put_large(alloc->cache, slab);
 	}
 }
 
