@@ -30,10 +30,7 @@ alloc_checked(struct obuf *buf)
 static void
 basic_alloc_streak(struct obuf *buf)
 {
-	int oscillation = rand() % OSCILLATION_MAX;
-	int i;
-
-	for (i = 0; i < oscillation; ++i)
+	for (int i = 0; i < OSCILLATION_MAX; ++i)
 		alloc_checked(buf);
 }
 
