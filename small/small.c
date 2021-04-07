@@ -33,32 +33,33 @@
 #include <string.h>
 #include <stdio.h>
 
-static inline struct factor_pool *
-factor_pool_search(struct small_alloc *alloc, size_t size)
+static inline struct small_mempool *
+small_mempool_search(struct small_alloc *alloc, size_t size)
 {
 	if (size > alloc->objsize_max)
 		return NULL;
 	unsigned cls =
 		small_class_calc_offset_by_size(&alloc->small_class, size);
-	struct factor_pool *pool = &alloc->factor_pool_cache[cls];
+	struct small_mempool *pool = &alloc->small_mempool_cache[cls];
 	return pool;
 }
 
 static inline void
-factor_pool_create(struct small_alloc *alloc)
+small_mempool_create(struct small_alloc *alloc)
 {
 	size_t objsize = 0;
-	for (alloc->factor_pool_cache_size = 0;
+	for (alloc->small_mempool_cache_size = 0;
 	     objsize < alloc->objsize_max &&
-	     alloc->factor_pool_cache_size < FACTOR_POOL_MAX;
-	     alloc->factor_pool_cache_size++) {
+	     alloc->small_mempool_cache_size < SMALL_MEMPOOL_MAX;
+	     alloc->small_mempool_cache_size++) {
 		size_t prevsize = objsize;
+		uint32_t mempool_cache_size = alloc->small_mempool_cache_size;
 		objsize = small_class_calc_size_by_offset(&alloc->small_class,
-			alloc->factor_pool_cache_size);
+							  mempool_cache_size);
 		if (objsize > alloc->objsize_max)
 			objsize = alloc->objsize_max;
-		struct factor_pool *pool =
-			&alloc->factor_pool_cache[alloc->factor_pool_cache_size];
+		struct small_mempool *pool =
+			&alloc->small_mempool_cache[mempool_cache_size];
 		mempool_create(&pool->pool, alloc->cache, objsize);
 		pool->objsize_min = prevsize + 1;
 	}
@@ -88,7 +89,7 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 	 */
 	small_class_create(&alloc->small_class, granularity,
 			   alloc->factor, objsize_min, actual_alloc_factor);
-	factor_pool_create(alloc);
+	small_mempool_create(alloc);
 
 	lifo_init(&alloc->delayed);
 	lifo_init(&alloc->delayed_large);
@@ -149,13 +150,8 @@ small_collect_garbage(struct small_alloc *alloc)
 /**
  * Allocate a small object.
  *
- * Find or create a mempool instance of the right size,
- * and allocate the object on the pool.
- *
- * If object is small enough to fit a stepped pool,
- * finding the right pool for it is just a matter of bit
- * shifts. Otherwise, look up a pool in the red-black
- * factored pool tree.
+ * Find a mempool instance of the right size, using
+ * small_class, and allocate the object on the pool.
  *
  * @retval ptr success
  * @retval NULL out of memory
@@ -165,15 +161,15 @@ smalloc(struct small_alloc *alloc, size_t size)
 {
 	small_collect_garbage(alloc);
 
-	struct factor_pool *upper_bound = factor_pool_search(alloc, size);
-	if (upper_bound == NULL) {
+	struct small_mempool *small_mempool = small_mempool_search(alloc, size);
+	if (small_mempool == NULL) {
 		/* Object is too large, fallback to slab_cache */
 		struct slab *slab = slab_get_large(alloc->cache, size);
 		if (slab == NULL)
 			return NULL;
 		return slab_data(slab);
 	}
-	struct mempool *pool = &upper_bound->pool;
+	struct mempool *pool = &small_mempool->pool;
 	assert(size <= pool->objsize);
 	return mempool_alloc(pool);
 }
@@ -181,11 +177,11 @@ smalloc(struct small_alloc *alloc, size_t size)
 static inline struct mempool *
 mempool_find(struct small_alloc *alloc, size_t size)
 {
-	struct factor_pool *upper_bound = factor_pool_search(alloc, size);
-	if (upper_bound == NULL)
+	struct small_mempool *small_mempool = small_mempool_search(alloc, size);
+	if (small_mempool == NULL)
 		return NULL; /* Allocated by slab_cache. */
-	assert(size >= upper_bound->objsize_min);
-	struct mempool *pool = &upper_bound->pool;
+	assert(size >= small_mempool->objsize_min);
+	struct mempool *pool = &small_mempool->pool;
 	assert(size <= pool->objsize);
 	return pool;
 }
@@ -196,10 +192,6 @@ mempool_find(struct small_alloc *alloc, size_t size)
  *
  * This boils down to finding the object's mempool and delegating
  * to mempool_free().
- *
- * If the pool becomes completely empty, and it's a factored pool,
- * and the factored pool's cache is empty, put back the empty
- * factored pool into the factored pool cache.
  */
 void
 smfree(struct small_alloc *alloc, void *ptr, size_t size)
@@ -244,7 +236,7 @@ smfree_delayed(struct small_alloc *alloc, void *ptr, size_t size)
 struct mempool_iterator
 {
 	struct small_alloc *alloc;
-	uint32_t factor_iterator;
+	uint32_t small_iterator;
 };
 
 void
@@ -252,18 +244,18 @@ mempool_iterator_create(struct mempool_iterator *it,
 			struct small_alloc *alloc)
 {
 	it->alloc = alloc;
-	it->factor_iterator = 0;
+	it->small_iterator = 0;
 }
 
 struct mempool *
 mempool_iterator_next(struct mempool_iterator *it)
 {
-	struct factor_pool *factor_pool = NULL;
-	if (it->factor_iterator < it->alloc->factor_pool_cache_size)
-		factor_pool =
-			&it->alloc->factor_pool_cache[(it->factor_iterator)++];
-	if (factor_pool)
-		return &(factor_pool->pool);
+	struct small_mempool *small_mempool = NULL;
+	if (it->small_iterator < it->alloc->small_mempool_cache_size)
+		small_mempool =
+			&it->alloc->small_mempool_cache[(it->small_iterator)++];
+	if (small_mempool)
+		return &(small_mempool->pool);
 
 	return NULL;
 }
