@@ -9,15 +9,21 @@
 enum {
 	OBJSIZE_MIN = sizeof(int),
 	OBJSIZE_MAX = 5000,
+	OBJECTS_MAX = 1000,
 	OSCILLATION_MAX = 1024,
 	ITERATIONS_MAX = 5000,
 };
 
+/** Keep global to easily inspect the core. */
+long seed;
+
 void
 alloc_checked(struct obuf *buf)
 {
-	int size = OBJSIZE_MIN + rand() % (OBJSIZE_MAX - OBJSIZE_MIN + 1);
-	fail_unless(size >= OBJSIZE_MIN && size <= OBJSIZE_MAX);
+	int size = rand() % OBJSIZE_MAX;
+	if (size < OBJSIZE_MIN || size > OBJSIZE_MAX)
+		size = OBJSIZE_MIN;
+
 	obuf_alloc(buf, size);
 }
 
@@ -56,7 +62,9 @@ int main()
 	struct slab_arena arena;
 	struct quota quota;
 
-	srand(time(NULL));
+	seed = time(0);
+
+	srand(seed);
 
 	quota_init(&quota, UINT_MAX);
 
@@ -67,6 +75,5 @@ int main()
 	obuf_basic(&cache);
 
 	slab_cache_destroy(&cache);
-	slab_arena_destroy(&arena);
 }
 
