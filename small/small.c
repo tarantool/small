@@ -40,6 +40,32 @@ enum {
 	POOL_PER_GROUP_MAX = 32,
 };
 
+static inline void
+small_mempool_update_group(struct small_mempool *small_mempool)
+{
+	for (struct small_mempool *pool = small_mempool->group->first;
+	     pool <= small_mempool->group->last; pool++) {
+		/*
+		 * Recalculate pools for allocation.
+		 * We select the pool with the lowest index,
+		 * thus reducing allocation waste.
+		 */
+		int used_idx =
+			__builtin_ffs(small_mempool->group->active_pool_mask &
+				      pool->appropriate_pool_mask) - 1;
+		assert(used_idx >= 0);
+		pool->used_pool = small_mempool->group->first + used_idx;
+		assert(pool->used_pool >= pool);
+		assert(pool->pool.objsize <= pool->used_pool->pool.objsize);
+	}
+}
+
+static inline uint32_t
+small_mempool_get_group_index(struct small_mempool *small_mempool)
+{
+	return small_mempool - small_mempool->group->first;
+}
+
 /**
  * At the start mempools allocate memory from the greatest
  * mempool in the group. Then when waste for certain mempool in
@@ -56,30 +82,58 @@ enum {
 static inline void
 small_mempool_activate(struct small_mempool *small_mempool)
 {
-	/*
-	 * Calculate small_mempool index, and update used pool mask for group.
-	 */
-	uint32_t idx = small_mempool - small_mempool->group->first;
+	uint32_t idx = small_mempool_get_group_index(small_mempool);
 	assert((small_mempool->group->active_pool_mask &
 		(UINT32_C(1) << idx)) == 0);
 	small_mempool->group->active_pool_mask |= UINT32_C(1) << idx;
+	small_mempool_update_group(small_mempool);
+}
+
+static inline void
+small_mempool_deactivate(struct small_mempool *small_mempool)
+{
+	uint32_t idx = small_mempool_get_group_index(small_mempool);
+	assert((small_mempool->group->active_pool_mask &
+		(UINT32_C(1) << idx)) != 0);
+	small_mempool->group->active_pool_mask &= ~(UINT32_C(1) << idx);
+	small_mempool_update_group(small_mempool);
+}
+
+static inline bool
+small_mempool_can_be_deactivated(struct small_mempool *small_mempool)
+{
+	uint32_t idx = small_mempool_get_group_index(small_mempool);
+	uint32_t mask = small_mempool->group->active_pool_mask;
 	/*
-	 * Update only pools having object size <= @small_mempool->object_size.
+	 * If it is already deactivated (or not yet activated) - skip.
+	 * We can do it since we always clean-up spare slab during deactivation.
 	 */
-	for (struct small_mempool *pool = small_mempool->group->first;
-	     pool <= small_mempool; pool++) {
-		/*
-		 * Recalculate pools for allocation.
-		 * We select the pool with the lowest index,
-		 * thus reducing allocation waste.
-		 */
-		int used_idx =
-			__builtin_ffs(small_mempool->group->active_pool_mask &
-				      pool->appropriate_pool_mask) - 1;
-		assert(used_idx >= 0);
-		pool->used_pool = small_mempool->group->first + used_idx;
-		assert(pool->used_pool >= pool);
-		assert(pool->pool.objsize <= pool->used_pool->pool.objsize);
+	if ((mask & (UINT32_C(1) << idx)) == 0)
+		return false;
+	/*
+	 * In case pool is active but has no data in it and features low waste
+	 * we consider it to be a candidate for deactivation. Also we can't
+	 * deactivate last pool.
+	 */
+	if (mempool_count(&small_mempool->pool) != 0)
+		return false;
+	if (small_mempool->waste >= small_mempool->group->waste_max / 4)
+		return false;
+	if (small_mempool == small_mempool->group->last)
+		return false;
+	return true;
+}
+
+static inline void
+small_mempool_group_sweep_sparse(struct small_alloc *alloc)
+{
+	for (unsigned i = 0; i < alloc->small_mempool_cache_size; i++) {
+		struct small_mempool *pool = &alloc->small_mempool_cache[i];
+		if (small_mempool_can_be_deactivated(pool)) {
+			small_mempool_deactivate(pool);
+			if (pool->pool.spare != NULL)
+				mempool_free_spare_slab(&pool->pool);
+		}
 	}
 }
 
@@ -352,6 +406,15 @@ smalloc(struct small_alloc *alloc, size_t size)
 	struct mempool *pool = &small_mempool->used_pool->pool;
 	assert(size <= pool->objsize);
 	void *ptr = mempool_alloc(pool);
+	if (ptr == NULL) {
+		/*
+		 * In case we run out of memory let's try to deactivate some
+		 * pools and release their sparse slabs. It might not help tho.
+		 */
+		small_mempool_group_sweep_sparse(alloc);
+		ptr = mempool_alloc(pool);
+	}
+
 	if (ptr != NULL && small_mempool->used_pool != small_mempool) {
 		/*
 		 * Waste for this allocation is the difference between

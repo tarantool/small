@@ -141,9 +141,7 @@ mslab_free(struct mempool *pool, struct mslab *slab, void *ptr)
 		mslab_tree_remove(&pool->hot_slabs, slab);
 		slab->in_hot_slabs = false;
 		if (pool->spare > slab) {
-			slab_list_del(&pool->slabs, &pool->spare->slab,
-				      next_in_list);
-			slab_put_with_order(pool->cache, &pool->spare->slab);
+			mempool_free_spare_slab(pool);
 			pool->spare = slab;
 		} else if (pool->spare) {
 			slab_list_del(&pool->slabs, &slab->slab,
