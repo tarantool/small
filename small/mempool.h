@@ -321,6 +321,15 @@ mempool_total(struct mempool *pool)
 	return pool->slabs.stats.total;
 }
 
+static inline void
+mempool_free_spare_slab(struct mempool *pool)
+{
+	assert(pool->spare != NULL);
+	slab_list_del(&pool->slabs, &pool->spare->slab, next_in_list);
+	slab_put_with_order(pool->cache, &pool->spare->slab);
+	pool->spare = NULL;
+}
+
 #if defined(__cplusplus)
 } /* extern "C" */
 #endif /* defined(__cplusplus) */
