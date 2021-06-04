@@ -38,7 +38,7 @@
 
 #include <sys/mman.h>
 
-#include "features.h"
+#include "small_features.h"
 #include "small_config.h"
 
 typedef bool (*rt_helper_t)(void);
