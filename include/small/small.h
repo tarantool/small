@@ -217,13 +217,10 @@ small_ptr_compress(struct small_alloc *alloc, void *ptr);
 void *
 small_ptr_decompress(struct small_alloc *alloc, size_t val);
 
-typedef int (*mempool_stats_cb)(const struct mempool_stats *stats,
-				void *cb_ctx);
-
 void
 small_stats(struct small_alloc *alloc,
 	    struct small_stats *totals,
-	    mempool_stats_cb cb, void *cb_ctx);
+	    int (*cb)(const void *, void *), void *cb_ctx);
 
 #if defined(__cplusplus)
 } /* extern "C" */
