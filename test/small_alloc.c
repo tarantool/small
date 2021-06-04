@@ -29,7 +29,7 @@ free_checked(int *ptr)
 	int pos = ptr[0];
 	fail_unless(ptrs[pos] == ptr);
 	ptrs[pos][0] = ptrs[pos][ptr[1]/sizeof(int)-1] = INT_MAX;
-	smfree_delayed(&alloc, ptrs[pos], ptrs[pos][1]);
+	smfree(&alloc, ptrs[pos], ptrs[pos][1]);
 	ptrs[pos] = NULL;
 }
 
@@ -54,10 +54,12 @@ alloc_checked(int pos, int size_min, int size_max)
 }
 
 static int
-small_is_unused_cb(const struct mempool_stats *stats, void *arg)
+small_is_unused_cb(const void *stats, void *arg)
 {
+	const struct mempool_stats *mempool_stats =
+		(const struct mempool_stats *)stats;
 	unsigned long *slab_total = arg;
-	*slab_total += stats->slabsize * stats->slabcount;
+	*slab_total += mempool_stats->slabsize * mempool_stats->slabcount;
 	return 0;
 }
 
@@ -84,7 +86,6 @@ small_alloc_test(int size_min, int size_max, int objects_max,
 			   &actual_alloc_factor);
 
 	for (int i = 0; i < iterations_max; i++) {
-		small_alloc_setopt(&alloc, SMALL_DELAYED_FREE_MODE, i % 5 == 0);
 		int oscillation = rand() % oscillation_max;
 		for (int j = 0; j < oscillation; ++j) {
 			int pos = rand() % objects_max;
@@ -93,21 +94,11 @@ small_alloc_test(int size_min, int size_max, int objects_max,
 		allocating = ! allocating;
 	}
 
-	small_alloc_setopt(&alloc, SMALL_DELAYED_FREE_MODE, false);
-
 	for (int pos = 0; pos < OBJECTS_MAX; pos++) {
 		if (ptrs[pos] != NULL)
 			free_checked(ptrs[pos]);
 	}
 
-	/* Trigger garbage collection. */
-	allocating = true;
-	for (int i = 0; i < iterations_max; i++) {
-		if (small_is_unused())
-			break;
-		void *p = alloc_checked(0, size_min, size_max);
-		free_checked(p);
-	}
 	fail_unless(small_is_unused());
 
 	small_alloc_destroy(&alloc);

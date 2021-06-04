@@ -121,14 +121,6 @@ typedef rb_tree(struct mslab) mslab_tree_t;
 /** A memory pool. */
 struct mempool
 {
-	/**
-	 * A link in delayed free list of pools. Must be the first
-	 * member in the struct.
-	 * @sa smfree_delayed().
-	 */
-	struct lifo link;
-	/** List of pointers for delayed free. */
-	struct lifo delayed;
 	/** The source of empty slabs. */
 	struct slab_cache *cache;
 	/** All slabs. */
