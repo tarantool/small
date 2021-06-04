@@ -64,7 +64,7 @@ target_link_libraries(quota_lessor.test pthread)
 add_executable(static.test static.c unit.c)
 target_link_libraries(static.test pthread small)
 
-include_directories("${PROJECT_SOURCE_DIR}")
+include_directories("${PROJECT_SOURCE_DIR}/include")
 
 add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
 add_test(region ${CMAKE_CURRENT_BUILD_DIR}/region.test)
