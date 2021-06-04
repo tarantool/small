@@ -4,4 +4,4 @@ if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif ()
 
 target_link_libraries(small_alloc_perf.test small ${LIBRT})
-include_directories("${PROJECT_SOURCE_DIR}")
+include_directories("${PROJECT_SOURCE_DIR}/include")

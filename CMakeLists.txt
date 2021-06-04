@@ -34,32 +34,33 @@ configure_file(
 message (STATUS "")
 
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/small/include")
+include_directories("${PROJECT_SOURCE_DIR}/include/small")
 
 # Valgrind
 include_directories(third_party)
 
 set(lib_headers
     "${config_h}"
-    small/features.h
-    small/ibuf.h
-    small/lf_lifo.h
-    small/lifo.h
-    small/matras.h
-    small/mempool.h
-    small/obuf.h
-    small/quota.h
-    small/rb.h
-    small/region.h
-    small/rlist.h
-    small/slab_arena.h
-    small/slab_cache.h
-    small/small_class.h
-    small/small.h
-    small/lsregion.h
-    small/static.h)
+    include/small/small_features.h
+    include/small/ibuf.h
+    include/small/lf_lifo.h
+    include/small/lifo.h
+    include/small/matras.h
+    include/small/mempool.h
+    include/small/obuf.h
+    include/small/quota.h
+    include/small/rb.h
+    include/small/region.h
+    include/small/rlist.h
+    include/small/slab_arena.h
+    include/small/slab_cache.h
+    include/small/small_class.h
+    include/small/small.h
+    include/small/lsregion.h
+    include/small/static.h)
 
 set(lib_sources
-    small/features.c
+    small/small_features.c
     small/slab_cache.c
     small/region.c
     small/mempool.c
