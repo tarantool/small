@@ -155,10 +155,12 @@ alloc_object(std::vector<struct allocation>& v, size_t size)
 }
 
 static int
-small_is_unused_cb(const struct mempool_stats *stats, void *arg)
+small_is_unused_cb(const void *stats, void *arg)
 {
+	const struct mempool_stats *mempool_stats =
+		(const struct mempool_stats *)stats;
 	unsigned long *slab_total = (unsigned long *)arg;
-	*slab_total += stats->slabsize * stats->slabcount;
+	*slab_total += mempool_stats->slabsize * mempool_stats->slabcount;
 	return 0;
 }
 

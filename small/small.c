@@ -446,7 +446,7 @@ small_alloc_destroy(struct small_alloc *alloc)
 void
 small_stats(struct small_alloc *alloc,
 	    struct small_stats *totals,
-	    mempool_stats_cb cb, void *cb_ctx)
+	    int (*cb)(const void *, void *), void *cb_ctx)
 {
 	memset(totals, 0, sizeof(*totals));
 
