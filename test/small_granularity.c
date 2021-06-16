@@ -16,7 +16,7 @@ struct slab_cache cache;
 struct small_alloc alloc;
 struct quota quota;
 
-static unsigned *ptrs[FACTOR_POOL_MAX];
+static unsigned *ptrs[SMALL_MEMPOOL_MAX];
 
 static inline void
 free_checked(struct mempool *pool, unsigned *ptr)
@@ -24,7 +24,7 @@ free_checked(struct mempool *pool, unsigned *ptr)
 	/*
 	 * Checking previous saved data.
 	 */
-	fail_unless(ptr[0] < FACTOR_POOL_MAX &&
+	fail_unless(ptr[0] < SMALL_MEMPOOL_MAX &&
 		    ptr[pool->objsize/sizeof(unsigned)-1] == ptr[0]);
 	int pos = ptr[0];
 	fail_unless(ptrs[pos] == ptr);
@@ -66,7 +66,7 @@ small_granularity_aligment_test(void)
 		 * Checks aligment of all mempools in small alloc.
 		 */
 		for (unsigned int mempool = 0;
-		     mempool < alloc.factor_pool_cache_size;
+		     mempool < alloc.small_mempool_cache_size;
 		     mempool++) {
 			/*
 			 * Allocates memory in each of mempools for
@@ -74,7 +74,7 @@ small_granularity_aligment_test(void)
 			 * least granularity alignment
 			 */
 			struct mempool *pool =
-				&alloc.factor_pool_cache[mempool].pool;
+				&alloc.small_mempool_cache[mempool].pool;
 			for (unsigned cnt = 0; cnt < ALLOCATION_COUNT; cnt++) {
 				ptrs[cnt] = mempool_alloc(pool);
 				uintptr_t addr = (uintptr_t)ptrs[cnt];
@@ -112,17 +112,17 @@ small_granularity_allocation_test(void)
 		 * Checks allocation of all mempools in small_alloc
 		 */
 		for (unsigned int mempool = 0;
-		     mempool < alloc.factor_pool_cache_size;
+		     mempool < alloc.small_mempool_cache_size;
 		     mempool++) {
 			struct mempool *pool =
-				&alloc.factor_pool_cache[mempool].pool;
+				&alloc.small_mempool_cache[mempool].pool;
 			ptrs[mempool] = alloc_checked(pool, mempool);
 		}
 		for (unsigned int mempool = 0;
-		     mempool < alloc.factor_pool_cache_size;
+		     mempool < alloc.small_mempool_cache_size;
 		     mempool++) {
 			struct mempool *pool =
-				&alloc.factor_pool_cache[mempool].pool;
+				&alloc.small_mempool_cache[mempool].pool;
 			free_checked(pool, ptrs[mempool]);
 			fail_unless(mempool_used(pool) == 0);
 		}

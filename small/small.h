@@ -45,67 +45,35 @@ extern "C" {
  *
  * The allocator consists of a collection of mempools.
  *
- * There are two containers of pools:
- *
- * pools for objects of size 8-500 bytes are stored in an array,
- * where pool->objsize of each array member is a multiple of 8-16
- * (value defined in STEP_SIZE constant). These are
- * "stepped" pools, since pool->objsize of each next pool in the
- * array differs from the  previous size by a fixed step size.
- *
- * For example, there is a pool for size range 16-32,
- * another one for 32-48, 48-64, etc. This makes the look up
- * procedure for small allocations just a matter of getting an
- * array index via a bit shift. All stepped pools are initialized
- * when an instance of small_alloc is created.
- *
- * Objects of size beyond the stepped pools range (the upper limit
- * is usually around 300 bytes), are stored in pools with a size
- * which is a multiple of alloc_factor. alloc_factor is itself
- * a configuration constant in the range (1.0, 2.0]. I.e. imagine
- * alloc_factor is 1.1, then there are pools for objects of size
- * 300-330, 330-363, and so on. These pools are created upon first
- * allocation within given range, and stored in a red-black tree.
- *
- * Initially this red-black tree contains only a pool for
- * alloc->object_max.
- * When a request for a new allocation of sz bytes arrives
- * and it can not be satisfied from a stepped pool,
- * a search for a nearest factored pool is made in the tree.
- *
- * If, for the nearest found factored pool:
- *
- * pool->objsize > sz * alloc_factor,
- *
- * (i.e. pool object size is too big) a new factored pool is
- * created and inserted into the tree.
- *
- * This way the tree only contains factored pools for sizes
- * which are actually used by the server, and can be kept
- * small.
+ * There is one array which contained all pools.
+ * The array size limits the maximum possible number of mempools.
+ * All mempools are created when creating an allocator. Their sizes and
+ * count are calculated depending on alloc_factor and granularity, using
+ * small_class (see small_class.h for more details).
+ * When requesting a memory allocation, we can find pool with the most
+ * appropriate size in time O(1), using small_class.
  */
 
 /** Basic constants of small object allocator. */
 enum {
-	/** How many factored pools there can be. */
-	FACTOR_POOL_MAX = 1024,
+	/** How many small mempools there can be. */
+	SMALL_MEMPOOL_MAX = 1024,
 };
 
 enum small_opt {
 	SMALL_DELAYED_FREE_MODE
 };
 
+struct small_mempool_group;
+
 /**
- * A mempool to store objects sized within one multiple of
- * alloc_factor. Is a member of the red-black tree which
- * contains all such pools.
- *
- * Example: let's assume alloc_factor is 1.1. There will be an
- * instance of factor_pool for objects of size from 300 to 330,
- * from 330 to 363, and so on.
+ * A mempool to store objects sized from objsize_min to pool->objsize.
+ * Is a member of small_mempool_cache array which contains all such pools.
+ * All this pools are created when creating an allocator. Their sizes and
+ * count are calculated depending on alloc_factor and granularity, using
+ * small_class.
  */
-struct factor_pool
-{
+struct small_mempool {
 	/** the pool itself. */
 	struct mempool pool;
 	/**
@@ -114,6 +82,50 @@ struct factor_pool
 	 * pool.
 	 */
 	size_t objsize_min;
+	/** Small mempool group that this pool belongs to. */
+	struct small_mempool_group *group;
+	/**
+	 * Currently used pool for memory allocation. In case waste is
+	 * less than @waste_max of corresponding mempool_group, @used_pool
+	 * points to this structure itself.
+	 */
+	struct small_mempool *used_pool;
+	/**
+	 * Mask of appropriate pools. It is calculated once pool is created.
+	 * Values of mask for:
+	 * Pool 0: 0x0001 (0000 0000 0000 0001)
+	 * Pool 1: 0x0003 (0000 0000 0000 0011)
+	 * Pool 2: 0x0007 (0000 0000 0000 0111)
+	 * And so forth.
+	 */
+	uint32_t appropriate_pool_mask;
+	/**
+	 * Currently memory waste for a given mempool. Waste is calculated as
+	 * amount of excess memory spent for storing small object in pools
+	 * with large object size. For instance, if we store object with size
+	 * of 15 bytes in a 64-byte pool having inactive 32-byte pool, the loss
+	 * will be: 64 bytes - 32 bytes = 32 bytes.
+	 */
+	size_t waste;
+};
+
+struct small_mempool_group {
+	/** The first pool in the group. */
+	struct small_mempool *first;
+	/** The last pool in the group. */
+	struct small_mempool *last;
+	/**
+	 * Raised bit on position n means that the pool with index n can be
+	 * used for allocations. At the start only one pool (the last one)
+	 * is available. Also note that once pool become active, it can't
+	 * become
+	 */
+	uint32_t active_pool_mask;
+	/**
+	 * Pre-calculated waste threshold reaching which small_mempool becomes
+	 * activated. It is equal to slab_order_size / 4.
+	 */
+	size_t waste_max;
 };
 
 /**
@@ -131,10 +143,18 @@ enum small_free_mode {
 /** A slab allocator for a wide range of object sizes. */
 struct small_alloc {
 	struct slab_cache *cache;
-	/** A cache for nodes in the factor_pools tree. */
-	struct factor_pool factor_pool_cache[FACTOR_POOL_MAX];
-	/* factor_pool_cache array real size */
-	uint32_t factor_pool_cache_size;
+	/** Array of all small mempools of a given allocator */
+	struct small_mempool small_mempool_cache[SMALL_MEMPOOL_MAX];
+	/* small_mempool_cache array real size */
+	uint32_t small_mempool_cache_size;
+	/** Array of all small mempool groups of a given allocator */
+	struct small_mempool_group small_mempool_groups[SMALL_MEMPOOL_MAX];
+	/*
+	 * small_mempool_groups array real size. In the worst case each
+	 * group will contain only one pool, so the number of groups is
+	 * also limited by SMALL_MEMPOOL_MAX.
+	 */
+	uint32_t small_mempool_groups_size;
 	/**
 	 * List of mempool which objects to be freed if delayed free mode.
 	 */
@@ -250,23 +270,6 @@ small_stats(struct small_alloc *alloc,
 
 #if defined(__cplusplus)
 } /* extern "C" */
-#include "exception.h"
-
-static inline void *
-smalloc_xc(struct small_alloc *alloc, size_t size, const char *where)
-{
-	void *ptr = smalloc(alloc, size);
-	if (ptr == NULL)
-		tnt_raise(OutOfMemory, size, "slab allocator", where);
-	return ptr;
-}
-
-static inline void *
-smalloc0_xc(struct small_alloc *alloc, size_t size, const char *where)
-{
-	return memset(smalloc_xc(alloc, size, where), 0, size);
-}
-
 #endif /* defined(__cplusplus) */
 
 #endif /* INCLUDES_TARANTOOL_SMALL_SMALL_H */
