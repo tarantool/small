@@ -193,7 +193,7 @@ slab_cache_destroy(struct slab_cache *cache)
 	 * cache->allocated contains huge allocations and
 	 * slabs of the largest order. All smaller slabs are
 	 * obtained from larger slabs by splitting.
-         */
+	 */
 	struct slab *slab, *tmp;
 	rlist_foreach_entry_safe(slab, slabs, next_in_cache, tmp) {
 		if (slab->order == cache->order_max + 1) {
@@ -427,7 +427,7 @@ slab_cache_check(struct slab_cache *cache)
 
 		uint8_t order = slab_order_size(cache, list - cache->orders);
 		ordered += list->stats.total;
-	        used += list->stats.used;
+		used += list->stats.used;
 
 		if (list->stats.total % slab_order_size(cache, order)) {
 			fprintf(stderr, "%s: incorrect order statistics, the"

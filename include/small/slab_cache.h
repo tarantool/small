@@ -162,9 +162,9 @@ struct slab_cache {
 	 *
 	 * A used slab is removed from the list and its
 	 * next_in_list link may be reused for some other purpose.
-         */
+	 */
 	struct slab_list orders[ORDER_MAX+1];
-#ifndef _NDEBUG
+#ifndef NDEBUG
 	pthread_t thread_id;
 #endif
 };
@@ -307,7 +307,7 @@ static inline void
 slab_cache_set_thread(struct slab_cache *cache)
 {
 	(void) cache;
-#ifndef _NDEBUG
+#ifndef NDEBUG
 	cache->thread_id = pthread_self();
 #endif
 }
