@@ -236,10 +236,11 @@ small_mempool_search(struct small_alloc *alloc, size_t size)
 static inline void
 small_mempool_create(struct small_alloc *alloc)
 {
-	uint32_t slab_order_cur = 0, slab_order_next = 0;
+	uint32_t slab_order_cur = 0;
 	size_t objsize = 0;
 	struct small_mempool *cur_order_pool = &alloc->small_mempool_cache[0];
 	alloc->small_mempool_groups_size = 0;
+	bool first_iteration = true;
 
 	for (alloc->small_mempool_cache_size = 0;
 	     objsize < alloc->objsize_max &&
@@ -261,9 +262,11 @@ small_mempool_create(struct small_alloc *alloc)
 		pool->appropriate_pool_mask = 0;
 		pool->waste = 0;
 
-		slab_order_cur = (slab_order_cur == 0 ?
-				  pool->pool.slab_order : slab_order_cur);
-		slab_order_next = pool->pool.slab_order;
+		if (first_iteration) {
+			slab_order_cur = pool->pool.slab_order;
+			first_iteration = false;
+		}
+		uint32_t slab_order_next = pool->pool.slab_order;
 		/*
 		 * In the case when the size of slab changes, create one or
 		 * more mempool groups. The count of groups depends on the
@@ -271,6 +274,8 @@ small_mempool_create(struct small_alloc *alloc)
 		 * than 32 pools in one group.
 		 */
 		if (slab_order_next != slab_order_cur) {
+			assert(cur_order_pool->pool.slab_ptr_mask ==
+			       (pool - 1)->pool.slab_ptr_mask);
 			slab_order_cur = slab_order_next;
 			small_mempool_create_groups(alloc, cur_order_pool,
 						    pool - 1);
@@ -284,6 +289,8 @@ small_mempool_create(struct small_alloc *alloc)
 		 * group of pools.
 		 */
 		if (objsize == alloc->objsize_max) {
+			assert(cur_order_pool->pool.slab_ptr_mask ==
+			       pool->pool.slab_ptr_mask);
 			small_mempool_create_groups(alloc, cur_order_pool,
 						    pool);
 		}
