@@ -38,8 +38,29 @@ add_executable(small_class_branchless.test small_class.c unit.c)
 target_link_libraries(small_class_branchless.test small)
 target_compile_definitions(small_class_branchless.test PUBLIC SMALL_CLASS_BRANCHLESS)
 
-add_executable(small_alloc.test small_alloc.c)
-target_link_libraries(small_alloc.test small)
+set(small_sources
+    ${PROJECT_SOURCE_DIR}/small/slab_cache.c
+    ${PROJECT_SOURCE_DIR}/small/mempool.c
+    ${PROJECT_SOURCE_DIR}/small/slab_arena.c
+    ${PROJECT_SOURCE_DIR}/small/small_class.c
+    ${PROJECT_SOURCE_DIR}/small/small.c
+)
+
+set(small_alloc_tests "")
+function(build_small_alloc_test SLAB_MIN_ORDER0_SIZE)
+    set(target_name "small_alloc_${SLAB_MIN_ORDER0_SIZE}.test")
+    add_executable(${target_name} small_alloc.c ${small_sources})
+    target_compile_definitions(
+        ${target_name} PUBLIC SLAB_MIN_ORDER0_SIZE=${SLAB_MIN_ORDER0_SIZE}
+    )
+    target_link_libraries(${target_name} m)
+    list(APPEND small_alloc_tests ${target_name})
+    add_test(${target_name} ${CMAKE_CURRENT_BUILD_DIR}/${target_name})
+endfunction()
+
+foreach(SLAB_MIN_ORDER0_SIZE 4096 8192 16384 32768 65536)
+    build_small_alloc_test(${SLAB_MIN_ORDER0_SIZE})
+endforeach()
 
 add_executable(small_granularity.test small_granularity.c)
 target_link_libraries(small_granularity.test small)
@@ -76,7 +97,6 @@ add_test(obuf ${CMAKE_CURRENT_BUILD_DIR}/obuf.test)
 add_test(mempool ${CMAKE_CURRENT_BUILD_DIR}/mempool.test)
 add_test(small_class ${CMAKE_CURRENT_BUILD_DIR}/small_class.test)
 add_test(small_class_branchless ${CMAKE_CURRENT_BUILD_DIR}/small_class_branchless.test)
-add_test(small_alloc ${CMAKE_CURRENT_BUILD_DIR}/small_alloc.test)
 add_test(small_granularity ${CMAKE_CURRENT_BUILD_DIR}/small_granularity.test)
 add_test(lf_lifo ${CMAKE_CURRENT_BUILD_DIR}/lf_lifo.test)
 add_test(slab_cache ${CMAKE_CURRENT_BUILD_DIR}/slab_cache.test)
@@ -103,6 +123,6 @@ add_custom_target(test
     WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
     COMMAND ctest
     DEPENDS slab_cache.test region.test ibuf.test obuf.test mempool.test
-            small_alloc.test small_granularity.test lf_lifo.test slab_arena.test
+            ${small_alloc_tests} small_granularity.test lf_lifo.test slab_arena.test
             arena_mt.test matras.test lsregion.test quota.test rb.test
 )

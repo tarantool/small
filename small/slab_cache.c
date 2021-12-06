@@ -51,6 +51,14 @@ const uint32_t slab_magic = 0xeec0ffee;
 #define MAP_ANONYMOUS MAP_ANON
 #endif /* !defined(MAP_ANONYMOUS) */
 
+#if !defined(SLAB_MIN_ORDER0_SIZE)
+/**
+ * By default get this value from sysconf, but it should be
+ * possible to change this value from CMake for test purpose.
+ */
+#define SLAB_MIN_ORDER0_SIZE sysconf(_SC_PAGESIZE)
+#endif /* !defined(SLAB_MIN_ORDER0_SIZE) */
+
 static inline void
 slab_assert(struct slab_cache *cache, struct slab *slab)
 {
@@ -166,7 +174,7 @@ slab_cache_create(struct slab_cache *cache, struct slab_arena *arena)
 	 * the size of buddies in the smallest order, given the size
 	 * of the slab size in the slab arena.
 	 */
-	long min_order0_size = sysconf(_SC_PAGESIZE);
+	long min_order0_size = SLAB_MIN_ORDER0_SIZE;
 	assert((long)arena->slab_size >= min_order0_size);
 	cache->order_max = small_lb(arena->slab_size / min_order0_size);
 	if (cache->order_max > ORDER_MAX - 1)
