@@ -49,7 +49,7 @@ struct slab_cache;
  * Typical use case:
  *
  * struct ibuf *in;
- * coio_bread(coio, in, request_len);
+ * coio_read(coio, in, request_len);
  * if (ibuf_size(in) >= request_len) {
  *	process_request(in->rpos, request_len);
  *	in->rpos += request_len;
