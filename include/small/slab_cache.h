@@ -279,7 +279,6 @@ slab_cache_check(struct slab_cache *cache);
 static inline uint8_t
 slab_order(struct slab_cache *cache, size_t size)
 {
-	assert(size <= UINT32_MAX);
 	if (size <= cache->order0_size)
 		return 0;
 	if (size > cache->arena->slab_size)
