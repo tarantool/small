@@ -274,6 +274,9 @@ lsregion_aligned_alloc(struct lsregion *lsregion, size_t size, size_t alignment,
 	return res;
 }
 
+#define lsregion_alloc_object(lsregion, id, T)					\
+	(T *)lsregion_aligned_alloc((lsregion), sizeof(T), alignof(T), (id))
+
 /**
  * Try to free all memory blocks in which the biggest identifier
  * is less or equal then the specified identifier.

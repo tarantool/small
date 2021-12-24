@@ -4,6 +4,24 @@
 #include <string.h>
 #include "unit.h"
 
+
+/* For the sake of lsregion_alloc_object (it demands alignof()) */
+#ifndef offsetof
+#define offsetof(type, member) ((size_t) &((type *)0)->member)
+#endif
+
+#if !defined(alignof) && !defined(__alignof_is_defined)
+#  if __has_feature(c_alignof) || (defined(__GNUC__) && __GNUC__ >= 5)
+#    include <stdalign.h>
+#  elif defined(__GNUC__)
+#    define alignof(_T) __alignof(_T)
+#    define __alignof_is_defined 1
+#  else
+#    define alignof(_T) offsetof(struct { char c; _T member; }, member)
+#    define __alignof_is_defined 1
+#  endif
+#endif
+
 enum { TEST_ARRAY_SIZE = 10 };
 
 static size_t
@@ -24,7 +42,7 @@ static void
 test_basic()
 {
 	note("basic");
-	plan(42);
+	plan(45);
 
 	struct quota quota;
 	struct slab_arena arena;
@@ -79,6 +97,20 @@ test_basic()
 	is(arena.used, arena.slab_size, "arena used after gc(id)");
 	is(lsregion_slab_count(&allocator), 0, "slab count after gc(id)");
 	isnt(allocator.cached, NULL, "slab cache after gc(id)");
+
+	/* Try alloc_object. */
+	++id;
+	isnt(lsregion_alloc(&allocator, 13, id), NULL, "unaligned allocation");
+	struct foo {
+		int a;
+		double b;
+	};
+	void *ptr;
+	++id;
+	isnt(ptr = lsregion_alloc_object(&allocator, id, struct foo), NULL,
+	     "alloc_object");
+	is((uintptr_t)ptr % alignof(struct foo), 0, "alloc_object is correctly aligned");
+	lsregion_gc(&allocator, id);
 
 	/*
 	 * Try to allocate block with size > specified slab_size.
