@@ -268,7 +268,7 @@ lsregion_aligned_alloc(struct lsregion *lsregion, size_t size, size_t alignment,
 		return NULL;
 	struct lslab *slab = rlist_last_entry(&lsregion->slabs.slabs,
 					      struct lslab, next_in_list);
-	size += res - unaligned;
+	size += (char *)res - (char *)unaligned;
 	lslab_use(slab, size, id);
 	lsregion->slabs.stats.used += size;
 	return res;
