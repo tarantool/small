@@ -367,11 +367,21 @@ delete from one list and add_tail as another's head
 	for (item = rlist_last(head); item != (head); item = rlist_prev(item))
 
 /**
+ * return true if entry points to head of list
+ *
+ * NOTE: avoid using &item->member, because it may result in ASAN errors
+ * in case the item type or member is supposed to be aligned, and the item
+ * points to the list head.
+ */
+#define rlist_entry_is_head(item, head, member)				\
+	((char *)(item) + offsetof(typeof(*item), member) == (char *)(head))
+
+/**
  * foreach through all list entries
  */
 #define rlist_foreach_entry(item, head, member)				\
 	for (item = rlist_first_entry((head), typeof(*item), member);	\
-	     &item->member != (head);					\
+	     !rlist_entry_is_head((item), (head), member);		\
 	     item = rlist_next_entry((item), member))
 
 /**
@@ -379,12 +389,15 @@ delete from one list and add_tail as another's head
  */
 #define rlist_foreach_entry_reverse(item, head, member)			\
 	for (item = rlist_last_entry((head), typeof(*item), member);	\
-	     &item->member != (head);					\
+	     !rlist_entry_is_head((item), (head), member);		\
 	     item = rlist_prev_entry((item), member))
 
+/**
+ * foreach through all list entries safe against removal
+ */
 #define	rlist_foreach_entry_safe(item, head, member, tmp)		\
 	for ((item) = rlist_first_entry((head), typeof(*item), member);	\
-	     &item->member != (head) &&                                 \
+	     !rlist_entry_is_head((item), (head), member) &&		\
 	     ((tmp) = rlist_next_entry((item), member));                \
 	     (item) = (tmp))
 
@@ -393,7 +406,7 @@ delete from one list and add_tail as another's head
  */
 #define rlist_foreach_entry_safe_reverse(item, head, member, tmp)	\
 	for ((item) = rlist_last_entry((head), typeof(*item), member);	\
-	     &item->member != (head) &&					\
+	     !rlist_entry_is_head((item), (head), member) &&		\
 	     ((tmp) = rlist_prev_entry((item), member));		\
 	     (item) = (tmp))
 
