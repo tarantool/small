@@ -2,6 +2,9 @@
 
 [![Build Status](https://travis-ci.org/tarantool/small.png?branch=master)](https://travis-ci.org/tarantool/small)
 
+![Allocators hierarhy](doc/images/allocators_hierarchy_light.svg#gh-light-mode-only)
+![Allocators hierarhy](doc/images/allocators_hierarchy_dark.svg#gh-dark-mode-only)
+
 The library provides the following facilities:
 
 # quota
