@@ -228,6 +228,7 @@ slab_arena_destroy(struct slab_arena *arena)
 	if (arena->arena)
 		munmap_checked(arena->arena, arena->prealloc);
 
+	(void)total;
 	assert(total == arena->used);
 }
 
