@@ -1,4 +1,5 @@
 #include <small/matras.h>
+#include <small/Matras.hpp>
 #include <set>
 #include <vector>
 #include <assert.h>
