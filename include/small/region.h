@@ -37,6 +37,7 @@
 #include <string.h>
 #include "rlist.h"
 #include "slab_cache.h"
+#include "util.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -78,10 +79,24 @@ extern "C" {
  * region_free().
  */
 
+struct region;
+
+typedef void (*region_on_alloc_f)(struct region *region,
+			          size_t size, void *cb_arg);
+typedef void (*region_on_truncate_f)(struct region *region,
+			             size_t used, void *cb_arg);
+
 struct region
 {
 	struct slab_cache *cache;
 	struct slab_list slabs;
+
+	/** Callback to be called on allocation. */
+	region_on_alloc_f on_alloc_cb;
+	/** Callback to be called on truncation. */
+	region_on_truncate_f on_truncate_cb;
+	/** User supplied argument passed to the callbacks. */
+	void *cb_arg;
 };
 
 /**
@@ -93,6 +108,37 @@ region_create(struct region *region, struct slab_cache *cache)
 {
 	region->cache = cache;
 	slab_list_create(&region->slabs);
+	region->on_alloc_cb = NULL;
+	region->on_truncate_cb = NULL;
+	region->cb_arg = NULL;
+
+}
+
+/**
+ * Set callbacks for the region API.
+ *
+ * on_alloc_cb will be called on any allocation.
+ * on_truncate_cb will be called on any truncation.
+ * cb_arg is passed as callbacks argument.
+ *
+ * For on_alloc_cb size argument is size effectively allocated. That is in
+ * case of region_aligned_alloc it includes size of nessesary padding.
+ *
+ * For on_truncate_cb used argument equals to region_used() after truncation.
+ *
+ * region_used is safe to use inside the callbacks. Inside on_alloc_cb it
+ * will return usage before allocation. Inside on_truncate_cb it will
+ * return usage after truncation.
+ */
+static inline void
+region_set_callbacks(struct region *region,
+		     region_on_alloc_f on_alloc_cb,
+		     region_on_truncate_f on_truncate_cb,
+		     void *cb_arg)
+{
+	region->on_alloc_cb = on_alloc_cb;
+	region->on_truncate_cb = on_truncate_cb;
+	region->cb_arg = cb_arg;
 }
 
 /**
@@ -171,6 +217,8 @@ region_alloc(struct region *region, size_t size)
 						       slab.next_in_list);
 		assert(size <= rslab_unused(slab));
 
+		if (small_unlikely(region->on_alloc_cb != NULL))
+			region->on_alloc_cb(region, size, region->cb_arg);
 		region->slabs.stats.used += size;
 		slab->used += size;
 	}
@@ -204,6 +252,9 @@ region_aligned_alloc(struct region *region, size_t size, size_t alignment)
 
 		assert(effective_size <= rslab_unused(slab));
 
+		if (small_unlikely(region->on_alloc_cb != NULL))
+			region->on_alloc_cb(region, effective_size,
+					    region->cb_arg);
 		region->slabs.stats.used += effective_size;
 		slab->used += effective_size;
 	}

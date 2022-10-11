@@ -41,6 +41,7 @@ include_directories(third_party)
 
 set(lib_headers
     "${config_h}"
+    include/small/util.h
     include/small/small_features.h
     include/small/ibuf.h
     include/small/lf_lifo.h
