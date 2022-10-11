@@ -63,6 +63,8 @@ region_free(struct region *region)
 		slab_put(region->cache, slab);
 
 	slab_list_create(&region->slabs);
+	if (small_unlikely(region->on_truncate_cb != NULL))
+		region->on_truncate_cb(region, 0, region->cb_arg);
 }
 
 /**
@@ -81,6 +83,9 @@ region_truncate(struct region *region, size_t used)
 						       slab.next_in_list);
 		if (slab->used > cut_size) {
 			/* This is the last slab to trim. */
+#ifndef NDEBUG
+			memset(rslab_data_end(slab) - cut_size, 'P', cut_size);
+#endif
 			slab->used -= cut_size;
 			cut_size = 0;
 			break;
@@ -92,6 +97,8 @@ region_truncate(struct region *region, size_t used)
 	}
 	assert(cut_size == 0);
 	region->slabs.stats.used = used;
+	if (small_unlikely(region->on_truncate_cb != NULL))
+		region->on_truncate_cb(region, used, region->cb_arg);
 }
 
 void *

@@ -2,3 +2,7 @@
 	*** region_basic: done ***
 	*** region_test_truncate ***
 	*** region_test_truncate: done ***
+	*** region_test_callbacks ***
+	*** region_test_callbacks: done ***
+	*** region_test_poison ***
+	*** region_test_poison: done ***
