@@ -51,12 +51,10 @@ int main()
 
 	/* Test overflow of ABA counter. */
 
-	int i = 0;
 	do {
 		lf_lifo_push(&head, val1);
 		fail_unless(lf_lifo_pop(&head) == val1);
 		fail_unless(lf_lifo_pop(&head) == NULL);
-		i++;
 	} while (head.next != 0);
 
 	munmap(val1, MAP_SIZE);
