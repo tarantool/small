@@ -144,6 +144,13 @@ ibuf_alloc(struct ibuf *ibuf, size_t size)
 	return ptr;
 }
 
+/**
+ * Shrink the buffer to the minimal possible capacity needed to store the data
+ * written to the buffer and not yet consumed.
+ */
+void
+ibuf_shrink(struct ibuf *ibuf);
+
 static inline void *
 ibuf_reserve_cb(void *ctx, size_t *size)
 {

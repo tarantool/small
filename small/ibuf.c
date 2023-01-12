@@ -81,7 +81,7 @@ ibuf_reserve_slow(struct ibuf *ibuf, size_t size)
 	if (size + used <= capacity) {
 		memmove(ibuf->buf, ibuf->rpos, used);
 	} else {
-		/* Use iobuf_readahead as allocation factor. */
+		/* Use start_capacity as allocation factor. */
 		size_t new_capacity = capacity * 2;
 		if (new_capacity < ibuf->start_capacity)
 			new_capacity = ibuf->start_capacity;
@@ -104,3 +104,37 @@ ibuf_reserve_slow(struct ibuf *ibuf, size_t size)
 	return ibuf->wpos;
 }
 
+void
+ibuf_shrink(struct ibuf *ibuf)
+{
+	size_t used = ibuf_used(ibuf);
+	if (used == 0) {
+		if (ibuf->buf)
+			slab_put(ibuf->slabc, slab_from_data(ibuf->buf));
+		ibuf->buf = ibuf->rpos = ibuf->wpos = ibuf->end = NULL;
+		return;
+	}
+
+	size_t capacity = ibuf_capacity(ibuf);
+	size_t new_capacity = ibuf->start_capacity;
+	if (new_capacity < used)
+		new_capacity = used;
+
+	/* Avoid relocation if the actual slab size doesn't change. */
+	if (slab_real_size(ibuf->slabc, capacity) ==
+	    slab_real_size(ibuf->slabc, new_capacity))
+		return;
+
+	struct slab *slab = slab_get(ibuf->slabc, new_capacity);
+	if (slab == NULL)
+		return;
+
+	char *ptr = (char *)slab_data(slab);
+	memcpy(ptr, ibuf->rpos, used);
+	if (ibuf->buf)
+		slab_put(ibuf->slabc, slab_from_data(ibuf->buf));
+	ibuf->buf = ptr;
+	ibuf->rpos = ptr;
+	ibuf->wpos = ptr + used;
+	ibuf->end = ptr + slab_capacity(slab);
+}
