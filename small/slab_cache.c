@@ -316,10 +316,14 @@ slab_put_large(struct slab_cache *cache, struct slab *slab)
 struct slab *
 slab_get(struct slab_cache *cache, size_t size)
 {
+	struct slab *slab;
 	uint8_t order = slab_order(cache, size + slab_sizeof());
 	if (order == cache->order_max + 1)
-		return slab_get_large(cache, size);
-	return slab_get_with_order(cache, order);
+		slab = slab_get_large(cache, size);
+	else
+		slab = slab_get_with_order(cache, order);
+	assert(slab->size == slab_real_size(cache, size));
+	return slab;
 }
 
 /** Return a slab back to the slab cache. */
@@ -469,4 +473,14 @@ slab_cache_check(struct slab_cache *cache)
 	if (dont_panic)
 		return;
 	abort();
+}
+
+size_t
+slab_real_size(struct slab_cache *cache, size_t size)
+{
+	size += slab_sizeof();
+	uint8_t order = slab_order(cache, size);
+	if (order == cache->order_max + 1)
+		return size;
+	return slab_order_size(cache, order);
 }

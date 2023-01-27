@@ -299,6 +299,14 @@ slab_order_size(struct slab_cache *cache, uint8_t order)
 }
 
 /**
+ * Given the requested size, calculate the actual size of a slab, that will be
+ * allocated by slab_get(). Note that the real capacity of such a slab will be
+ * less than the real size by slab_sizeof().
+ */
+size_t
+slab_real_size(struct slab_cache *cache, size_t size);
+
+/**
  * Debug only: track that all allocations
  * are made from a single thread.
  */
