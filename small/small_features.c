@@ -31,7 +31,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -40,6 +39,7 @@
 
 #include "small_features.h"
 #include "small_config.h"
+#include "util.h"
 
 typedef bool (*rt_helper_t)(void);
 
@@ -56,7 +56,7 @@ static uint64_t builtin_mask =
 static bool
 test_dontdump(void)
 {
-	size_t size = sysconf(_SC_PAGESIZE);
+	size_t size = small_getpagesize();
 	intptr_t ignore_it;
 	bool ret = false;
 	char buf[64];

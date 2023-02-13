@@ -29,6 +29,7 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include <unistd.h>
 
 #ifndef __has_builtin
 #  define __has_builtin(x) 0
@@ -44,3 +45,16 @@
 #  define small_likely(x)    (x)
 #  define small_unlikely(x)  (x)
 #endif
+
+/**
+ * Return size of a memory page in bytes.
+ */
+static inline long
+small_getpagesize(void)
+{
+	/* sysconf() returns -1 on error, or page_size >= 1 otherwise. */
+	long page_size = sysconf(_SC_PAGESIZE);
+	if (small_unlikely(page_size < 1))
+		return 4096;
+	return page_size;
+}

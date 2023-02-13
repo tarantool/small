@@ -35,10 +35,10 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <unistd.h>
 #include <valgrind/valgrind.h>
 #include <valgrind/memcheck.h>
 #include "quota.h"
+#include "util.h"
 
 const uint32_t slab_magic = 0xeec0ffee;
 
@@ -56,7 +56,7 @@ const uint32_t slab_magic = 0xeec0ffee;
  * By default get this value from sysconf, but it should be
  * possible to change this value from CMake for test purpose.
  */
-#define SLAB_MIN_ORDER0_SIZE sysconf(_SC_PAGESIZE)
+#define SLAB_MIN_ORDER0_SIZE small_getpagesize()
 #endif /* !defined(SLAB_MIN_ORDER0_SIZE) */
 
 static inline void
