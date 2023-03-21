@@ -75,7 +75,7 @@ void matras_alloc_test()
 
 	alloc_err_inj_enabled = false;
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
-		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL);
+		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL, NULL);
 		check(1u << mat.log2_capacity == maxCapacity, "Wrong capacity!");
 		AllocatedItems.clear();
 		for (unsigned int j = 0; j < i; j++) {
@@ -118,7 +118,7 @@ void matras_alloc_test()
 	}
 
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
-		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL);
+		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL, NULL);
 		for (unsigned int j = 0; j < i; j++) {
 			unsigned int res = 0;
 			(void) matras_alloc(&mat, &res);
@@ -134,7 +134,7 @@ void matras_alloc_test()
 
 	alloc_err_inj_enabled = true;
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
-		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL);
+		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL, NULL);
 
 		alloc_err_inj_countdown = i;
 
@@ -196,7 +196,7 @@ matras_vers_test()
 	int cur_num_or_ver = 1;
 	struct matras local;
 	long extents_in_use = 0;
-	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use);
+	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use, NULL);
 	type_t val = 0;
 	for (int s = 10; s < 8000; s = int(s * 1.5)) {
 		for (int k = 0; k < 800; k++) {
@@ -272,7 +272,7 @@ matras_gh_1145_test()
 
 	struct matras local;
 	long extents_in_use = 0;
-	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use);
+	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use, NULL);
 	struct matras_view view;
 	matras_create_read_view(&local, &view);
 	matras_id_t id;
@@ -285,10 +285,49 @@ matras_gh_1145_test()
 	std::cout << "Testing matras gh-1145 test successfully finished" << std::endl;
 }
 
+void
+matras_stat_test()
+{
+	std::cout << "Testing matras statistics..." << std::endl;
+
+	struct matras_stat stat;
+	matras_stat_create(&stat);
+	check(stat.extent_count == 0, "extent_count");
+	check(stat.read_view_extent_count == 0, "read_view_extent_count");
+
+	long extents_in_use = 0;
+	struct matras matras;
+	matras_create(&matras, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use, &stat);
+	check(stat.extent_count == 0, "extent_count");
+	check(stat.read_view_extent_count == 0, "read_view_extent_count");
+
+	matras_id_t id;
+	matras_alloc(&matras, &id);
+	check(stat.extent_count == 3, "extent_count");
+	check(stat.read_view_extent_count == 0, "read_view_extent_count");
+
+	struct matras_view view;
+	matras_create_read_view(&matras, &view);
+	matras_touch(&matras, id);
+	check(stat.extent_count == 6, "extent_count");
+	check(stat.read_view_extent_count == 3, "read_view_extent_count");
+
+	matras_destroy_read_view(&matras, &view);
+	check(stat.extent_count == 3, "extent_count");
+	check(stat.read_view_extent_count == 0, "read_view_extent_count");
+
+	matras_destroy(&matras);
+	check(stat.extent_count == 0, "extent_count");
+	check(stat.read_view_extent_count == 0, "read_view_extent_count");
+
+	std::cout << "Testing matras statistics successfully finished" << std::endl;
+}
+
 int
 main(int, const char **)
 {
 	matras_alloc_test();
 	matras_vers_test();
 	matras_gh_1145_test();
+	matras_stat_test();
 }

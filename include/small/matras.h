@@ -139,6 +139,14 @@ typedef uint32_t matras_id_t;
 typedef void *(*matras_alloc_func)(void *ctx);
 typedef void (*matras_free_func)(void *ctx, void *ptr);
 
+/** Matras statistics. */
+struct matras_stat {
+	/** Total number of allocated extents. */
+	matras_id_t extent_count;
+	/** Number of extents allocated for read views. */
+	matras_id_t read_view_extent_count;
+};
+
 /**
  * sruct matras_view represents appropriate mapping between
  * block ID and it's pointer.
@@ -179,6 +187,8 @@ struct matras {
 	matras_free_func free_func;
 	/* Argument passed to extent allocator */
 	void *alloc_ctx;
+	/* Matras statistics. Can't be NULL (points to dummy if unset). */
+	struct matras_stat *stat;
 };
 
 /*
@@ -203,14 +213,30 @@ struct matras {
  * matras API declaration
  */
 
+/** Initialize a matras_stat struct. */
+static inline void
+matras_stat_create(struct matras_stat *stat)
+{
+	stat->extent_count = 0;
+	stat->read_view_extent_count = 0;
+}
+
 /**
  * Initialize an empty instance of pointer translating
  * block allocator. Does not allocate memory.
+ *
+ * If stat isn't NULL, it should point to an initialized
+ * matras_stat struct, which will be updated by the matras
+ * methods.
+ *
+ * If stat is NULL, a dummy thread-local variable will be
+ * used instead. This means that in this case the matras
+ * may be used only in the thread that created it.
  */
 void
 matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
 	      matras_alloc_func alloc_func, matras_free_func free_func,
-	      void *alloc_ctx);
+	      void *alloc_ctx, struct matras_stat *stat);
 
 /**
  * Free all memory used by an instance of matras and
