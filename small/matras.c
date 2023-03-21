@@ -12,6 +12,12 @@
 #pragma intrinsic (_BitScanReverse)
 #endif
 
+/**
+ * Dummy thread-local matras_stat struct used if matras_stat wasn't
+ * passed to matras_create().
+ */
+static __thread struct matras_stat dummy_stat;
+
 /*
  * Binary logarithm of value (exact if the value is a power of 2,
  * approximate (floored) otherwise)
@@ -38,7 +44,7 @@ matras_log2(matras_id_t val)
 void
 matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
 	      matras_alloc_func alloc_func, matras_free_func free_func,
-	      void *alloc_ctx)
+	      void *alloc_ctx, struct matras_stat *stat)
 {
 	/*extent_size must be power of 2 */
 	assert((extent_size & (extent_size - 1)) == 0);
@@ -58,6 +64,7 @@ matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
 	m->alloc_func = alloc_func;
 	m->free_func = free_func;
 	m->alloc_ctx = alloc_ctx;
+	m->stat = stat ? stat : &dummy_stat;
 
 	matras_id_t log1 = matras_log2(extent_size);
 	matras_id_t log2 = matras_log2(block_size);
@@ -89,19 +96,37 @@ static inline void *
 matras_alloc_extent(struct matras *m)
 {
 	void *ext = m->alloc_func(m->alloc_ctx);
-	if (ext)
+	if (ext) {
 		m->extent_count++;
+		m->stat->extent_count++;
+	}
 	return ext;
 }
 
-/**
- * Helper functions for allocating new extent and incrementing extent counter
- */
 static inline void
 matras_free_extent(struct matras *m, void *ext)
 {
 	m->free_func(m->alloc_ctx, ext);
 	m->extent_count--;
+	m->stat->extent_count--;
+}
+
+static inline void *
+matras_copy_read_view_extent(struct matras *m, void *ext)
+{
+	void *new_ext = matras_alloc_extent(m);
+	if (new_ext) {
+		memcpy(new_ext, ext, m->extent_size);
+		m->stat->read_view_extent_count++;
+	}
+	return new_ext;
+}
+
+static inline void
+matras_free_read_view_extent(struct matras *m, void *ext)
+{
+	matras_free_extent(m, ext);
+	m->stat->read_view_extent_count--;
 }
 
 /**
@@ -364,11 +389,11 @@ matras_destroy_read_view(struct matras *m, struct matras_view *v)
 				if (extent2[i2] == extent2p[i2])
 					continue;
 			}
-			matras_free_extent(m, extent3);
+			matras_free_read_view_extent(m, extent3);
 		}
-		matras_free_extent(m, extent2);
+		matras_free_read_view_extent(m, extent2);
 	}
-	matras_free_extent(m, extent1);
+	matras_free_read_view_extent(m, extent1);
 }
 
 /*
@@ -403,10 +428,9 @@ matras_touch(struct matras *m, matras_id_t id)
 	void **extent1 = (void **)m->head.root;
 	void **extent1p = (void **)m->head.prev_view->root;
 	if (extent1 == extent1p) {
-		void *new_extent = matras_alloc_extent(m);
+		void *new_extent = matras_copy_read_view_extent(m, extent1);
 		if (!new_extent)
 			return 0;
-		memcpy(new_extent, extent1, m->extent_size);
 		m->head.root = new_extent;
 		extent1 = (void **)new_extent;
 	}
@@ -414,10 +438,9 @@ matras_touch(struct matras *m, matras_id_t id)
 	void **extent2 = (void **)extent1[n1];
 	void **extent2p = (void **)extent1p[n1];
 	if (extent2 == extent2p) {
-		void *new_extent = matras_alloc_extent(m);
+		void *new_extent = matras_copy_read_view_extent(m, extent2);
 		if (!new_extent)
 			return 0;
-		memcpy(new_extent, extent2, m->extent_size);
 		extent1[n1] = new_extent;
 		extent2 = (void **)new_extent;
 	}
@@ -425,10 +448,9 @@ matras_touch(struct matras *m, matras_id_t id)
 	char *extent3 = (char *)extent2[n2];
 	char *extent3p = (char *)extent2p[n2];
 	if (extent3 == extent3p) {
-		void *new_extent = matras_alloc_extent(m);
+		void *new_extent = matras_copy_read_view_extent(m, extent3);
 		if (!new_extent)
 			return 0;
-		memcpy(new_extent, extent3, m->extent_size);
 		extent2[n2] = new_extent;
 		extent3 = (char *)new_extent;
 	}
