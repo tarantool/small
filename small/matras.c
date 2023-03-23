@@ -13,10 +13,10 @@
 #endif
 
 /**
- * Dummy thread-local matras_stat struct used if matras_stat wasn't
+ * Dummy thread-local matras_stats struct used if matras_stats wasn't
  * passed to matras_create().
  */
-static __thread struct matras_stat dummy_stat;
+static __thread struct matras_stats dummy_stats;
 
 /*
  * Binary logarithm of value (exact if the value is a power of 2,
@@ -44,7 +44,7 @@ matras_log2(matras_id_t val)
 void
 matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
 	      matras_alloc_func alloc_func, matras_free_func free_func,
-	      void *alloc_ctx, struct matras_stat *stat)
+	      void *alloc_ctx, struct matras_stats *stats)
 {
 	/*extent_size must be power of 2 */
 	assert((extent_size & (extent_size - 1)) == 0);
@@ -64,7 +64,7 @@ matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
 	m->alloc_func = alloc_func;
 	m->free_func = free_func;
 	m->alloc_ctx = alloc_ctx;
-	m->stat = stat ? stat : &dummy_stat;
+	m->stats = stats ? stats : &dummy_stats;
 
 	matras_id_t log1 = matras_log2(extent_size);
 	matras_id_t log2 = matras_log2(block_size);
@@ -98,7 +98,7 @@ matras_alloc_extent(struct matras *m)
 	void *ext = m->alloc_func(m->alloc_ctx);
 	if (ext) {
 		m->extent_count++;
-		m->stat->extent_count++;
+		m->stats->extent_count++;
 	}
 	return ext;
 }
@@ -108,7 +108,7 @@ matras_free_extent(struct matras *m, void *ext)
 {
 	m->free_func(m->alloc_ctx, ext);
 	m->extent_count--;
-	m->stat->extent_count--;
+	m->stats->extent_count--;
 }
 
 static inline void *
@@ -117,7 +117,7 @@ matras_copy_read_view_extent(struct matras *m, void *ext)
 	void *new_ext = matras_alloc_extent(m);
 	if (new_ext) {
 		memcpy(new_ext, ext, m->extent_size);
-		m->stat->read_view_extent_count++;
+		m->stats->read_view_extent_count++;
 	}
 	return new_ext;
 }
@@ -126,7 +126,7 @@ static inline void
 matras_free_read_view_extent(struct matras *m, void *ext)
 {
 	matras_free_extent(m, ext);
-	m->stat->read_view_extent_count--;
+	m->stats->read_view_extent_count--;
 }
 
 /**

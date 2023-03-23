@@ -286,39 +286,39 @@ matras_gh_1145_test()
 }
 
 void
-matras_stat_test()
+matras_stats_test()
 {
 	std::cout << "Testing matras statistics..." << std::endl;
 
-	struct matras_stat stat;
-	matras_stat_create(&stat);
-	check(stat.extent_count == 0, "extent_count");
-	check(stat.read_view_extent_count == 0, "read_view_extent_count");
+	struct matras_stats stats;
+	matras_stats_create(&stats);
+	check(stats.extent_count == 0, "extent_count");
+	check(stats.read_view_extent_count == 0, "read_view_extent_count");
 
 	long extents_in_use = 0;
 	struct matras matras;
-	matras_create(&matras, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use, &stat);
-	check(stat.extent_count == 0, "extent_count");
-	check(stat.read_view_extent_count == 0, "read_view_extent_count");
+	matras_create(&matras, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use, &stats);
+	check(stats.extent_count == 0, "extent_count");
+	check(stats.read_view_extent_count == 0, "read_view_extent_count");
 
 	matras_id_t id;
 	matras_alloc(&matras, &id);
-	check(stat.extent_count == 3, "extent_count");
-	check(stat.read_view_extent_count == 0, "read_view_extent_count");
+	check(stats.extent_count == 3, "extent_count");
+	check(stats.read_view_extent_count == 0, "read_view_extent_count");
 
 	struct matras_view view;
 	matras_create_read_view(&matras, &view);
 	matras_touch(&matras, id);
-	check(stat.extent_count == 6, "extent_count");
-	check(stat.read_view_extent_count == 3, "read_view_extent_count");
+	check(stats.extent_count == 6, "extent_count");
+	check(stats.read_view_extent_count == 3, "read_view_extent_count");
 
 	matras_destroy_read_view(&matras, &view);
-	check(stat.extent_count == 3, "extent_count");
-	check(stat.read_view_extent_count == 0, "read_view_extent_count");
+	check(stats.extent_count == 3, "extent_count");
+	check(stats.read_view_extent_count == 0, "read_view_extent_count");
 
 	matras_destroy(&matras);
-	check(stat.extent_count == 0, "extent_count");
-	check(stat.read_view_extent_count == 0, "read_view_extent_count");
+	check(stats.extent_count == 0, "extent_count");
+	check(stats.read_view_extent_count == 0, "read_view_extent_count");
 
 	std::cout << "Testing matras statistics successfully finished" << std::endl;
 }
@@ -329,5 +329,5 @@ main(int, const char **)
 	matras_alloc_test();
 	matras_vers_test();
 	matras_gh_1145_test();
-	matras_stat_test();
+	matras_stats_test();
 }
