@@ -2,6 +2,7 @@
 #include <small/ibuf.h>
 #include <small/slab_cache.h>
 #include <stdio.h>
+#include <string.h>
 #include "unit.h"
 
 struct slab_cache cache;
@@ -95,6 +96,47 @@ test_ibuf_shrink(void)
 	footer();
 }
 
+static void
+test_ibuf_truncate()
+{
+	header();
+
+	char *ptr;
+	const char *hello = "Hello Hello";
+	const char *goodbye = "Goodbye";
+	struct ibuf ibuf;
+
+	ibuf_create(&ibuf, &cache, 16 * 1024);
+	ibuf_alloc(&ibuf, 10);
+	ibuf.rpos += 10;
+	ptr = ibuf_alloc(&ibuf, strlen(hello) + 1);
+	fail_unless(ptr != NULL);
+	strcpy(ptr, hello);
+	size_t svp = ibuf_used(&ibuf);
+
+	/*
+	 * Test when there is NO reallocation in between used/truncate.
+	 */
+	ptr = ibuf_alloc(&ibuf, 100);
+	fail_unless(ptr != NULL);
+	strcpy(ptr, goodbye);
+	ibuf_truncate(&ibuf, svp);
+	fail_unless(ibuf_used(&ibuf) == svp);
+	fail_unless(strcmp(ibuf.rpos, hello) == 0);
+
+	/*
+	 * Test when there IS reallocation in between used/truncate.
+	 */
+	ptr = ibuf_alloc(&ibuf, 32 * 1024);
+	fail_unless(ptr != NULL);
+	strcpy(ptr, goodbye);
+	ibuf_truncate(&ibuf, svp);
+	fail_unless(ibuf_used(&ibuf) == svp);
+	fail_unless(strcmp(ibuf.rpos, hello) == 0);
+
+	footer();
+}
+
 int main()
 {
 	quota_init(&quota, UINT_MAX);
@@ -104,6 +146,7 @@ int main()
 
 	test_ibuf_basic();
 	test_ibuf_shrink();
+	test_ibuf_truncate();
 
 	slab_cache_destroy(&cache);
 }
