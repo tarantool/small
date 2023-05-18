@@ -151,6 +151,18 @@ ibuf_alloc(struct ibuf *ibuf, size_t size)
 void
 ibuf_shrink(struct ibuf *ibuf);
 
+/**
+ * Discard data written after position. Use ibuf_used to get position.
+ * Note that you should not update read position in between. It is safe
+ * to use if buffer is reallocated in between.
+ */
+static inline void
+ibuf_truncate(struct ibuf *ibuf, size_t used)
+{
+	assert(used <= ibuf_used(ibuf));
+	ibuf->wpos = ibuf->rpos + used;
+}
+
 static inline void *
 ibuf_reserve_cb(void *ctx, size_t *size)
 {
