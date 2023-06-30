@@ -180,46 +180,6 @@ ibuf_alloc_cb(void *ctx, size_t size)
 
 #if defined(__cplusplus)
 } /* extern "C" */
-
-#include "exception.h"
-
-/** Reserve space for sz bytes in the input buffer. */
-static inline void *
-ibuf_reserve_xc(struct ibuf *ibuf, size_t size)
-{
-	void *ptr = ibuf_reserve(ibuf, size);
-	if (ptr == NULL)
-		tnt_raise(OutOfMemory, size, "ibuf", "reserve");
-	return ptr;
-}
-
-static inline void *
-ibuf_alloc_xc(struct ibuf *ibuf, size_t size)
-{
-	void *ptr = ibuf_alloc(ibuf, size);
-	if (ptr == NULL)
-		tnt_raise(OutOfMemory, size, "ibuf", "alloc");
-	return ptr;
-}
-
-static inline void *
-ibuf_reserve_xc_cb(void *ctx, size_t *size)
-{
-	void *ptr = ibuf_reserve_cb(ctx, size);
-	if (ptr == NULL)
-		tnt_raise(OutOfMemory, *size, "ibuf", "reserve");
-	return ptr;
-}
-
-static inline void *
-ibuf_alloc_xc_cb(void *ctx, size_t size)
-{
-	void *ptr = ibuf_alloc_cb(ctx, size);
-	if (ptr == NULL)
-		tnt_raise(OutOfMemory, size, "ibuf", "alloc");
-	return ptr;
-}
-
 #endif /* defined(__cplusplus) */
 
 #endif /* TARANTOOL_SMALL_IBUF_H_INCLUDED */
