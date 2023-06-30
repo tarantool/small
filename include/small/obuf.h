@@ -225,52 +225,6 @@ obuf_alloc_cb(void *ctx, size_t size)
 
 #if defined(__cplusplus)
 } /* extern "C" */
-
-#include "exception.h"
-
-static inline void *
-obuf_reserve_xc(struct obuf *buf, size_t size)
-{
-	void *ptr = obuf_reserve(buf, size);
-	if (ptr == NULL)
-		tnt_raise(OutOfMemory, size, "obuf", "reserve");
-	return ptr;
-}
-
-static inline void *
-obuf_reserve_xc_cb(void *ctx, size_t *size)
-{
-	void *ptr = obuf_reserve_cb(ctx, size);
-	if (ptr == NULL)
-		tnt_raise(OutOfMemory, *size, "obuf", "reserve");
-	return ptr;
-}
-
-static inline void *
-obuf_alloc_xc(struct obuf *buf, size_t size)
-{
-	void *ptr = obuf_alloc(buf, size);
-	if (ptr == NULL)
-		tnt_raise(OutOfMemory, size, "obuf", "alloc");
-	return ptr;
-}
-
-static inline void *
-obuf_alloc_xc_cb(void *ctx, size_t size)
-{
-	void *ptr = obuf_alloc_cb(ctx, size);
-	if (ptr == NULL)
-		tnt_raise(OutOfMemory, size, "obuf", "alloc");
-	return ptr;
-}
-
-static inline void
-obuf_dup_xc(struct obuf *buf, const void *data, size_t size)
-{
-	if (obuf_dup(buf, data, size) != size)
-		tnt_raise(OutOfMemory, size, "obuf", "dup");
-}
-
 #endif /* defined(__cplusplus) */
 
 #endif /* TARANTOOL_SMALL_OBUF_H_INCLUDED */
