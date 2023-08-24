@@ -5,6 +5,8 @@ void
 test_basic()
 {
 	plan(23);
+	header();
+
 	struct quota q;
 	quota_init(&q, QUOTA_MAX);
 	struct quota_lessor l;
@@ -53,6 +55,7 @@ test_basic()
 	is(0, quota_available(&l), "lessor has no memory");
 	is(0, quota_used(&q), "source quota is empty");
 
+	footer();
 	check_plan();
 }
 
@@ -60,6 +63,8 @@ void
 test_hard_lease()
 {
 	plan(12);
+	header();
+
 	struct quota q;
 	size_t quota_total = QUOTA_USE_MIN + QUOTA_USE_MIN / 8;
 	quota_init(&q, quota_total);
@@ -86,6 +91,7 @@ test_hard_lease()
 	is(0, quota_leased(&l), "lessor is empty");
 	is(0, quota_used(&q), "sourcr quota is empty");
 
+	footer();
 	check_plan();
 }
 
@@ -93,7 +99,11 @@ int
 main()
 {
 	plan(2);
+	header();
+
 	test_basic();
 	test_hard_lease();
+
+	footer();
 	return check_plan();
 }

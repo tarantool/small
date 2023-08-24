@@ -32,6 +32,8 @@ void
 obuf_basic(struct slab_cache *slabc)
 {
 	int i;
+
+	plan(1);
 	header();
 
 	struct obuf buf;
@@ -44,10 +46,11 @@ obuf_basic(struct slab_cache *slabc)
 		fail_unless(obuf_size(&buf) == 0);
 	}
 	obuf_destroy(&buf);
-	fail_unless(slab_cache_used(slabc) == 0);
+	ok(slab_cache_used(slabc) == 0);
 	slab_cache_check(slabc);
 
 	footer();
+	check_plan();
 }
 
 int main()
@@ -55,6 +58,9 @@ int main()
 	struct slab_cache cache;
 	struct slab_arena arena;
 	struct quota quota;
+
+	plan(1);
+	header();
 
 	srand(time(NULL));
 
@@ -68,5 +74,7 @@ int main()
 
 	slab_cache_destroy(&cache);
 	slab_arena_destroy(&arena);
-}
 
+	footer();
+	return check_plan();
+}

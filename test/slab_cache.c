@@ -16,6 +16,7 @@ static struct slab *runs[NRUNS];
 static void
 test_slab_cache(void)
 {
+	plan(1);
 	header();
 
 	slab_arena_create(&arena, &quota, 0, 4000000, MAP_PRIVATE);
@@ -47,44 +48,49 @@ test_slab_cache(void)
 	 * If at lest one block was allocated then after freeing
 	 * all memory it must be exactly one slab.
 	 */
-	if (cache.allocated.stats.total != arena.slab_size) {
-		fail("Slab cache returned memory to arena", "false");
-	}
+	ok(cache.allocated.stats.total == arena.slab_size);
 
 	slab_cache_destroy(&cache);
 	slab_arena_destroy(&arena);
 
 	footer();
+	check_plan();
 }
 
 static void
 test_slab_real_size(void)
 {
+	plan(4);
 	header();
 
 	slab_arena_create(&arena, &quota, 0, 4000000, MAP_PRIVATE);
 	slab_cache_create(&cache, &arena);
 
 	const size_t MB = 1024 * 1024;
-	fail_unless(slab_real_size(&cache, 0) == cache.order0_size);
-	fail_unless(slab_real_size(&cache, MB - slab_sizeof()) == MB);
-	fail_unless(slab_real_size(&cache, MB - slab_sizeof() + 1) == 2 * MB);
-	fail_unless(slab_real_size(&cache, 4564477 - slab_sizeof()) == 4564477);
+	ok(slab_real_size(&cache, 0) == cache.order0_size);
+	ok(slab_real_size(&cache, MB - slab_sizeof()) == MB);
+	ok(slab_real_size(&cache, MB - slab_sizeof() + 1) == 2 * MB);
+	ok(slab_real_size(&cache, 4564477 - slab_sizeof()) == 4564477);
 
 	slab_cache_destroy(&cache);
 	slab_arena_destroy(&arena);
 
 	footer();
+	check_plan();
 }
 
 int
 main(void)
 {
+	plan(2);
+	header();
+
 	srand(time(0));
 	quota_init(&quota, UINT_MAX);
 
 	test_slab_cache();
 	test_slab_real_size();
 
-	return 0;
+	footer();
+	return check_plan();
 }

@@ -43,8 +43,9 @@ check_static_alloc(size_t size, size_t first_pos, size_t end_pos)
 static void
 test_unaligned(void)
 {
-	header();
 	plan(15);
+	header();
+
 	static_reset();
 
 	check_static_alloc(10, 0, 10);
@@ -79,8 +80,8 @@ test_unaligned(void)
 	   "can't allocate more - the memory is static and can't be extended");
 	is(static_storage_pos, SMALL_STATIC_SIZE, "position is not changed");
 
-	check_plan();
 	footer();
+	check_plan();
 }
 
 static void
@@ -88,6 +89,7 @@ test_aligned(void)
 {
 	header();
 	plan(17);
+
 	static_reset();
 	size_t alignment = 8;
 
@@ -131,20 +133,19 @@ test_aligned(void)
 	is(p, static_aligned_reserve(6, alignment),
 	   "the same reserve returns the same address");
 
-	check_plan();
 	footer();
+	check_plan();
 }
 
 int
 main(void)
 {
-	header();
 	plan(2);
+	header();
 
 	test_unaligned();
 	test_aligned();
 
-	int rc = check_plan();
 	footer();
-	return rc;
+	return check_plan();
 }

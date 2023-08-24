@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <time.h>
 #include <pthread.h>
 #ifdef __FreeBSD__
@@ -71,11 +72,17 @@ bench(int count)
 int
 main()
 {
+	plan(1);
+	header();
+
 	size_t maxalloc = THREADS * (OSCILLATION + 1) * SLAB_MIN_SIZE;
 	quota_init(&quota, maxalloc);
 	slab_arena_create(&arena, &quota, maxalloc/8,
 			  SLAB_MIN_SIZE, MAP_PRIVATE);
 	bench(THREADS);
+	ok(true);
 	slab_arena_destroy(&arena);
-	printf("ok\n");
+
+	footer();
+	return check_plan();
 }

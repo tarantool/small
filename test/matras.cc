@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <iostream>
+#include "unit.h"
 
 static void *
 pta_alloc(void *ctx);
@@ -18,22 +18,6 @@ pta_free(void *ctx, void *p);
 static size_t AllocatedCount = 0;
 static std::set<void*> AllocatedBlocks;
 static std::set<void*> AllocatedItems;
-
-static void
-check_file_line(bool expr, const char *err_message, const char *file, int line)
-{
-	if (!expr) {
-		std::cout << " ****************************************\n"
-		          << " * " << file << ":" << line
-		          << " ERROR: " << err_message << "\n";
-	}
-	assert(expr);
-	if (!expr) {
-		exit(-1);
-	}
-}
-
-#define check(e, m) check_file_line(e, m, __FILE__, __LINE__)
 
 bool alloc_err_inj_enabled = false;
 unsigned int alloc_err_inj_countdown = 0;
@@ -58,7 +42,7 @@ static void
 pta_free(void *ctx, void *p)
 {
 	static_cast<void>(ctx);
-	check(AllocatedBlocks.find(p) != AllocatedBlocks.end(), "Bad free");
+	fail_unless(AllocatedBlocks.find(p) != AllocatedBlocks.end());
 	AllocatedBlocks.erase(p);
 	delete [] static_cast<char *>(p);
 	AllocatedCount--;
@@ -66,7 +50,9 @@ pta_free(void *ctx, void *p)
 
 void matras_alloc_test()
 {
-	std::cout << "Testing matras_alloc..." << std::endl;
+	plan(1);
+	header();
+
 	unsigned int maxCapacity =  PROV_EXTENT_SIZE / PROV_BLOCK_SIZE;
 	maxCapacity *= PROV_EXTENT_SIZE / sizeof(void *);
 	maxCapacity *= PROV_EXTENT_SIZE / sizeof(void *);
@@ -76,45 +62,45 @@ void matras_alloc_test()
 	alloc_err_inj_enabled = false;
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
 		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL, NULL);
-		check(1u << mat.log2_capacity == maxCapacity, "Wrong capacity!");
+		fail_unless(1u << mat.log2_capacity == maxCapacity);
 		AllocatedItems.clear();
 		for (unsigned int j = 0; j < i; j++) {
 			unsigned int res = 0;
 			void *data = matras_alloc(&mat, &res);
-			check(data, "Alloc returned NULL");
+			fail_unless(data != NULL);
 			void *test_data = matras_get(&mat, res);
-			check(data == test_data, "Alloc and Get mismatch");
+			fail_unless(data == test_data);
 			size_t provConsumedMemory = (size_t)matras_extent_count(&mat) * PROV_EXTENT_SIZE;
-			check(provConsumedMemory == AllocatedCount * PROV_EXTENT_SIZE, "ConsumedMemory counter failed (1)");
-			check(res == j, "Index mismatch");
+			fail_unless(provConsumedMemory == AllocatedCount * PROV_EXTENT_SIZE);
+			fail_unless(res == j);
 			{
-				check(!AllocatedBlocks.empty(), "Alloc w/o alloc!");
+				fail_unless(!AllocatedBlocks.empty());
 				std::set<void*>::iterator itr = AllocatedBlocks.lower_bound(data);
 				if (itr == AllocatedBlocks.end() || *itr != data) {
-					check(itr != AllocatedBlocks.begin(), "Pointer to not allocatead region! (1)");
+					fail_unless(itr != AllocatedBlocks.begin());
 					--itr;
 				}
-				check (itr != AllocatedBlocks.end(), "Pointer to not allocatead region! (2)");
-				check(data <= (void*)( ((char*)(*itr)) + PROV_EXTENT_SIZE - PROV_BLOCK_SIZE), "Pointer to not allocatead region! (3)");
+				fail_unless(itr != AllocatedBlocks.end());
+				fail_unless(data <= (void*)( ((char*)(*itr)) + PROV_EXTENT_SIZE - PROV_BLOCK_SIZE));
 			}
 			{
 				if (!AllocatedItems.empty()) {
 					std::set<void*>::iterator itr = AllocatedItems.lower_bound(data);
 					if (itr != AllocatedItems.end()) {
-						check(*itr >= (void*)(((char*)data) + PROV_BLOCK_SIZE), "Data regions overlaps! (1)");
+						fail_unless(*itr >= (void*)(((char*)data) + PROV_BLOCK_SIZE));
 					}
 					if (itr != AllocatedItems.begin()) {
 						--itr;
-						check(data >= (void*)(((char*)(*itr)) + PROV_BLOCK_SIZE), "Data regions overlaps! (2)");
+						fail_unless(data >= (void*)(((char*)(*itr)) + PROV_BLOCK_SIZE));
 					}
 				}
 			}
 			AllocatedItems.insert(data);
 		}
 		size_t provConsumedMemory = (size_t)matras_extent_count(&mat) * PROV_EXTENT_SIZE;
-		check(provConsumedMemory == AllocatedCount * PROV_EXTENT_SIZE, "ConsumedMemory counter failed (2)");
+		fail_unless(provConsumedMemory == AllocatedCount * PROV_EXTENT_SIZE);
 		matras_destroy(&mat);
-		check(AllocatedCount == 0, "Not all memory freed (1)");
+		fail_unless(AllocatedCount == 0);
 	}
 
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
@@ -126,9 +112,9 @@ void matras_alloc_test()
 		for (unsigned int j = 0; j < i; j++) {
 			matras_dealloc(&mat);
 			size_t provConsumedMemory = (size_t)matras_extent_count(&mat) * PROV_EXTENT_SIZE;
-			check(provConsumedMemory == AllocatedCount * PROV_EXTENT_SIZE, "ConsumedMemory counter failed (3)");
+			fail_unless(provConsumedMemory == AllocatedCount * PROV_EXTENT_SIZE);
 		}
-		check(AllocatedCount == 0, "Not all memory freed (2)");
+		fail_unless(AllocatedCount == 0);
 		matras_destroy(&mat);
 	}
 
@@ -143,15 +129,17 @@ void matras_alloc_test()
 			unsigned int prev_block_count = mat.head.block_count;
 			void *data = matras_alloc(&mat, &res);
 			if (!data) {
-				check(prev_block_count == mat.head.block_count, "Created count changed during memory fail!");
+				fail_unless(prev_block_count == mat.head.block_count);
 				break;
 			}
 		}
 		matras_destroy(&mat);
-		check(AllocatedCount == 0, "Not all memory freed after memory fail!");
+		fail_unless(AllocatedCount == 0);
 	}
+	ok(true);
 
-	std::cout << "Testing matras_alloc successfully finished" << std::endl;
+	footer();
+	check_plan();
 }
 
 typedef uint64_t type_t;
@@ -189,7 +177,8 @@ void unreg_view_id(int id)
 void
 matras_vers_test()
 {
-	std::cout << "Testing matras versions..." << std::endl;
+	plan(1);
+	header();
 
 	std::vector<type_t> comps[MATRAS_VERSION_COUNT];
 	int use_mask = 1;
@@ -212,7 +201,7 @@ matras_vers_test()
 					cur_num_or_ver++;
 					matras_id_t new_ver = reg_view_id();
 					matras_create_read_view(&local, views + new_ver);
-					check(new_ver > 0, "create read view failed");
+					fail_unless(new_ver > 0);
 					use_mask |= (1 << new_ver);
 					comps[new_ver] = comps[0];
 				} else {
@@ -250,25 +239,27 @@ matras_vers_test()
 			for (int i = 0; i < MATRAS_VERSION_COUNT; i++) {
 				if ((use_mask & (1 << i)) == 0)
 					continue;
-				check(comps[i].size() == views[i].block_count, "size mismatch");
+				fail_unless(comps[i].size() == views[i].block_count);
 				for (size_t j = 0; j < comps[i].size(); j++) {
 					type_t val1 = comps[i][j];
 					type_t val2 = *(type_t *)matras_view_get(&local, views + i, j);
-					check(val1 == val2, "data mismatch");
+					fail_unless(val1 == val2);
 				}
 			}
 		}
 	}
 	matras_destroy(&local);
-	check(extents_in_use == 0, "memory leak");
+	ok(extents_in_use == 0);
 
-	std::cout << "Testing matras_version successfully finished" << std::endl;
+	footer();
+	check_plan();
 }
 
 void
 matras_gh_1145_test()
 {
-	std::cout << "Testing matras gh-1145 test..." << std::endl;
+	header();
+	plan(1);
 
 	struct matras local;
 	long extents_in_use = 0;
@@ -280,54 +271,63 @@ matras_gh_1145_test()
 	matras_touch(&local, id);
 	matras_destroy_read_view(&local, &view);
 	matras_destroy(&local);
-	check(extents_in_use == 0, "memory leak");
+	ok(extents_in_use == 0);
 
-	std::cout << "Testing matras gh-1145 test successfully finished" << std::endl;
+	footer();
+	check_plan();
 }
 
 void
 matras_stats_test()
 {
-	std::cout << "Testing matras statistics..." << std::endl;
+	header();
+	plan(12);
 
 	struct matras_stats stats;
 	matras_stats_create(&stats);
-	check(stats.extent_count == 0, "extent_count");
-	check(stats.read_view_extent_count == 0, "read_view_extent_count");
+	ok(stats.extent_count == 0);
+	ok(stats.read_view_extent_count == 0);
 
 	long extents_in_use = 0;
 	struct matras matras;
 	matras_create(&matras, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use, &stats);
-	check(stats.extent_count == 0, "extent_count");
-	check(stats.read_view_extent_count == 0, "read_view_extent_count");
+	ok(stats.extent_count == 0);
+	ok(stats.read_view_extent_count == 0);
 
 	matras_id_t id;
 	matras_alloc(&matras, &id);
-	check(stats.extent_count == 3, "extent_count");
-	check(stats.read_view_extent_count == 0, "read_view_extent_count");
+	ok(stats.extent_count == 3);
+	ok(stats.read_view_extent_count == 0);
 
 	struct matras_view view;
 	matras_create_read_view(&matras, &view);
 	matras_touch(&matras, id);
-	check(stats.extent_count == 6, "extent_count");
-	check(stats.read_view_extent_count == 3, "read_view_extent_count");
+	ok(stats.extent_count == 6);
+	ok(stats.read_view_extent_count == 3);
 
 	matras_destroy_read_view(&matras, &view);
-	check(stats.extent_count == 3, "extent_count");
-	check(stats.read_view_extent_count == 0, "read_view_extent_count");
+	ok(stats.extent_count == 3);
+	ok(stats.read_view_extent_count == 0);
 
 	matras_destroy(&matras);
-	check(stats.extent_count == 0, "extent_count");
-	check(stats.read_view_extent_count == 0, "read_view_extent_count");
+	ok(stats.extent_count == 0);
+	ok(stats.read_view_extent_count == 0);
 
-	std::cout << "Testing matras statistics successfully finished" << std::endl;
+	footer();
+	check_plan();
 }
 
 int
 main(int, const char **)
 {
+	plan(4);
+	header();
+
 	matras_alloc_test();
 	matras_vers_test();
 	matras_gh_1145_test();
 	matras_stats_test();
+
+	footer();
+	return check_plan();
 }

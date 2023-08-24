@@ -32,36 +32,40 @@ mmap_aligned(size_t size)
 
 int main()
 {
+	plan(8);
+	header();
+
 	struct lf_lifo head;
 	void *val1 = mmap_aligned(MAP_SIZE);
 	void *val2 = mmap_aligned(MAP_SIZE);
 	void *val3 = mmap_aligned(MAP_SIZE);
 	lf_lifo_init(&head);
 
-	fail_unless(lf_lifo_pop(&head) == NULL);
-	fail_unless(lf_lifo_pop(lf_lifo_push(&head, val1)) == val1);
-	fail_unless(lf_lifo_pop(lf_lifo_push(&head, val1)) == val1);
+	ok(lf_lifo_pop(&head) == NULL);
+	ok(lf_lifo_pop(lf_lifo_push(&head, val1)) == val1);
+	ok(lf_lifo_pop(lf_lifo_push(&head, val1)) == val1);
 	lf_lifo_push(lf_lifo_push(lf_lifo_push(&head, val1), val2), val3);
-	fail_unless(lf_lifo_pop(&head) == val3);
-	fail_unless(lf_lifo_pop(&head) == val2);
-	fail_unless(lf_lifo_pop(&head) == val1);
-	fail_unless(lf_lifo_pop(&head) == NULL);
+	ok(lf_lifo_pop(&head) == val3);
+	ok(lf_lifo_pop(&head) == val2);
+	ok(lf_lifo_pop(&head) == val1);
+	ok(lf_lifo_pop(&head) == NULL);
 
 	lf_lifo_init(&head);
 
 	/* Test overflow of ABA counter. */
 
+	int check = 1;
 	do {
 		lf_lifo_push(&head, val1);
-		fail_unless(lf_lifo_pop(&head) == val1);
-		fail_unless(lf_lifo_pop(&head) == NULL);
+		if (!(lf_lifo_pop(&head) == val1 && lf_lifo_pop(&head) == NULL))
+			check = 0;
 	} while (head.next != 0);
+	ok(check);
 
 	munmap(val1, MAP_SIZE);
 	munmap(val2, MAP_SIZE);
 	munmap(val3, MAP_SIZE);
 
-	printf("success\n");
-
-	return 0;
+	footer();
+	return check_plan();
 }

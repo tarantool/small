@@ -34,8 +34,17 @@
 #include <stdlib.h> /* exit() */
 #include <stdio.h>
 
-#define header() printf("\t*** %s ***\n", __func__)
-#define footer() printf("\t*** %s: done ***\n", __func__)
+#define header()					\
+	do {						\
+		_space(stdout);				\
+		printf("# *** %s ***\n", __func__);	\
+	} while (0)
+
+#define footer()						\
+	do {							\
+		_space(stdout);					\
+		printf("# *** %s: done ***\n", __func__);	\
+	} while (0)
 
 #define fail(expr, result) do {					\
 	fprintf(stderr, "Test failed: %s is %s at %s:%d, in function '%s'\n",\
@@ -70,8 +79,6 @@ extern "C" {
 		return check_plan();	// print resume
 	}
 @endcode
-
-
 */
 
 /* private function, use ok(...) instead */

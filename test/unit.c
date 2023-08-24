@@ -26,6 +26,9 @@ plan(int count)
 	tests_done[level] = 0;
 	tests_failed[level] = 0;
 
+	if (level == 0)
+		printf("TAP version 13\n");
+
 	_space(stdout);
 	printf("%d..%d\n", 1, plan_test[level]);
 }

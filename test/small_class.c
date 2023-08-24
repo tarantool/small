@@ -31,6 +31,7 @@
 #include "small/small_class.h"
 #include "unit.h"
 #include <math.h>
+#include <stdbool.h>
 
 #ifndef lengthof
 #define lengthof(array) (sizeof (array) / sizeof ((array)[0]))
@@ -39,8 +40,8 @@
 static void
 test_class(void)
 {
+	plan(1);
 	header();
-	plan(0);
 
 	struct small_class sc;
 	float actual_factor;
@@ -58,14 +59,16 @@ test_class(void)
 			class_size = small_class_calc_size_by_offset(&sc, class);
 		}
 	}
+	ok(true);
 
-	check_plan();
 	footer();
+	check_plan();
 }
 
 static void
 check_expectation()
 {
+	plan(4);
 	header();
 
 	const unsigned granularity_arr[] = {1, 2, 4, 8};
@@ -81,8 +84,6 @@ check_expectation()
 	 */
 	const unsigned eff_size = 16;
 	unsigned test_class_size[test_classes + eff_size];
-
-	plan(0);
 
 	for (unsigned variant = 0; variant < lengthof(granularity_arr); variant++) {
 		unsigned granularity = granularity_arr[variant];
@@ -109,7 +110,7 @@ check_expectation()
 		struct small_class sc;
 		float actual_factor;
 		small_class_create(&sc, granularity, factor, min_alloc, &actual_factor);
-		fail_unless(sc.effective_size == eff_size);
+		ok(sc.effective_size == eff_size);
 
 		for (unsigned s = 0; s <= test_sizes; s++) {
 			unsigned expect_class = 0;
@@ -123,16 +124,15 @@ check_expectation()
 		}
 	}
 
-	check_plan();
 	footer();
+	check_plan();
 }
 
 static void
 check_factor()
 {
+	plan(1);
 	header();
-
-	plan(0);
 
 	for (unsigned granularity = 1; granularity <= 4; granularity *= 4) {
 		for(float factor = 1.01; factor < 1.995; factor += 0.01) {
@@ -159,23 +159,23 @@ check_factor()
 			fail_unless(min_deviation > ln2 && max_deviation < 2 * ln2);
 		}
 	}
+	ok(true);
 
-	check_plan();
 	footer();
+	check_plan();
 }
 
 
 int
 main(void)
 {
-	header();
 	plan(3);
+	header();
 
 	test_class();
 	check_expectation();
 	check_factor();
 
-	int rc = check_plan();
 	footer();
-	return rc;
+	return check_plan();
 }

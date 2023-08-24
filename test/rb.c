@@ -42,9 +42,11 @@ rb_gen_ext_key(MAYBE_UNUSED static inline, test_, tree_t, node_t, node,
 node_t *
 check_simple(tree_t *tree)
 {
+	plan(5);
 	header();
+
 	test_new(tree);
-	fail_unless(test_empty(tree));
+	ok(test_empty(tree));
 	node_t *nodes = (node_t *)calloc(NUMBER_NODES, sizeof(*nodes));
 	if (!nodes) {
 		printf("can't allocate nodes\n");
@@ -55,7 +57,7 @@ check_simple(tree_t *tree)
 		nodes[i].data = 2 * i;
 		test_insert(tree, nodes + i);
 	}
-	fail_if(test_empty(tree));
+	ok(!test_empty(tree));
 	for (int i = 0; i < NUMBER_NODES; i++) {
 		node_t *node = test_search(tree, i);
 		fail_if(node == NULL);
@@ -73,50 +75,73 @@ check_simple(tree_t *tree)
 			fail_unless(test_prev(tree, node) == NULL);
 		}
 	}
-	fail_if(test_search(tree, NUMBER_NODES) != NULL);
-	fail_unless(test_first(tree)->key == 0);
-	fail_unless(test_last(tree)->key == NUMBER_NODES - 1);
+	ok(test_search(tree, NUMBER_NODES) == NULL);
+	ok(test_first(tree)->key == 0);
+	ok(test_last(tree)->key == NUMBER_NODES - 1);
+
 	footer();
+	check_plan();
 	return nodes;
 }
 
 static node_t *
-print_cb(tree_t *t, node_t *node, void* arg)
+check_forward_cb(tree_t *t, node_t *node, void *arg)
 {
 	(void)t;
-	(void)arg;
-	printf(" %i->%i", node->key, node->data);
+	int i = *(int *)arg;
+	ok(node->key == i && node->data == 2 * i);
+	(*(int *)arg)++;
+	return NULL;
+}
+
+static node_t *
+check_reverse_cb(tree_t *t, node_t *node, void *arg)
+{
+	(void)t;
+	(*(int *)arg)--;
+	int i = *(int *)arg;
+	ok(node->key == i && node->data == 2 * i);
 	return NULL;
 }
 
 void
 check_old_iter(tree_t *tree, node_t* nodes)
 {
+	plan(54);
 	header();
+
 	node_t *node = test_psearch(tree, 6);
-	fail_unless(node->key == 6);
+	ok(node->key == 6);
 	node = test_psearch(tree, -1);
-	fail_unless(node == NULL);
+	ok(node == NULL);
 
 	node = test_nsearch(tree, 6);
-	fail_unless(node->key == 6);
+	ok(node->key == 6);
 	node = test_nsearch(tree, NUMBER_NODES);
-	fail_unless(node == NULL);
+	ok(node == NULL);
 
-	test_iter(tree, NULL, print_cb, NULL);
-	printf("\n");
-	test_reverse_iter(tree, NULL, print_cb, NULL);
-	printf("\n");
-	test_iter(tree, nodes + 3, print_cb, NULL);
-	printf("\n");
-	test_reverse_iter(tree, nodes + 3, print_cb, NULL);
-	printf("\n");
+	int index;
+	index = 0;
+	test_iter(tree, NULL, check_forward_cb, &index);
+	ok(index == 15);
+	test_reverse_iter(tree, NULL, check_reverse_cb, &index);
+	ok(index == 0);
+	index = 3;
+	test_iter(tree, nodes + 3, check_forward_cb, &index);
+	ok(index == 15);
+	index = 4;
+	test_reverse_iter(tree, nodes + 3, check_reverse_cb, &index);
+	ok(index == 0);
+
 	footer();
+	check_plan();
 }
 
 void check_new_iter(tree_t *tree, node_t* nodes)
 {
+	plan(11);
 	header();
+
 	struct test_iterator it;
 	test_ifirst(tree, &it);
 	(void) nodes;
@@ -128,7 +153,7 @@ void check_new_iter(tree_t *tree, node_t* nodes)
 	}
 	test_icreate(tree, nodes + 3, &it);
 	node = test_inext(&it);
-	fail_unless(node);
+	ok(node != NULL);
 	count = 3;
 	while (node) {
 		fail_unless(node->key == count++);
@@ -136,7 +161,7 @@ void check_new_iter(tree_t *tree, node_t* nodes)
 	}
 	test_isearch(tree, 6, &it);
 	node = test_inext(&it);
-	fail_unless(node);
+	ok(node != NULL);
 	count = 6;
 	while (node) {
 		fail_unless(node->key == count++);
@@ -144,7 +169,7 @@ void check_new_iter(tree_t *tree, node_t* nodes)
 	}
 	test_isearch(tree, NUMBER_NODES - 1, &it);
 	node = test_iprev(&it);
-	fail_unless(node);
+	ok(node != NULL);
 	count = NUMBER_NODES - 1;
 	while (node) {
 		fail_unless(node->key == count--);
@@ -152,40 +177,46 @@ void check_new_iter(tree_t *tree, node_t* nodes)
 	}
 	test_isearch_lt(tree, 6, &it);
 	node = test_inext(&it);
-	fail_unless(node->key == 5);
+	ok(node->key == 5);
 	test_isearch_gt(tree, 6, &it);
 	node = test_inext(&it);
-	fail_unless(node->key == 7);
+	ok(node->key == 7);
 	test_isearch_ge(tree, 6, &it);
 	node = test_inext(&it);
-	fail_unless(node->key == 6);
+	ok(node->key == 6);
 	test_isearch_le(tree, 6, &it);
 	node = test_inext(&it);
-	fail_unless(node->key == 6);
+	ok(node->key == 6);
 
 	test_isearch_le(tree, -1, &it);
 	node = test_inext(&it);
-	fail_unless(node == NULL);
+	ok(node == NULL);
 	test_isearch_ge(tree, NUMBER_NODES, &it);
 	node = test_inext(&it);
-	fail_unless(node == NULL);
+	ok(node == NULL);
 
 	test_isearch_lt(tree, 0, &it);
 	node = test_inext(&it);
-	fail_unless(node == NULL);
+	ok(node == NULL);
 
 	test_isearch_gt(tree, NUMBER_NODES - 1, &it);
 	node = test_inext(&it);
-	fail_unless(node == NULL);
+	ok(node == NULL);
 
 	footer();
 }
 
 int main()
 {
+	plan(3);
+	header();
+
 	tree_t tree;
 	node_t *nodes = check_simple(&tree);
 	check_old_iter(&tree, nodes);
 	check_new_iter(&tree, nodes);
 	free(nodes);
+
+	footer();
+	return check_plan();
 }

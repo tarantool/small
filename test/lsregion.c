@@ -41,8 +41,8 @@ lsregion_slab_count(struct lsregion *region)
 static void
 test_basic()
 {
-	note("basic");
 	plan(45);
+	header();
 
 	struct quota quota;
 	struct slab_arena arena;
@@ -186,6 +186,7 @@ test_basic()
 	   "quota used after destroy");
 	slab_arena_destroy(&arena);
 
+	footer();
 	check_plan();
 }
 
@@ -214,8 +215,8 @@ test_data(char **data, uint32_t count, uint32_t size)
 static void
 test_many_allocs_one_slab()
 {
-	note("many_allocs_one_slab");
 	plan(6);
+	header();
 
 	struct quota quota;
 	struct slab_arena arena;
@@ -260,6 +261,7 @@ test_many_allocs_one_slab()
 	lsregion_destroy(&allocator);
 	slab_arena_destroy(&arena);
 
+	footer();
 	check_plan();
 }
 
@@ -267,8 +269,8 @@ test_many_allocs_one_slab()
 static void
 test_many_allocs_many_slabs()
 {
-	note("many_allocs_many_slabs");
 	plan(10);
+	header();
 
 	struct quota quota;
 	struct slab_arena arena;
@@ -336,6 +338,7 @@ test_many_allocs_many_slabs()
 	lsregion_destroy(&allocator);
 	slab_arena_destroy(&arena);
 
+	footer();
 	check_plan();
 }
 
@@ -346,8 +349,8 @@ test_many_allocs_many_slabs()
 static void
 test_big_data_small_slabs()
 {
-	note("big_data_small_slabs");
 	plan(7);
+	header();
 
 	struct quota quota;
 	struct slab_arena arena;
@@ -387,14 +390,15 @@ test_big_data_small_slabs()
 	lsregion_destroy(&allocator);
 	slab_arena_destroy(&arena);
 
+	footer();
 	check_plan();
 }
 
 static void
 test_reserve(void)
 {
-	header();
 	plan(10);
+	header();
 
 	struct quota quota;
 	struct slab_arena arena;
@@ -424,15 +428,15 @@ test_reserve(void)
 	lsregion_destroy(&allocator);
 	slab_arena_destroy(&arena);
 
-	check_plan();
 	footer();
+	check_plan();
 }
 
 static void
 test_aligned(void)
 {
-	header();
 	plan(12);
+	header();
 
 	struct quota quota;
 	struct slab_arena arena;
@@ -477,14 +481,15 @@ test_aligned(void)
 	lsregion_destroy(&allocator);
 	slab_arena_destroy(&arena);
 
-	check_plan();
 	footer();
+	check_plan();
 }
 
 int
 main()
 {
 	plan(6);
+	header();
 
 	test_basic();
 	test_many_allocs_one_slab();
@@ -493,5 +498,6 @@ main()
 	test_reserve();
 	test_aligned();
 
+	footer();
 	return check_plan();
 }
