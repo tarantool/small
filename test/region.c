@@ -10,57 +10,50 @@ struct quota quota;
 void
 region_basic()
 {
+	plan(6);
 	header();
 
 	struct region region;
-
 	region_create(&region, &cache);
-
-	fail_unless(region_used(&region) == 0);
+	ok(region_used(&region) == 0);
 
 	void *ptr = region_alloc(&region, 10);
-
-	fail_unless(ptr);
-
-	fail_unless(region_used(&region) == 10);
+	ok(ptr != NULL);
+	ok(region_used(&region) == 10);
 
 	ptr = region_alloc(&region, 10000000);
-	fail_unless(ptr);
-
-	fail_unless(region_used(&region) == 10000010);
+	ok(ptr != NULL);
+	ok(region_used(&region) == 10000010);
 
 	region_free(&region);
-
-	fail_unless(region_used(&region) == 0);
+	ok(region_used(&region) == 0);
 
 	footer();
+	check_plan();
 }
 
 void
 region_test_truncate()
 {
+	plan(2);
 	header();
 
 	struct region region;
-
 	region_create(&region, &cache);
 
 	void *ptr = region_alloc(&region, 10);
-
-	fail_unless(ptr);
+	ok(ptr != NULL);
 
 	size_t used = region_used(&region);
-
 	region_alloc(&region, 10000);
 	region_alloc(&region, 10000000);
-
 	region_truncate(&region, used);
-
-	fail_unless(region_used(&region) == used);
+	ok(region_used(&region) == used);
 
 	region_free(&region);
 
 	footer();
+	check_plan();
 }
 
 struct region_cb_data {
@@ -90,6 +83,7 @@ region_on_truncate(struct region *region, size_t used, void *cb_arg)
 void
 region_test_callbacks()
 {
+	plan(32);
 	header();
 
 	struct region region;
@@ -101,67 +95,70 @@ region_test_callbacks()
 
 	memset(&data, 0, sizeof(data));
 	void *ptr = region_alloc(&region, 10);
-	fail_unless(ptr);
-	fail_unless(region_used(&region) == 10);
-	fail_unless(data.region == &region);
-	fail_unless(data.used == 0);
-	fail_unless(data.value == 10);
+	ok(ptr != NULL);
+	ok(region_used(&region) == 10);
+	ok(data.region == &region);
+	ok(data.used == 0);
+	ok(data.value == 10);
 
 	memset(&data, 0, sizeof(data));
 	ptr = region_alloc(&region, 10000000);
-	fail_unless(ptr);
-	fail_unless(region_used(&region) == 10000010);
-	fail_unless(data.region == &region);
-	fail_unless(data.used == 10);
-	fail_unless(data.value == 10000000);
+	ok(ptr != NULL);
+	ok(region_used(&region) == 10000010);
+	ok(data.region == &region);
+	ok(data.used == 10);
+	ok(data.value == 10000000);
 
 	memset(&data, 0, sizeof(data));
 	region_truncate(&region, 10);
-	fail_unless(region_used(&region) == 10);
-	fail_unless(data.region == &region);
-	fail_unless(data.used == 10);
-	fail_unless(data.value == 10);
+	ok(region_used(&region) == 10);
+	ok(data.region == &region);
+	ok(data.used == 10);
+	ok(data.value == 10);
 
 	memset(&data, 0, sizeof(data));
 	region_free(&region);
-	fail_unless(region_used(&region) == 0);
-	fail_unless(data.region == &region);
-	fail_unless(data.used == 0);
-	fail_unless(data.value == 0);
+	ok(region_used(&region) == 0);
+	ok(data.region == &region);
+	ok(data.used == 0);
+	ok(data.value == 0);
 
 	region_reserve(&region, 100);
 	memset(&data, 0, sizeof(data));
 	ptr = region_alloc(&region, 1);
-	fail_unless(ptr);
-	fail_unless(region_used(&region) == 1);
-	fail_unless(data.region == &region);
-	fail_unless(data.used == 0);
-	fail_unless(data.value == 1);
+	ok(ptr != NULL);
+	ok(region_used(&region) == 1);
+	ok(data.region == &region);
+	ok(data.used == 0);
+	ok(data.value == 1);
 
 	memset(&data, 0, sizeof(data));
 	ptr = region_aligned_alloc(&region, 32, 8);
-	fail_unless(ptr);
-	fail_unless(region_used(&region) == 40);
-	fail_unless(data.region == &region);
-	fail_unless(data.used == 1);
-	fail_unless(data.value == 32 + 7);
+	ok(ptr != NULL);
+	ok(region_used(&region) == 40);
+	ok(data.region == &region);
+	ok(data.used == 1);
+	ok(data.value == 32 + 7);
 
 	memset(&data, 0, sizeof(data));
 	region_free(&region);
-	fail_unless(region_used(&region) == 0);
-	fail_unless(data.region == &region);
-	fail_unless(data.used == 0);
-	fail_unless(data.value == 0);
+	ok(region_used(&region) == 0);
+	ok(data.region == &region);
+	ok(data.used == 0);
+	ok(data.value == 0);
 
 	footer();
+	check_plan();
 }
+
+#ifndef NDEBUG
 
 void
 region_test_poison()
 {
+	plan(2);
 	header();
 
-#ifndef NDEBUG
 	struct region region;
 	region_create(&region, &cache);
 	char pattern[100];
@@ -169,24 +166,33 @@ region_test_poison()
 
 	region_reserve(&region, 100);
 	void *ptr1 = region_alloc(&region, 10);
+	fail_unless(ptr1 != NULL);
 	memset(ptr1, 0, 10);
-	fail_unless(ptr1 != NULL);
 	void *ptr2 = region_alloc(&region, 90);
+	fail_unless(ptr2 != NULL);
 	memset(ptr2, 0, 90);
-	fail_unless(ptr1 != NULL);
 
 	region_truncate(&region, 10);
-	fail_unless(memcmp(ptr2, pattern, 90) == 0);
+	ok(memcmp(ptr2, pattern, 90) == 0);
 
 	region_truncate(&region, 0);
-	fail_unless(memcmp(ptr1, pattern, 10) == 0);
-#endif
+	ok(memcmp(ptr1, pattern, 10) == 0);
 
 	footer();
+	check_plan();
 }
+
+#endif
 
 int main()
 {
+#ifdef NDEBUG
+	plan(4);
+#else
+	plan(3);
+#endif
+	header();
+
 	quota_init(&quota, UINT_MAX);
 	slab_arena_create(&arena, &quota, 0,
 			  4000000, MAP_PRIVATE);
@@ -195,7 +201,12 @@ int main()
 	region_basic();
 	region_test_truncate();
 	region_test_callbacks();
+#ifdef NDEBUG
 	region_test_poison();
+#endif
 
 	slab_cache_destroy(&cache);
+
+	footer();
+	return check_plan();
 }

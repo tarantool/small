@@ -2,6 +2,7 @@
 #include <small/quota.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <time.h>
 #include "unit.h"
 
@@ -50,7 +51,9 @@ alloc_checked(struct mempool *pool, unsigned pos)
 static void
 small_granularity_aligment_test(void)
 {
+	plan(1);
 	header();
+
 	const float alloc_factor = 1.3;
 	for(unsigned int granularity = GRANULARITY_MIN;
 	    granularity <= GRANULARITY_MAX;
@@ -90,13 +93,18 @@ small_granularity_aligment_test(void)
 		}
 		small_alloc_destroy(&alloc);
 	}
+	ok(true);
+
 	footer();
+	check_plan();
 }
 
 static void
 small_granularity_allocation_test(void)
 {
+	plan(1);
 	header();
+
 	const float alloc_factor = 1.3;
 	for(unsigned int granularity = GRANULARITY_MIN;
 	    granularity <= GRANULARITY_MAX;
@@ -128,11 +136,17 @@ small_granularity_allocation_test(void)
 		}
 		small_alloc_destroy(&alloc);
 	}
+	ok(true);
+
 	footer();
+	check_plan();
 }
 
 int main()
 {
+	plan(2);
+	header();
+
 	quota_init(&quota, UINT_MAX);
 
 	slab_arena_create(&arena, &quota, 0, 4000000,
@@ -144,4 +158,7 @@ int main()
 
 	slab_cache_destroy(&cache);
 	slab_arena_destroy(&arena);
+
+	header();
+	return check_plan();
 }

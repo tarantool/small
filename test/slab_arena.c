@@ -1,21 +1,11 @@
 #include <small/slab_arena.h>
 #include <small/quota.h>
-#include <stdio.h>
 #include <limits.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "unit.h"
-
-void
-slab_arena_print(struct slab_arena *arena)
-{
-	printf("arena->prealloc = %zu\narena->maxalloc = %zu\n"
-	       "arena->used = %zu\narena->slab_size = %u\n",
-	       arena->prealloc, quota_total(arena->quota),
-	       arena->used, arena->slab_size);
-}
 
 #define is_hex_digit(c)				\
 	(((c) >= '0' && (c) <= '9')	||	\
@@ -51,10 +41,7 @@ vma_has_flag(unsigned long vm_start, const char *flag)
 	FILE *f = NULL;
 
 	f = fopen("/proc/self/smaps", "r");
-	if (!f) {
-		printf("ERROR: Can't open smaps for %lx\n", vm_start);
-		return false;
-	}
+	fail_unless(f != NULL);
 
 	while (fgets(buf, sizeof(buf), f)) {
 		if (is_vma_range_fmt(buf, &start, &end))
@@ -82,6 +69,9 @@ vma_has_flag(unsigned long vm_start, const char *flag)
 static void
 slab_test_madvise(void)
 {
+	plan(2);
+	header();
+
 	struct slab_arena arena;
 	struct quota quota;
 	void *ptr;
@@ -104,13 +94,8 @@ slab_test_madvise(void)
 	 * Will fetch from preallocated area.
 	 */
 	ptr = slab_map(&arena);
-	if (!ptr) {
-		printf("ERROR: can't obtain preallocated slab\n");
-		goto out;
-	}
-
-	if (!vma_has_flag((unsigned long)ptr, "dd"))
-		goto no_dd;
+	fail_unless(ptr != NULL);
+	ok(vma_has_flag((unsigned long)ptr, "dd"));
 
 	slab_unmap(&arena, ptr);
 	slab_arena_destroy(&arena);
@@ -126,50 +111,72 @@ slab_test_madvise(void)
 	 * Will fetch newly allocated area.
 	 */
 	ptr = slab_map(&arena);
-	if (!ptr) {
-		printf("ERROR: can't obtain dynamic slab\n");
-		goto out;
-	}
+	fail_unless(ptr != NULL);
+	ok(vma_has_flag((unsigned long)ptr, "dd"));
 
-	if (!vma_has_flag((unsigned long)ptr, "dd"))
-		goto no_dd;
-
-out:
 	slab_unmap(&arena, ptr);
 	slab_arena_destroy(&arena);
-	return;
-no_dd:
-	printf("ERROR: Expected dd flag on VMA address %p\n", ptr);
-	goto out;
+
+	footer();
+	check_plan();
 }
 
-int main()
+static void
+slab_test_basic(void)
 {
 	struct quota quota;
 	struct slab_arena arena;
 
+	plan(18);
+	header();
+
 	quota_init(&quota, 0);
 	slab_arena_create(&arena, &quota, 0, 0, MAP_PRIVATE);
-	slab_arena_print(&arena);
+	ok(arena.prealloc == 0);
+	ok(quota_total(&quota) == 0);
+	ok(arena.used == 0);
+	ok(arena.slab_size == SLAB_MIN_SIZE);
 	slab_arena_destroy(&arena);
 
 	quota_init(&quota, SLAB_MIN_SIZE);
 	slab_arena_create(&arena, &quota, 1, 1, MAP_PRIVATE);
-	slab_arena_print(&arena);
+	ok(arena.prealloc == SLAB_MIN_SIZE);
+	ok(quota_total(&quota) == SLAB_MIN_SIZE);
+	ok(arena.used == 0);
+	ok(arena.slab_size == SLAB_MIN_SIZE);
 	void *ptr = slab_map(&arena);
-	slab_arena_print(&arena);
+	ok(ptr != NULL);
+	ok(arena.used == SLAB_MIN_SIZE);
 	void *ptr1 = slab_map(&arena);
-	printf("going beyond the limit: %s\n", ptr1 ? "(ptr)" : "(nil)");
-	slab_arena_print(&arena);
+	ok(ptr1 == NULL);
+	ok(arena.used == SLAB_MIN_SIZE);
 	slab_unmap(&arena, ptr);
+	ok(arena.used == SLAB_MIN_SIZE);
 	slab_unmap(&arena, ptr1);
-	slab_arena_print(&arena);
+	ok(arena.used == SLAB_MIN_SIZE);
 	slab_arena_destroy(&arena);
 
 	quota_init(&quota, 2000000);
 	slab_arena_create(&arena, &quota, 3000000, 1, MAP_PRIVATE);
-	slab_arena_print(&arena);
+	ok(arena.prealloc == 2031616);
+	ok(quota_total(&quota) == 2000896);
+	ok(arena.used == 0);
+	ok(arena.slab_size == SLAB_MIN_SIZE);
 	slab_arena_destroy(&arena);
 
+	footer();
+	check_plan();
+}
+
+int
+main(void)
+{
+	plan(2);
+	header();
+
+	slab_test_basic();
 	slab_test_madvise();
+
+	footer();
+	return check_plan();
 }

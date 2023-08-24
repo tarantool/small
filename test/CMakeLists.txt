@@ -3,39 +3,42 @@ add_definitions("-D__STDC_FORMAT_MACROS=1")
 add_definitions("-D__STDC_LIMIT_MACROS=1")
 add_definitions("-D__STDC_CONSTANT_MACROS=1")
 
+add_library(small_unit OBJECT unit.c)
+
 add_executable(slab_cache.test slab_cache.c)
-target_link_libraries(slab_cache.test small)
+target_link_libraries(slab_cache.test small small_unit)
 
 add_executable(region.test region.c)
-target_link_libraries(region.test small)
+target_link_libraries(region.test small small_unit)
 
-add_executable(ibuf.test ibuf.c unit.c)
-target_link_libraries(ibuf.test small)
+add_executable(ibuf.test ibuf.c)
+target_link_libraries(ibuf.test small small_unit)
 
 add_executable(obuf.test obuf.c)
-target_link_libraries(obuf.test small)
+target_link_libraries(obuf.test small small_unit)
 
-add_executable(rlist.test rlist.c unit.c)
-target_link_libraries(rlist.test small)
+add_executable(rlist.test rlist.c)
+target_link_libraries(rlist.test small small_unit)
 
 add_executable(rb.test rb.c)
-target_link_libraries(rb.test small)
+target_link_libraries(rb.test small small_unit)
 
 add_executable(rb_aug.test rb_aug.c)
-target_link_libraries(rb_aug.test small)
+target_link_libraries(rb_aug.test small small_unit)
 
 add_executable(rb_rand.test rb_rand.cc)
 set_source_files_properties(rb_rand.cc PROPERTIES
     COMPILE_FLAGS "-std=gnu++0x")
+target_link_libraries(rb_rand.test small_unit)
 
 add_executable(mempool.test mempool.c)
-target_link_libraries(mempool.test small)
+target_link_libraries(mempool.test small small_unit)
 
-add_executable(small_class.test small_class.c unit.c)
-target_link_libraries(small_class.test small)
+add_executable(small_class.test small_class.c)
+target_link_libraries(small_class.test small small_unit)
 
-add_executable(small_class_branchless.test small_class.c unit.c)
-target_link_libraries(small_class_branchless.test small)
+add_executable(small_class_branchless.test small_class.c)
+target_link_libraries(small_class_branchless.test small small_unit)
 target_compile_definitions(small_class_branchless.test PUBLIC SMALL_CLASS_BRANCHLESS)
 
 set(small_sources
@@ -53,7 +56,7 @@ function(build_small_alloc_test SLAB_MIN_ORDER0_SIZE)
     target_compile_definitions(
         ${target_name} PUBLIC SLAB_MIN_ORDER0_SIZE=${SLAB_MIN_ORDER0_SIZE}
     )
-    target_link_libraries(${target_name} m)
+    target_link_libraries(${target_name} m small_unit)
     list(APPEND small_alloc_tests ${target_name})
     add_test(${target_name} ${CMAKE_CURRENT_BINARY_DIR}/${target_name})
 endfunction()
@@ -63,30 +66,31 @@ foreach(SLAB_MIN_ORDER0_SIZE 4096 8192 16384 32768 65536)
 endforeach()
 
 add_executable(small_granularity.test small_granularity.c)
-target_link_libraries(small_granularity.test small)
+target_link_libraries(small_granularity.test small small_unit)
 
 add_executable(lf_lifo.test lf_lifo.c)
+target_link_libraries(lf_lifo.test small small_unit)
 
 add_executable(slab_arena.test slab_arena.c)
-target_link_libraries(slab_arena.test small)
+target_link_libraries(slab_arena.test small small_unit)
 
-add_executable(arena_mt.test arena_mt.c unit.c)
-target_link_libraries(arena_mt.test small pthread)
+add_executable(arena_mt.test arena_mt.c)
+target_link_libraries(arena_mt.test small pthread small_unit)
 
 add_executable(matras.test matras.cc)
-target_link_libraries(matras.test small)
+target_link_libraries(matras.test small small_unit)
 
-add_executable(lsregion.test lsregion.c unit.c)
-target_link_libraries(lsregion.test small)
+add_executable(lsregion.test lsregion.c)
+target_link_libraries(lsregion.test small small_unit)
 
-add_executable(quota.test quota.cc unit.c)
-target_link_libraries(quota.test pthread)
+add_executable(quota.test quota.cc)
+target_link_libraries(quota.test pthread small_unit)
 
-add_executable(quota_lessor.test quota_lessor.c unit.c)
-target_link_libraries(quota_lessor.test pthread)
+add_executable(quota_lessor.test quota_lessor.c)
+target_link_libraries(quota_lessor.test pthread small_unit)
 
-add_executable(static.test static.c unit.c)
-target_link_libraries(static.test pthread small)
+add_executable(static.test static.c)
+target_link_libraries(static.test pthread small small_unit)
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 

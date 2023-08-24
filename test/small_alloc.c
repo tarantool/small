@@ -2,6 +2,7 @@
 #include <small/quota.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <time.h>
 #include "unit.h"
 
@@ -107,29 +108,40 @@ small_alloc_test(int size_min, int size_max, int objects_max,
 static void
 small_alloc_basic(void)
 {
+	plan(1);
 	header();
+
 	small_alloc_test(OBJSIZE_MIN, 5000, 1000, 1024, 5000);
+	ok(true);
+
 	footer();
+	check_plan();
 }
 
 static void
 small_alloc_large(void)
 {
+	plan(1);
 	header();
+
 	size_t large_size_min = mempool_objsize_max(cache.arena->slab_size);
 	size_t large_size_max = 2 * cache.arena->slab_size;
 	small_alloc_test(large_size_min, large_size_max, 50, 10, 100);
+	ok(true);
+
 	footer();
+	check_plan();
 }
 
 int main()
 {
-	seed = time(0);
+	plan(2);
+	header();
 
+	seed = time(0);
 	srand(seed);
 
 	quota_init(&quota, UINT_MAX);
-
 	slab_arena_create(&arena, &quota, 0, 4000000,
 			  MAP_PRIVATE);
 	slab_cache_create(&cache, &arena);
@@ -138,4 +150,7 @@ int main()
 	small_alloc_large();
 
 	slab_cache_destroy(&cache);
+
+	footer();
+	return check_plan();
 }

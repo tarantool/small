@@ -3,6 +3,7 @@
 #include <stdalign.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <time.h>
 #include "unit.h"
 
@@ -76,6 +77,8 @@ void
 mempool_basic()
 {
 	int i;
+
+	plan(1);
 	header();
 
 	mempool_create(&pool, &cache, objsize);
@@ -88,15 +91,18 @@ mempool_basic()
 		       mempool_total(&pool));
 #endif
 	}
+	ok(true);
 
 	mempool_destroy(&pool);
 
 	footer();
+	check_plan();
 }
 
 void
 mempool_align()
 {
+	plan(1);
 	header();
 
 	for (uint32_t size = OBJSIZE_MIN; size < OBJSIZE_MAX; size <<= 1) {
@@ -109,14 +115,18 @@ mempool_align()
 		}
 		mempool_destroy(&pool);
 	}
+	ok(true);
 
 	footer();
+	check_plan();
 }
 
 int main()
 {
-	seed = time(0);
+	plan(2);
+	header();
 
+	seed = time(0);
 	srand(seed);
 
 	objsize = rand() % OBJSIZE_MAX;
@@ -136,8 +146,10 @@ int main()
 	slab_cache_create(&cache, &arena);
 
 	mempool_basic();
-
 	mempool_align();
 
 	slab_cache_destroy(&cache);
+
+	footer();
+	return check_plan();
 }
