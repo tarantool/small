@@ -54,7 +54,7 @@ test_basic()
 	/* Test that initialization was correct. */
 	is(lsregion_used(&allocator), 0, "used after init");
 	is(lsregion_total(&allocator), 0, "total after init");
-	is(arena.used, 0, "arena used after init")
+	is(arena.used, 0, "arena used after init");
 	is(lsregion_slab_count(&allocator), 0, "slab count after init");
 	is(allocator.cached, NULL, "slab cache after init");
 
@@ -62,12 +62,12 @@ test_basic()
 	uint32_t size = 100;
 	int64_t id = 10;
 	char *data = lsregion_alloc(&allocator, size, id);
-	isnt(data, NULL, "alloc(100)")
+	isnt(data, NULL, "alloc(100)");
 	uint32_t used = lsregion_used(&allocator);
 	uint32_t total = lsregion_total(&allocator);
 	is(used, size, "used after alloc(100)");
 	is(total, arena.slab_size, "total after alloc(100)");
-	is(arena.used, arena.slab_size, "arena used after alloc(100)")
+	is(arena.used, arena.slab_size, "arena used after alloc(100)");
 	is(lsregion_slab_count(&allocator), 1, "slab count after alloc(100)");
 	is(allocator.cached, NULL, "slab cache after alloc(100)");
 
@@ -123,7 +123,7 @@ test_basic()
 	total = lsregion_total(&allocator);
 	is(used, size, "used after alloc(2048)");
 	is(total, arena.slab_size, "total after alloc(2048)");
-	is(arena.used, arena.slab_size, "arena used after alloc(2048)")
+	is(arena.used, arena.slab_size, "arena used after alloc(2048)");
 	is(lsregion_slab_count(&allocator), 1, "slab count after alloc(2048)");
 	is(allocator.cached, NULL, "slab cache after alloc(2048)");
 
@@ -137,7 +137,7 @@ test_basic()
 	total = lsregion_total(&allocator);
 	size = arena.slab_size + 100;
 	data = lsregion_alloc(&allocator, size, id);
-	isnt(data, NULL, "large alloc()")
+	isnt(data, NULL, "large alloc()");
 	is(lsregion_used(&allocator), used + size, "used after large alloc()");
 	is(lsregion_total(&allocator), total + size + lslab_sizeof(),
 	   "total after large alloc()");
@@ -145,7 +145,7 @@ test_basic()
 	size_t size_quota = (size + lslab_sizeof() + QUOTA_UNIT_SIZE - 1) &
 				~(size_t)(QUOTA_UNIT_SIZE - 1);
 	is(quota_used(arena.quota), qused + size_quota,
-	   "quota used after large alloc()")
+	   "quota used after large alloc()");
 	is(lsregion_slab_count(&allocator), 2,
 	   "slab count after large alloc()");
 	is(allocator.cached, NULL, "slab cache after large alloc()");
@@ -158,7 +158,7 @@ test_basic()
 	used = lsregion_used(&allocator);
 	total = lsregion_total(&allocator);
 	data = lsregion_alloc(&allocator, size, id);
-	isnt(data, NULL, "alloc after large")
+	isnt(data, NULL, "alloc after large");
 	is(lsregion_used(&allocator), used + size,
 	   "alloc after large");
 	is(lsregion_total(&allocator), total + arena.slab_size,
@@ -232,7 +232,7 @@ test_many_allocs_one_slab()
 	char *data[TEST_ARRAY_SIZE];
 	uint32_t size = 400;
 	fill_data(data, count, size, 0, &allocator);
-	is(arena.used, arena.slab_size, "arena used after many small blocks")
+	is(arena.used, arena.slab_size, "arena used after many small blocks");
 
 	/*
 	 * Used bytes count is count * size, but only one slab is
@@ -287,7 +287,7 @@ test_many_allocs_many_slabs()
 	uint32_t id = 0;
 	fill_data(data, count, size, id, &allocator);
 	id += count;
-	is(arena.used, arena.slab_size, "arena used after one slab")
+	is(arena.used, arena.slab_size, "arena used after one slab");
 
 	/*
 	 * Used bytes count is count * size, but only one slab is
@@ -308,7 +308,7 @@ test_many_allocs_many_slabs()
 	id += count;
 	total_size += size * count;
 	used = lsregion_used(&allocator);
-	is(arena.used, 2 * arena.slab_size, "arena used after many slabs")
+	is(arena.used, 2 * arena.slab_size, "arena used after many slabs");
 
 	/* Test that the first slab is still exists. */
 
@@ -319,7 +319,7 @@ test_many_allocs_many_slabs()
 	uint32_t block_max_id = count;
 	lsregion_gc(&allocator, block_max_id);
 	is(lsregion_slab_count(&allocator), 1, "slab count after gc first");
-	is(arena.used, 2 * arena.slab_size, "arena used after gc first")
+	is(arena.used, 2 * arena.slab_size, "arena used after gc first");
 
 	/* The second slab still has valid data. */
 
@@ -330,7 +330,7 @@ test_many_allocs_many_slabs()
 	block_max_id = id;
 	lsregion_gc(&allocator, block_max_id);
 	is(lsregion_slab_count(&allocator), 0, "slab count after gc second");
-	is(arena.used, 2 * arena.slab_size, "arena used after gc second")
+	is(arena.used, 2 * arena.slab_size, "arena used after gc second");
 	fail_if(lsregion_used(&allocator) > 0);
 
 	lsregion_destroy(&allocator);
@@ -369,7 +369,7 @@ test_big_data_small_slabs()
 	uint32_t total_size = size * count;
 	uint32_t used = lsregion_used(&allocator);
 	is(used, total_size, "used after alloc");
-	is(arena.used, count * arena.slab_size, "arena used after alloc")
+	is(arena.used, count * arena.slab_size, "arena used after alloc");
 	is(lsregion_slab_count(&allocator), count, "slab count after alloc");
 
 	id += count;
@@ -379,7 +379,7 @@ test_big_data_small_slabs()
 	isnt(lsregion_used(&allocator), 0, "used after gc(id / 2)");
 	is(lsregion_slab_count(&allocator), count / 2 -1,
 	   "slab count after gc (id / 2)");
-	is(arena.used, count * arena.slab_size, "arena used after gc(id / 2)")
+	is(arena.used, count * arena.slab_size, "arena used after gc(id / 2)");
 
 	lsregion_gc(&allocator, id);
 	fail_if(lsregion_used(&allocator) > 0);
