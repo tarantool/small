@@ -118,7 +118,7 @@ test_aligned(void)
 
 	p = static_aligned_alloc(100, alignment);
 	is(p, &static_storage_buffer[72], "aligned alloc 100");
-	is(static_storage_pos, 172, "position is changed to aligned pos + size")
+	is(static_storage_pos, 172, "position is changed to aligned pos + size");
 
 	static_alloc(SMALL_STATIC_SIZE - static_storage_pos - 13);
 	p = static_aligned_alloc(10, alignment);

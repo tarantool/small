@@ -132,7 +132,7 @@ main(void)
 	i = 0;
 	rlist_foreach_entry_safe_reverse(it, &head, list, tmp)
 		++i;
-	ok(i == 0, "list is empty")
+	ok(i == 0, "list is empty");
 	for (i = 0; i < ITEMS; i++) {
 		items[i].no = i;
 		rlist_add(&head, &(items[i].list));
