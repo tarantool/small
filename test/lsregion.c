@@ -24,6 +24,8 @@
 
 enum { TEST_ARRAY_SIZE = 10 };
 
+#ifndef ENABLE_ASAN
+
 static size_t
 lsregion_slab_count(struct lsregion *region)
 {
@@ -34,6 +36,8 @@ lsregion_slab_count(struct lsregion *region)
 	return res;
 }
 
+#endif
+
 /**
  * Test constructor, allocation and truncating of one memory
  * block.
@@ -41,7 +45,7 @@ lsregion_slab_count(struct lsregion *region)
 static void
 test_basic()
 {
-	plan(45);
+	plan(48);
 	header();
 
 	struct quota quota;
@@ -53,23 +57,26 @@ test_basic()
 
 	/* Test that initialization was correct. */
 	is(lsregion_used(&allocator), 0, "used after init");
-	is(lsregion_total(&allocator), 0, "total after init");
-	is(arena.used, 0, "arena used after init");
-	is(lsregion_slab_count(&allocator), 0, "slab count after init");
-	is(allocator.cached, NULL, "slab cache after init");
+	is_no_asan(lsregion_total(&allocator), 0, "total after init");
+	is_no_asan(arena.used, 0, "arena used after init");
+	is_no_asan(lsregion_slab_count(&allocator), 0, "slab count after init");
+	is_no_asan(allocator.cached, NULL, "slab cache after init");
 
 	/* Try to alloc 100 bytes. */
 	uint32_t size = 100;
 	int64_t id = 10;
 	char *data = lsregion_alloc(&allocator, size, id);
 	isnt(data, NULL, "alloc(100)");
+	ok_asan((uintptr_t)data % 2 != 0, "alloc(100) not 2-aligned");
 	uint32_t used = lsregion_used(&allocator);
 	uint32_t total = lsregion_total(&allocator);
+	(void)total;
 	is(used, size, "used after alloc(100)");
-	is(total, arena.slab_size, "total after alloc(100)");
-	is(arena.used, arena.slab_size, "arena used after alloc(100)");
-	is(lsregion_slab_count(&allocator), 1, "slab count after alloc(100)");
-	is(allocator.cached, NULL, "slab cache after alloc(100)");
+	is_no_asan(total, arena.slab_size, "total after alloc(100)");
+	is_no_asan(arena.used, arena.slab_size, "arena used after alloc(100)");
+	is_no_asan(lsregion_slab_count(&allocator), 1,
+		   "slab count after alloc(100)");
+	is_no_asan(allocator.cached, NULL, "slab cache after alloc(100)");
 
 	/*
 	 * Truncate with id < the allocated block id has't any
@@ -79,10 +86,11 @@ test_basic()
 	used = lsregion_used(&allocator);
 	total = lsregion_total(&allocator);
 	is(used, size, "used after gc(id / 2)");
-	is(total, arena.slab_size, "total after gc(id / 2)");
-	is(arena.used, arena.slab_size, "arena used after gc(id / 2)");
-	is(lsregion_slab_count(&allocator), 1, "slab count after gc(id / 2)");
-	is(allocator.cached, NULL, "slab cache after gc(id / 2)");
+	is_no_asan(total, arena.slab_size, "total after gc(id / 2)");
+	is_no_asan(arena.used, arena.slab_size, "arena used after gc(id / 2)");
+	is_no_asan(lsregion_slab_count(&allocator), 1,
+		   "slab count after gc(id / 2)");
+	is_no_asan(allocator.cached, NULL, "slab cache after gc(id / 2)");
 
 	/*
 	 * Tuncate the allocated block. Used bytes count is 0 now.
@@ -93,10 +101,11 @@ test_basic()
 	used = lsregion_used(&allocator);
 	total = lsregion_total(&allocator);
 	is(used, 0, "used after gc(id)");
-	is(total, arena.slab_size, "total after gc(id)");
-	is(arena.used, arena.slab_size, "arena used after gc(id)");
-	is(lsregion_slab_count(&allocator), 0, "slab count after gc(id)");
-	isnt(allocator.cached, NULL, "slab cache after gc(id)");
+	is_no_asan(total, arena.slab_size, "total after gc(id)");
+	is_no_asan(arena.used, arena.slab_size, "arena used after gc(id)");
+	is_no_asan(lsregion_slab_count(&allocator), 0,
+		   "slab count after gc(id)");
+	isnt_no_asan(allocator.cached, NULL, "slab cache after gc(id)");
 
 	/* Try alloc_object. */
 	++id;
@@ -119,13 +128,15 @@ test_basic()
 	++id;
 	data = lsregion_alloc(&allocator, size, id);
 	isnt(data, NULL, "alloc(2048)");
+	ok_asan((uintptr_t)data % 2 != 0, "alloc(2048) not 2-aligned");
 	used = lsregion_used(&allocator);
 	total = lsregion_total(&allocator);
 	is(used, size, "used after alloc(2048)");
-	is(total, arena.slab_size, "total after alloc(2048)");
-	is(arena.used, arena.slab_size, "arena used after alloc(2048)");
-	is(lsregion_slab_count(&allocator), 1, "slab count after alloc(2048)");
-	is(allocator.cached, NULL, "slab cache after alloc(2048)");
+	is_no_asan(total, arena.slab_size, "total after alloc(2048)");
+	is_no_asan(arena.used, arena.slab_size, "arena used after alloc(2048)");
+	is_no_asan(lsregion_slab_count(&allocator), 1,
+		   "slab count after alloc(2048)");
+	is_no_asan(allocator.cached, NULL, "slab cache after alloc(2048)");
 
 	/*
 	 * Large allocation backed by malloc()
@@ -133,22 +144,28 @@ test_basic()
 	++id;
 	size_t qused = quota_used(arena.quota);
 	size_t aused = arena.used;
+	(void)qused;
+	(void)aused;
 	used = lsregion_used(&allocator);
 	total = lsregion_total(&allocator);
 	size = arena.slab_size + 100;
 	data = lsregion_alloc(&allocator, size, id);
 	isnt(data, NULL, "large alloc()");
+	ok_asan((uintptr_t)data % 2 != 0, "large alloc() not 2-aligned");
 	is(lsregion_used(&allocator), used + size, "used after large alloc()");
-	is(lsregion_total(&allocator), total + size + lslab_sizeof(),
-	   "total after large alloc()");
-	is(arena.used, aused, "arena used is not changed after large alloc()");
+	is_no_asan(lsregion_total(&allocator), total + size + lslab_sizeof(),
+		   "total after large alloc()");
+	is_no_asan(arena.used, aused,
+		   "arena used is not changed after large alloc()");
+#ifndef ENABLE_ASAN
 	size_t size_quota = (size + lslab_sizeof() + QUOTA_UNIT_SIZE - 1) &
 				~(size_t)(QUOTA_UNIT_SIZE - 1);
-	is(quota_used(arena.quota), qused + size_quota,
-	   "quota used after large alloc()");
-	is(lsregion_slab_count(&allocator), 2,
-	   "slab count after large alloc()");
-	is(allocator.cached, NULL, "slab cache after large alloc()");
+#endif
+	is_no_asan(quota_used(arena.quota), qused + size_quota,
+		   "quota used after large alloc()");
+	is_no_asan(lsregion_slab_count(&allocator), 2,
+		   "slab count after large alloc()");
+	is_no_asan(allocator.cached, NULL, "slab cache after large alloc()");
 
 	/*
 	 * Allocation after large slab
@@ -161,29 +178,32 @@ test_basic()
 	isnt(data, NULL, "alloc after large");
 	is(lsregion_used(&allocator), used + size,
 	   "alloc after large");
-	is(lsregion_total(&allocator), total + arena.slab_size,
-	   "large slab is not re-used");
-	is(lsregion_slab_count(&allocator), 3, "large slab is not reused");
+	is_no_asan(lsregion_total(&allocator), total + arena.slab_size,
+		   "large slab is not re-used");
+	is_no_asan(lsregion_slab_count(&allocator), 3,
+		   "large slab is not reused");
 
 	/*
 	 * gc of large slab
 	 */
 	lsregion_gc(&allocator, id);
-	is(lsregion_slab_count(&allocator), 0,
-	   "slab count after large gc()");
+	is_no_asan(lsregion_slab_count(&allocator), 0,
+		   "slab count after large gc()");
 
+#ifndef ENABLE_ASAN
 	/*
 	 * Allocate exactly slab size.
 	 */
 	++id;
 	data = lsregion_alloc(&allocator, arena.slab_size - lslab_sizeof(), id);
 	lsregion_gc(&allocator, id);
+#endif
 
 	lsregion_destroy(&allocator);
 	/* Sic: slabs are cached by arena */
-	is(arena.used, 2 * arena.slab_size, "arena used after destroy");
-	is(quota_used(arena.quota), 2 * arena.slab_size,
-	   "quota used after destroy");
+	is_no_asan(arena.used, 2 * arena.slab_size, "arena used after destroy");
+	is_no_asan(quota_used(arena.quota), 2 * arena.slab_size,
+		   "quota used after destroy");
 	slab_arena_destroy(&arena);
 
 	footer();
@@ -233,7 +253,8 @@ test_many_allocs_one_slab()
 	char *data[TEST_ARRAY_SIZE];
 	uint32_t size = 400;
 	fill_data(data, count, size, 0, &allocator);
-	is(arena.used, arena.slab_size, "arena used after many small blocks");
+	is_no_asan(arena.used, arena.slab_size,
+		   "arena used after many small blocks");
 
 	/*
 	 * Used bytes count is count * size, but only one slab is
@@ -242,7 +263,8 @@ test_many_allocs_one_slab()
 	uint32_t total_size = size * count;
 	uint32_t used = lsregion_used(&allocator);
 	is(used, total_size, "used after small blocks");
-	is(lsregion_slab_count(&allocator), 1, "slab count after small blocks");
+	is_no_asan(lsregion_slab_count(&allocator), 1,
+		   "slab count after small blocks");
 
 	test_data(data, count, size);
 
@@ -255,8 +277,10 @@ test_many_allocs_one_slab()
 	lsregion_gc(&allocator, middle_id);
 
 	used = lsregion_used(&allocator);;
-	is(used, total_size, "used after gc");
-	is(lsregion_slab_count(&allocator), 1, "slab count after gc(id/2)");
+	/* In ASAN version we truncate is not slab-wise. */
+	is_no_asan(used, total_size, "used after gc");
+	is_no_asan(lsregion_slab_count(&allocator), 1,
+		   "slab count after gc(id/2)");
 
 	lsregion_destroy(&allocator);
 	slab_arena_destroy(&arena);
@@ -289,7 +313,7 @@ test_many_allocs_many_slabs()
 	uint32_t id = 0;
 	fill_data(data, count, size, id, &allocator);
 	id += count;
-	is(arena.used, arena.slab_size, "arena used after one slab");
+	is_no_asan(arena.used, arena.slab_size, "arena used after one slab");
 
 	/*
 	 * Used bytes count is count * size, but only one slab is
@@ -299,7 +323,8 @@ test_many_allocs_many_slabs()
 	uint32_t total_size = size * count;
 	uint32_t used = lsregion_used(&allocator);
 	is(used, total_size, "used after one slab");
-	is(lsregion_slab_count(&allocator), 1, "slab count after one slab");
+	is_no_asan(lsregion_slab_count(&allocator), 1,
+		   "slab count after one slab");
 
 	test_data(data, count, size);
 
@@ -310,7 +335,8 @@ test_many_allocs_many_slabs()
 	id += count;
 	total_size += size * count;
 	used = lsregion_used(&allocator);
-	is(arena.used, 2 * arena.slab_size, "arena used after many slabs");
+	is_no_asan(arena.used, 2 * arena.slab_size,
+		   "arena used after many slabs");
 
 	/* Test that the first slab is still exists. */
 
@@ -318,10 +344,12 @@ test_many_allocs_many_slabs()
 
 	/* Truncate the first slab. */
 
-	uint32_t block_max_id = count;
+	uint32_t block_max_id = count - 1;
 	lsregion_gc(&allocator, block_max_id);
-	is(lsregion_slab_count(&allocator), 1, "slab count after gc first");
-	is(arena.used, 2 * arena.slab_size, "arena used after gc first");
+	is_no_asan(lsregion_slab_count(&allocator), 1,
+		   "slab count after gc first");
+	is_no_asan(arena.used, 2 * arena.slab_size,
+		   "arena used after gc first");
 
 	/* The second slab still has valid data. */
 
@@ -329,10 +357,12 @@ test_many_allocs_many_slabs()
 
 	/* Truncate the second slab. */
 
-	block_max_id = id;
+	block_max_id = id - 1;
 	lsregion_gc(&allocator, block_max_id);
-	is(lsregion_slab_count(&allocator), 0, "slab count after gc second");
-	is(arena.used, 2 * arena.slab_size, "arena used after gc second");
+	is_no_asan(lsregion_slab_count(&allocator), 0,
+		   "slab count after gc second");
+	is_no_asan(arena.used, 2 * arena.slab_size,
+		   "arena used after gc second");
 	fail_if(lsregion_used(&allocator) > 0);
 
 	lsregion_destroy(&allocator);
@@ -372,17 +402,20 @@ test_big_data_small_slabs()
 	uint32_t total_size = size * count;
 	uint32_t used = lsregion_used(&allocator);
 	is(used, total_size, "used after alloc");
-	is(arena.used, count * arena.slab_size, "arena used after alloc");
-	is(lsregion_slab_count(&allocator), count, "slab count after alloc");
+	is_no_asan(arena.used, count * arena.slab_size,
+		   "arena used after alloc");
+	is_no_asan(lsregion_slab_count(&allocator), count,
+		   "slab count after alloc");
 
 	id += count;
 
 	/* Try to truncate a middle of the memory blocks. */
 	lsregion_gc(&allocator, id / 2);
 	isnt(lsregion_used(&allocator), 0, "used after gc(id / 2)");
-	is(lsregion_slab_count(&allocator), count / 2 -1,
-	   "slab count after gc (id / 2)");
-	is(arena.used, count * arena.slab_size, "arena used after gc(id / 2)");
+	is_no_asan(lsregion_slab_count(&allocator), count / 2 - 1,
+		   "slab count after gc (id / 2)");
+	is_no_asan(arena.used, count * arena.slab_size,
+		   "arena used after gc(id / 2)");
 
 	lsregion_gc(&allocator, id);
 	fail_if(lsregion_used(&allocator) > 0);
@@ -393,6 +426,8 @@ test_big_data_small_slabs()
 	footer();
 	check_plan();
 }
+
+#ifndef ENABLE_ASAN
 
 static void
 test_reserve(void)
@@ -432,10 +467,16 @@ test_reserve(void)
 	check_plan();
 }
 
+#endif /* ifndef ENABLE_ASAN */
+
 static void
 test_aligned(void)
 {
-	plan(12);
+#ifdef ENABLE_ASAN
+	plan(15);
+#else
+	plan(16);
+#endif
 	header();
 
 	struct quota quota;
@@ -449,31 +490,37 @@ test_aligned(void)
 	++id;
 	void *p1 = lsregion_aligned_alloc(&allocator, 8, 8, id);
 	ok((unsigned long)p1 % 8 == 0, "trivial aligned");
+	ok_asan((uintptr_t)p1 % 16 != 0, "trivial not 2x aligned");
 	is(lsregion_used(&allocator), 8, "'used'");
 
 	++id;
 	void *p2 = lsregion_aligned_alloc(&allocator, 1, 16, id);
 	ok((unsigned long)p2 % 16 == 0, "16 byte alignment for 1 byte");
+	ok_asan((uintptr_t)p2 % 32 != 0, "no 32 byte alignment for 1 byte");
 	void *p3 = lsregion_aligned_alloc(&allocator, 1, 16, id);
-	ok(p3 == (char *)p2 + 16, "second 16 aligned alloc of 1 byte is far "
-	   "from first");
+	ok_no_asan(p3 == (char *)p2 + 16,
+		   "second 16 aligned alloc of 1 byte is far from first");
 	ok((unsigned long)p3 % 16 == 0, "aligned by 16 too");
+	ok_asan((uintptr_t)p3 % 32 != 0, "and not aligned by 32");
 
-	is(lsregion_used(&allocator), (size_t)(p3 + 1 - p1), "'used'");
+	is_no_asan(lsregion_used(&allocator), (size_t)(p3 + 1 - p1), "'used'");
 
 	++id;
 	void *p4 = lsregion_aligned_alloc(&allocator, 3, 4, id);
-	ok(p4 == (char *)p3 + 4, "align next by 4 bytes, should be closer to "
-	   "previous");
+	ok_no_asan(p4 == (char *)p3 + 4,
+		   "align next by 4 bytes, should be closer to previous");
 	ok((unsigned long)p4 % 4 == 0, "aligned by 4");
-	is(lsregion_used(&allocator), (size_t)(p4 + 3 - p1), "'used'");
+	ok_asan((uintptr_t)p4 % 8 != 0, "not aligned by 8");
+	is_no_asan(lsregion_used(&allocator), (size_t)(p4 + 3 - p1), "'used'");
 
 	lsregion_gc(&allocator, id);
 
+#ifndef ENABLE_ASAN
 	++id;
 	p1 = lsregion_aligned_alloc(&allocator,
 				    arena.slab_size - lslab_sizeof(), 32, id);
 	ok((unsigned long)p1 % 32 == 0, "32 byte aligned alloc of slab size");
+#endif
 
 	lsregion_gc(&allocator, id);
 	is(lsregion_used(&allocator), 0, "gc deleted all");
@@ -488,14 +535,20 @@ test_aligned(void)
 int
 main()
 {
+#ifndef ENABLE_ASAN
 	plan(6);
+#else
+	plan(5);
+#endif
 	header();
 
 	test_basic();
 	test_many_allocs_one_slab();
 	test_many_allocs_many_slabs();
 	test_big_data_small_slabs();
+#ifndef ENABLE_ASAN
 	test_reserve();
+#endif
 	test_aligned();
 
 	footer();
