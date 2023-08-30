@@ -118,9 +118,53 @@ mempool_align()
 	check_plan();
 }
 
+#ifdef ENABLE_ASAN
+
+static char assert_msg_buf[128];
+
+static void
+on_assert_failure(const char *filename, int line, const char *funcname,
+		  const char *expr)
+{
+	(void)filename;
+	(void)line;
+	snprintf(assert_msg_buf, sizeof(assert_msg_buf), "%s in %s",
+		 expr, funcname);
+	small_on_assert_failure = small_on_assert_failure_default;
+}
+
+static void
+mempool_membership(void)
+{
+	plan(1);
+	header();
+
+	struct mempool pool1;
+	struct mempool pool2;
+
+	mempool_create(&pool1, &cache, 100);
+	mempool_create(&pool2, &cache, 200);
+	void *ptr = mempool_alloc(&pool1);
+	fail_unless(ptr != NULL);
+	small_on_assert_failure = on_assert_failure;
+	mempool_free(&pool2, ptr);
+	small_on_assert_failure = small_on_assert_failure_default;
+	ok(strstr(assert_msg_buf,
+		  "object and pool id mismatch\" in mempool_free") != NULL);
+
+	footer();
+	check_plan();
+}
+
+#endif /* ifdef ENABLE_ASAN */
+
 int main()
 {
+#ifdef ENABLE_ASAN
+	plan(3);
+#else
 	plan(2);
+#endif
 	header();
 
 	seed = time(NULL);
@@ -145,6 +189,9 @@ int main()
 
 	mempool_basic();
 	mempool_align();
+#ifdef ENABLE_ASAN
+	mempool_membership();
+#endif
 
 	slab_cache_destroy(&cache);
 
