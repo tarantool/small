@@ -41,7 +41,7 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 	(void)objsize_min;
 	(void)granularity;
 	(void)alloc_factor;
-	(void)cache;
+	alloc->quota = &cache->quota;
 	alloc->used = 0;
 	alloc->objcount = 0;
 	*actual_alloc_factor = alloc_factor;
@@ -51,6 +51,8 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 SMALL_NO_SANITIZE_ADDRESS void *
 smalloc(struct small_alloc *alloc, size_t size)
 {
+	if (quota_lease(alloc->quota, size) < 0)
+		return NULL;
 	struct small_object *obj =
 				small_asan_alloc(size, SMALL_ASAN_ALIGNMENT,
 						 sizeof(struct small_object));
@@ -69,6 +71,7 @@ smfree(struct small_alloc *alloc, void *ptr, size_t size)
 	small_asan_assert(obj->size == size && "invalid object size");
 	small_asan_assert(obj->allocator_id == alloc->id &&
 			  "object and allocator id mismatch");
+	quota_end_lease(alloc->quota, obj->size);
 	alloc->used -= obj->size;
 	alloc->objcount--;
 

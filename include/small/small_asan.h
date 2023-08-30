@@ -56,10 +56,15 @@ struct quota_lessor;
  * Also we check that user provides same size in smfree which was in
  * smalloc call.
  *
+ * Allocator also checks for quota usage however its not precisely the same
+ * as in the regular implementation.
+ *
  * Stats are limited in particular because this implementation does not
  * have same inner structure as regular one (does not consist of mempools).
  */
 struct small_alloc {
+	/** Quota. */
+	struct quota_lessor *quota;
 	/** Number of active (not yet freed) allocations. */
 	size_t objcount;
 	/** Total size of allocations. */
