@@ -79,6 +79,7 @@ ibuf_reserve_slow(struct ibuf *ibuf, size_t size)
 	 * Otherwise, get a bigger buffer.
 	 */
 	if (size + used <= capacity) {
+		ibuf_unpoison_unallocated(ibuf);
 		memmove(ibuf->buf, ibuf->rpos, used);
 	} else {
 		/* Use start_capacity as allocation factor. */
@@ -137,4 +138,5 @@ ibuf_shrink(struct ibuf *ibuf)
 	ibuf->rpos = ptr;
 	ibuf->wpos = ptr + used;
 	ibuf->end = ptr + slab_capacity(slab);
+	ibuf_poison_unallocated(ibuf);
 }

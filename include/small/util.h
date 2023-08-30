@@ -254,4 +254,9 @@ small_asan_free(void *header);
 unsigned int
 small_asan_reserve_id(void);
 
-#endif /* ifdef ENABLE_ASAN */
+#else /* ifndef ENABLE_ASAN */
+
+#define ASAN_POISON_MEMORY_REGION(addr, size) ((void)(addr), (void)(size))
+#define ASAN_UNPOISON_MEMORY_REGION(addr, size) ((void)(addr), (void)(size))
+
+#endif /* ifndef ENABLE_ASAN */
