@@ -46,6 +46,8 @@
 		printf("# *** %s: done ***\n", __func__);	\
 	} while (0)
 
+#include "small_config.h"
+
 #define fail(expr, result) do {					\
 	fprintf(stderr, "Test failed: %s is %s at %s:%d, in function '%s'\n",\
 		expr, result, __FILE__, __LINE__, __func__);		\
@@ -138,5 +140,35 @@ int check_plan(void);
 #if defined(__cplusplus)
 }
 #endif /* defined(__cplusplus) */
+
+/**
+ * _no_asan version of tests are skipped in case ENABLE_ASAN is set and
+ * executed if it is not set. Similarly for _asan version of tests.
+ *
+ * Note that in the case of ok/is/isnt tests the tests with _no_asan/_asan
+ * suffixes are counted just as if there is no suffix.
+ */
+#ifndef ENABLE_ASAN
+  #define fail_unless_no_asan(expr) fail_unless(expr)
+  #define fail_if_no_asan(expr) fail_if(expr)
+  #define ok_no_asan(cond, ...) ok(cond, ##__VA_ARGS__)
+  #define is_no_asan(a, b, ...) is(a, b, ##__VA_ARGS__)
+  #define isnt_no_asan(a, b, ...) isnt(a, b, ##__VA_ARGS__)
+
+  #define fail_unless_asan(expr)
+  #define ok_asan(cond, ...) _ok0(true, #cond, "[SKIPPED] " #cond)
+#else /* ifdef ENABLE_ASAN */
+  #define fail_unless_no_asan(expr)
+  #define fail_if_no_asan(expr)
+  #define ok_no_asan(cond, ...) _ok0(true, #cond, "[SKIPPED] " #cond)
+  #define is_no_asan(a, b, ...) \
+			_ok0(true, #a " == " #b, "[SKIPPED] " #a " == " #b)
+  #define isnt_no_asan(a, b, ...) \
+			_ok0(true, #a " != " #b, "[SKIPPED] " #a " != " #b)
+
+  #define fail_unless_asan(expr) fail_unless(expr)
+  #define ok_asan(cond, ...) ok(cond, ##__VA_ARGS__)
+
+#endif /* ifdef ENABLE_ASAN */
 
 #endif /* INCLUDES_TARANTOOL_TEST_UNIT_H */

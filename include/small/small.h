@@ -30,6 +30,14 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include "small_config.h"
+
+#ifdef ENABLE_ASAN
+#  include "small_asan.h"
+#endif
+
+#ifndef ENABLE_ASAN
+
 #include <stdint.h>
 #include "mempool.h"
 #include "slab_arena.h"
@@ -225,5 +233,7 @@ small_stats(struct small_alloc *alloc,
 #if defined(__cplusplus)
 } /* extern "C" */
 #endif /* defined(__cplusplus) */
+
+#endif /* ifndef ENABLE_ASAN */
 
 #endif /* INCLUDES_TARANTOOL_SMALL_SMALL_H */
