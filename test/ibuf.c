@@ -77,10 +77,10 @@ test_ibuf_shrink(void)
 	 * i.e. allocated by slab_get_large().
 	 */
 	ok(ibuf_alloc(&ibuf, 9 * 1024 * 1024) != NULL);
-	ok(ibuf_capacity(&ibuf) == 16 * 1024 * 1024);
+	ok_no_asan(ibuf_capacity(&ibuf) == 16 * 1024 * 1024);
 	ibuf.rpos += 2 * 1024 * 1024;
 	ibuf_shrink(&ibuf);
-	ok(ibuf_capacity(&ibuf) == 7 * 1024 * 1024);
+	ok_no_asan(ibuf_capacity(&ibuf) == 7 * 1024 * 1024);
 	/*
 	 * Check that there is no relocation if the size of a large slab
 	 * doesn't change.
