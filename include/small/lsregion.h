@@ -30,6 +30,13 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include "small_config.h"
+
+#ifdef ENABLE_ASAN
+#  include "lsregion_asan.h"
+#endif
+
+#ifndef ENABLE_ASAN
 
 #include <stdint.h>
 #include <assert.h>
@@ -38,7 +45,6 @@
 #include "rlist.h"
 #include "quota.h"
 #include "slab_cache.h"
-#include "util.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -275,9 +281,6 @@ lsregion_aligned_alloc(struct lsregion *lsregion, size_t size, size_t alignment,
 	return res;
 }
 
-#define lsregion_alloc_object(lsregion, id, T)					\
-	(T *)lsregion_aligned_alloc((lsregion), sizeof(T), alignof(T), (id))
-
 /**
  * Try to free all memory blocks in which the biggest identifier
  * is less or equal then the specified identifier.
@@ -349,5 +352,10 @@ lsregion_total(const struct lsregion *lsregion)
 #if defined(__cplusplus)
 } /* extern "C" */
 #endif /* defined(__cplusplus) */
+
+#endif /* ifndef ENABLE_ASAN */
+
+#define lsregion_alloc_object(lsregion, id, T)					\
+	(T *)lsregion_aligned_alloc((lsregion), sizeof(T), alignof(T), (id))
 
 #endif
