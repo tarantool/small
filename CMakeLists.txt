@@ -61,19 +61,33 @@ set(lib_headers
     include/small/lsregion.h
     include/small/static.h)
 
+# ASAN implementation has extra headers that are included from regular headers.
+if(ENABLE_ASAN)
+    list(APPEND lib_headers
+         include/small/small_asan.h)
+endif()
+
 set(lib_sources
+    small/util.c
     small/small_features.c
     small/slab_cache.c
     small/region.c
     small/mempool.c
     small/slab_arena.c
-    small/small_class.c
-    small/small.c
     small/matras.c
     small/ibuf.c
     small/obuf.c
     small/lsregion.c
     small/static.c)
+
+if(ENABLE_ASAN)
+    list(APPEND lib_sources
+         small/small_asan.c)
+else()
+    list(APPEND lib_sources
+         small/small_class.c
+         small/small.c)
+endif()
 
 add_library(${PROJECT_NAME} STATIC ${lib_sources})
 target_link_libraries(${PROJECT_NAME} m)

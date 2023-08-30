@@ -33,6 +33,11 @@
 #include <stddef.h>
 #include <assert.h>
 #include <limits.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+#include "small_config.h"
 
 #ifndef __has_builtin
 #  define __has_builtin(x) 0
@@ -49,6 +54,10 @@
 #  define small_unlikely(x)  (x)
 #endif
 
+#ifndef __has_attribute
+#  define __has_attribute(x) 0
+#endif
+
 /**
  * Add `always_inline` attribute to the function if possible. Add inline too.
  * Such function will always be inlined.
@@ -62,6 +71,29 @@
 #else
 #  define SMALL_ALWAYS_INLINE inline
 #endif
+
+#if !defined(__cplusplus) && !defined(static_assert)
+#  define static_assert _Static_assert
+#endif
+
+#ifndef lengthof
+#  define lengthof(array) (sizeof (array) / sizeof ((array)[0]))
+#endif
+
+#define small_xmalloc(size)							\
+	({									\
+		void *ret = malloc(size);					\
+		if (small_unlikely(ret == NULL))				\
+			small_xmalloc_fail(size, __FILE__, __LINE__);		\
+		ret;								\
+	})
+
+/**
+ * It is called on allocation failure in small_xmalloc. Print failure diagonstic
+ * and exit with failure.
+ */
+void
+small_xmalloc_fail(size_t size, const char *filename, int line);
 
 /**
  * Return size of a memory page in bytes.
@@ -90,6 +122,17 @@ small_align(size_t size, size_t alignment)
 	return (size - 1 + alignment) & ~(alignment - 1);
 }
 
+/**
+ * Align value to the nearest divisible by the given alignment which is
+ * not greater than value. Alignment must be a power of 2.
+ */
+static inline size_t
+small_align_down(size_t value, size_t alignment)
+{
+	assert((alignment & (alignment - 1)) == 0);
+	return value & ~(alignment - 1);
+}
+
 /** Round up a number to the nearest power of two. */
 static inline size_t
 small_round(size_t size)
@@ -111,3 +154,100 @@ small_lb(size_t size)
 	return sizeof(unsigned long) * CHAR_BIT -
 		__builtin_clzl((unsigned long) size) - 1;
 }
+
+#ifdef ENABLE_ASAN
+
+#include <sanitizer/asan_interface.h>
+
+/** This attribute is used by functions that access poisoned memory. */
+#define SMALL_NO_SANITIZE_ADDRESS __attribute__((no_sanitize_address))
+
+/**
+ * Similar to assert(3) but does not depend on NDEBUG.
+ *
+ * If expr is false then small_on_assert_failure callback is called.
+ * Default callback prints diagnostic message and aborts.
+ */
+#define small_asan_assert(expr) do {						\
+	if (small_unlikely(!(expr)))						\
+		small_on_assert_failure(__FILE__, __LINE__, __func__, #expr);	\
+} while (0)
+
+typedef void (*small_on_assert_failure_f)(const char *filename, int line,
+					  const char *funcname,
+					  const char *expr);
+
+/** Callback to be called if small_asan_assert is failed. */
+extern small_on_assert_failure_f small_on_assert_failure;
+
+/**
+ * Default callback for small_asan_assert. Print diagnostic message and abort.
+ */
+void
+small_on_assert_failure_default(const char *filename, int line,
+				const char *funcname, const char *expr);
+
+enum {
+	/* Alignment of header in memory allocated with small_asan_alloc. */
+	SMALL_ASAN_HEADER_ALIGNMENT = sizeof(void *),
+	/*
+	 * ASAN does not allow to precisely poison arbitrary ranges of memory.
+	 * However if range end is 8-aligned or range end is end of memory
+	 * allocated with malloc() then poison is precise.
+	 */
+	SMALL_POISON_ALIGNMENT = 8,
+};
+
+/** Random magic to be used for memory that cannot be poisoned. */
+#define SMALL_ASAN_MAGIC 0xdeadbeefcafefeedUL
+
+/**
+ * Allocate aligned memory (payload) with extra place for header.
+ *
+ * Header has SMALL_ASAN_HEADER_ALIGNMENT (large enough alignment for use with
+ * existing small allocators). Payload is aligned to `alignment`,
+ * additionally payload is not aligned on 2 * `alignment`. This improves
+ * unaligned access check.
+ *
+ * All allocated memory except for payload is poisoned. Note that due to poison
+ * alignment restrictions we may not be able to poison part of alignment area
+ * before payload. In this case we write magic to the area which cannot be
+ * poisoned and check it is not changed when memory is freed.
+ *
+ * Return pointer to header. Use small_asan_payload_from_header to
+ * get pointer to payload.
+ */
+void *
+small_asan_alloc(size_t payload_size, size_t alignment, size_t header_size);
+
+/**
+ * Return pointer to payload given pointer to header allocated with
+ * small_asan_alloc.
+ */
+static inline SMALL_NO_SANITIZE_ADDRESS void *
+small_asan_payload_from_header(void *header)
+{
+	char *alloc = (char *)header - SMALL_ASAN_HEADER_ALIGNMENT;
+	return (char *)header + *(uint16_t *)alloc;
+}
+
+/**
+ * Return pointer to header given pointer to payload (for allocations
+ * done thru small_asan_alloc).
+ */
+
+static inline SMALL_NO_SANITIZE_ADDRESS void *
+small_asan_header_from_payload(void *payload)
+{
+	uint16_t offset;
+	char *magic_begin = (char *)
+		small_align_down((uintptr_t)payload, SMALL_POISON_ALIGNMENT);
+	memcpy(&offset, (char *)magic_begin - sizeof(offset), sizeof(offset));
+	return (char *)payload - offset;
+}
+
+/** Free memory allocated with small_asan_alloc. Takes pointer to header. */
+void
+small_asan_free(void *header);
+
+#endif /* ifdef ENABLE_ASAN */

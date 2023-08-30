@@ -28,4 +28,9 @@
 # define TARANTOOL_SMALL_USE_MADVISE 1
 #endif
 
+/*
+ * Defined if configured with ENABLE_ASAN.
+ */
+#cmakedefine ENABLE_ASAN 1
+
 #endif /* TARANTOOL_SMALL_CONFIG_H_INCLUDED */

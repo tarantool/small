@@ -46,11 +46,14 @@ alloc_checked(int pos, int size_min, int size_max)
 	}
 	if (! allocating)
 		return NULL;
-	ptrs[pos] = smalloc(&alloc, size);
+	void *ptr = smalloc(&alloc, size);
+	fail_unless(ptr != NULL);
+	fail_unless_asan((uintptr_t)ptr % SMALL_ASAN_ALIGNMENT == 0);
+	fail_unless_asan((uintptr_t)ptr % (2 * SMALL_ASAN_ALIGNMENT) != 0);
+	ptrs[pos] = ptr;
 	ptrs[pos][0] = pos;
 	ptrs[pos][1] = size;
 	ptrs[pos][size/sizeof(int)-1] = pos;
-//	printf("size: %d\n", size);
 	return ptrs[pos];
 }
 
@@ -61,20 +64,19 @@ small_is_unused_cb(const void *stats, void *arg)
 		(const struct mempool_stats *)stats;
 	unsigned long *slab_total = arg;
 	*slab_total += mempool_stats->slabsize * mempool_stats->slabcount;
+	(void)stats;
+	(void)arg;
 	return 0;
 }
 
-static bool
-small_is_unused(void)
+static void
+small_check_unused(void)
 {
 	struct small_stats totals;
 	unsigned long slab_total = 0;
 	small_stats(&alloc, &totals, small_is_unused_cb, &slab_total);
-	if (totals.used > 0)
-		return false;
-	if (slab_cache_used(&cache) > slab_total)
-		return false;
-	return true;
+	fail_if(totals.used > 0);
+	fail_if_no_asan(slab_cache_used(&cache) > slab_total);
 }
 
 static void
@@ -100,7 +102,7 @@ small_alloc_test(int size_min, int size_max, int objects_max,
 			free_checked(ptrs[pos]);
 	}
 
-	fail_unless(small_is_unused());
+	small_check_unused();
 
 	small_alloc_destroy(&alloc);
 }
@@ -118,6 +120,8 @@ small_alloc_basic(void)
 	check_plan();
 }
 
+#ifndef ENABLE_ASAN
+
 static void
 small_alloc_large(void)
 {
@@ -132,6 +136,51 @@ small_alloc_large(void)
 	footer();
 	check_plan();
 }
+
+#else /* ifdef ENABLE_ASAN */
+
+static char assert_msg_buf[128];
+
+static void
+on_assert_failure(const char *filename, int line, const char *funcname,
+		  const char *expr)
+{
+	(void)filename;
+	(void)line;
+	snprintf(assert_msg_buf, sizeof(assert_msg_buf), "%s in %s",
+		 expr, funcname);
+	small_on_assert_failure = small_on_assert_failure_default;
+}
+
+static void
+small_wrong_size_in_free(void)
+{
+	plan(1);
+	header();
+
+	float actual_alloc_factor;
+	small_alloc_create(&alloc, &cache, OBJSIZE_MIN,
+			   sizeof(intptr_t), 1.3,
+			   &actual_alloc_factor);
+	for (int i = 0; i < 117; i++) {
+		int size = 100 + rand() % 900;
+		void *ptr = smalloc(&alloc, size);
+		fail_unless(ptr != NULL);
+		small_on_assert_failure = on_assert_failure;
+		assert_msg_buf[0] = '\0';
+		smfree(&alloc, ptr, size + 1);
+		small_on_assert_failure = small_on_assert_failure_default;
+		fail_unless(strstr(assert_msg_buf,
+				   "invalid object size\" in smfree") != NULL);
+	}
+	small_alloc_destroy(&alloc);
+	ok(true);
+
+	footer();
+	check_plan();
+}
+
+#endif /* ifdef ENABLE_ASAN */
 
 int main()
 {
@@ -148,7 +197,11 @@ int main()
 	slab_cache_create(&cache, &arena);
 
 	small_alloc_basic();
+#ifndef ENABLE_ASAN
 	small_alloc_large();
+#else
+	small_wrong_size_in_free();
+#endif
 
 	slab_cache_destroy(&cache);
 
