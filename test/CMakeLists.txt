@@ -60,7 +60,7 @@ else()
     list(APPEND small_sources
          # cache and arena are required to compile the test.
          ${PROJECT_SOURCE_DIR}/small/slab_arena.c
-         ${PROJECT_SOURCE_DIR}/small/slab_cache.c
+         ${PROJECT_SOURCE_DIR}/small/slab_cache_asan.c
          ${PROJECT_SOURCE_DIR}/small/small_asan.c)
 endif()
 
@@ -123,7 +123,6 @@ add_test(mempool ${CMAKE_CURRENT_BINARY_DIR}/mempool.test)
 add_test(small_class ${CMAKE_CURRENT_BINARY_DIR}/small_class.test)
 add_test(small_class_branchless ${CMAKE_CURRENT_BINARY_DIR}/small_class_branchless.test)
 add_test(lf_lifo ${CMAKE_CURRENT_BINARY_DIR}/lf_lifo.test)
-add_test(slab_cache ${CMAKE_CURRENT_BINARY_DIR}/slab_cache.test)
 add_test(arena_mt ${CMAKE_CURRENT_BINARY_DIR}/arena_mt.test)
 add_test(matras ${CMAKE_CURRENT_BINARY_DIR}/matras.test)
 add_test(lsregion ${CMAKE_CURRENT_BINARY_DIR}/lsregion.test)

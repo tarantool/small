@@ -30,13 +30,22 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include "slab_arena.h"
+#include <pthread.h>
+
+#include "small_config.h"
+
+#ifdef ENABLE_ASAN
+#  include "slab_cache_asan.h"
+#endif
+
+#ifndef ENABLE_ASAN
+
 #include <inttypes.h>
 #include <limits.h>
 #include <stddef.h>
 #include <assert.h>
 #include "rlist.h"
-#include "slab_arena.h"
-#include <pthread.h>
 #include "slab_list.h"
 #include "util.h"
 
@@ -201,32 +210,6 @@ slab_from_ptr(void *ptr, intptr_t slab_mask)
 	return slab;
 }
 
-/* Aligned size of slab meta. */
-static inline uint32_t
-slab_sizeof()
-{
-	return small_align(sizeof(struct slab), sizeof(intptr_t));
-}
-
-/** Useful size of a slab. */
-static inline uint32_t
-slab_capacity(struct slab *slab)
-{
-	return slab->size - slab_sizeof();
-}
-
-static inline void *
-slab_data(struct slab *slab)
-{
-	return (char *) slab + slab_sizeof();
-}
-
-static inline struct slab *
-slab_from_data(void *data)
-{
-	return (struct slab *) ((char *) data - slab_sizeof());
-}
-
 void
 slab_cache_check(struct slab_cache *cache);
 
@@ -281,5 +264,33 @@ slab_cache_set_thread(struct slab_cache *cache)
 #if defined(__cplusplus)
 } /* extern "C" */
 #endif /* defined(__cplusplus) */
+
+#endif /* ifndef ENABLE_ASAN */
+
+/** Aligned size of slab meta. */
+static inline uint32_t
+slab_sizeof()
+{
+	return small_align(sizeof(struct slab), sizeof(intptr_t));
+}
+
+/** Useful size of a slab. */
+static inline uint32_t
+slab_capacity(struct slab *slab)
+{
+	return slab->size - slab_sizeof();
+}
+
+static inline struct slab *
+slab_from_data(void *data)
+{
+	return (struct slab *)((char *)data - slab_sizeof());
+}
+
+static inline void *
+slab_data(struct slab *slab)
+{
+	return (char *)slab + slab_sizeof();
+}
 
 #endif /* INCLUDES_TARANTOOL_SMALL_SLAB_CACHE_H */
