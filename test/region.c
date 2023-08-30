@@ -186,7 +186,7 @@ region_test_poison()
 
 int main()
 {
-#ifdef NDEBUG
+#ifndef NDEBUG
 	plan(4);
 #else
 	plan(3);
@@ -201,7 +201,7 @@ int main()
 	region_basic();
 	region_test_truncate();
 	region_test_callbacks();
-#ifdef NDEBUG
+#ifndef NDEBUG
 	region_test_poison();
 #endif
 
