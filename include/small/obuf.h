@@ -30,18 +30,7 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#include <sys/uio.h>
-#include <stdbool.h>
 #include <stddef.h>
-#include <assert.h>
-
-#if defined(__cplusplus)
-extern "C" {
-#endif /* defined(__cplusplus) */
-
-enum { SMALL_OBUF_IOV_MAX = 31 };
-
-struct slab_cache;
 
 /**
  * Output buffer savepoint. It's possible to
@@ -67,6 +56,26 @@ obuf_svp_reset(struct obuf_svp *svp)
 	svp->iov_len = 0;
 	svp->used = 0;
 }
+
+#include "small_config.h"
+
+#ifdef ENABLE_ASAN
+#  include "obuf_asan.h"
+#endif
+
+#ifndef ENABLE_ASAN
+
+#include <sys/uio.h>
+#include <assert.h>
+#include <stdbool.h>
+
+#if defined(__cplusplus)
+extern "C" {
+#endif /* defined(__cplusplus) */
+
+enum { SMALL_OBUF_IOV_MAX = 31 };
+
+struct slab_cache;
 
 /**
  * An output buffer is a vector of struct iovec
@@ -192,13 +201,6 @@ obuf_alloc(struct obuf *buf, size_t size)
 size_t
 obuf_dup(struct obuf *buf, const void *data, size_t size);
 
-static inline size_t
-obuf_capacity(struct obuf *buf)
-{
-	/** This is an approximation, see obuf_alloc_pos() */
-	return buf->capacity[buf->n_iov ? buf->n_iov - 1 : 0] * 2;
-}
-
 static inline struct obuf_svp
 obuf_create_svp(struct obuf *buf)
 {
@@ -238,5 +240,7 @@ obuf_alloc_cb(void *ctx, size_t size)
 #if defined(__cplusplus)
 } /* extern "C" */
 #endif /* defined(__cplusplus) */
+
+#endif /* ifndef ENABLE_ASAN */
 
 #endif /* TARANTOOL_SMALL_OBUF_H_INCLUDED */
