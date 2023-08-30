@@ -33,6 +33,8 @@
 #include <stddef.h>
 #include <assert.h>
 
+#include "util.h"
+
 #if defined(__cplusplus)
 extern "C" {
 #endif /* defined(__cplusplus) */
@@ -111,11 +113,24 @@ ibuf_pos(struct ibuf *ibuf)
 	return ibuf->rpos - ibuf->buf;
 }
 
+static inline void
+ibuf_poison_unallocated(const struct ibuf *ibuf)
+{
+	ASAN_POISON_MEMORY_REGION(ibuf->wpos, ibuf->end - ibuf->wpos);
+}
+
+static inline void
+ibuf_unpoison_unallocated(const struct ibuf *ibuf)
+{
+	ASAN_UNPOISON_MEMORY_REGION(ibuf->wpos, ibuf->end - ibuf->wpos);
+}
+
 /** Forget all cached input. */
 static inline void
 ibuf_reset(struct ibuf *ibuf)
 {
 	ibuf->rpos = ibuf->wpos = ibuf->buf;
+	ibuf_poison_unallocated(ibuf);
 }
 
 void *
@@ -124,8 +139,10 @@ ibuf_reserve_slow(struct ibuf *ibuf, size_t size);
 static inline void *
 ibuf_reserve(struct ibuf *ibuf, size_t size)
 {
-	if (ibuf->wpos + size <= ibuf->end)
+	if (ibuf->wpos + size <= ibuf->end) {
+		ibuf_unpoison_unallocated(ibuf);
 		return ibuf->wpos;
+	}
 	return ibuf_reserve_slow(ibuf, size);
 }
 
@@ -133,14 +150,21 @@ static inline void *
 ibuf_alloc(struct ibuf *ibuf, size_t size)
 {
 	void *ptr;
-	if (ibuf->wpos + size <= ibuf->end)
+	if (ibuf->wpos + size <= ibuf->end) {
+		/*
+		 * In case of using same buffer we need to unpoison newly
+		 * allocated memory after previous ibuf_alloc or poison after
+		 * newly allocated memory after previous ibuf_reserve.
+		 */
+		ibuf_unpoison_unallocated(ibuf);
 		ptr = ibuf->wpos;
-	else {
+	} else {
 		ptr = ibuf_reserve_slow(ibuf, size);
 		if (ptr == NULL)
 			return NULL;
 	}
 	ibuf->wpos += size;
+	ibuf_poison_unallocated(ibuf);
 	return ptr;
 }
 
@@ -161,6 +185,7 @@ ibuf_truncate(struct ibuf *ibuf, size_t used)
 {
 	assert(used <= ibuf_used(ibuf));
 	ibuf->wpos = ibuf->rpos + used;
+	ibuf_poison_unallocated(ibuf);
 }
 
 static inline void *
