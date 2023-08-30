@@ -37,6 +37,8 @@
 #include "rlist.h"
 #include "slab_arena.h"
 #include <pthread.h>
+#include "slab_list.h"
+#include "util.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -75,49 +77,6 @@ struct slab {
 	 */
 	uint8_t in_use;
 };
-
-/** Allocation statistics. */
-struct small_stats {
-	size_t used;
-	size_t total;
-};
-
-static inline void
-small_stats_reset(struct small_stats *stats)
-{
-	stats->used = stats->total = 0;
-}
-
-/**
- * A general purpose list of slabs. Is used
- * to store unused slabs of a certain order in the
- * slab cache, as well as to contain allocated
- * slabs of a specialized allocator.
- */
-struct slab_list {
-	struct rlist slabs;
-	/** Total/used bytes in this list. */
-	struct small_stats stats;
-};
-
-#define slab_list_add(list, slab, member)		\
-do {							\
-	rlist_add_entry(&(list)->slabs, (slab), member);\
-	(list)->stats.total += (slab)->size;		\
-} while (0)
-
-#define slab_list_del(list, slab, member)		\
-do {							\
-	rlist_del_entry((slab), member);                \
-	(list)->stats.total -= (slab)->size;		\
-} while (0)
-
-static inline void
-slab_list_create(struct slab_list *list)
-{
-	rlist_create(&list->slabs);
-	small_stats_reset(&list->stats);
-}
 
 /*
  * A binary logarithmic distance between the smallest and

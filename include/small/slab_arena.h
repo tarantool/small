@@ -144,43 +144,6 @@ slab_unmap(struct slab_arena *arena, void *ptr);
 void
 slab_arena_mprotect(struct slab_arena *arena);
 
-/**
- * Align a size - round up to nearest divisible by the given alignment.
- * Alignment must be a power of 2
- */
-static inline size_t
-small_align(size_t size, size_t alignment)
-{
-	/* Must be a power of two */
-	assert((alignment & (alignment - 1)) == 0);
-	/* Bit arithmetics won't work for a large size */
-	assert(size <= SIZE_MAX - alignment);
-	return (size - 1 + alignment) & ~(alignment - 1);
-}
-
-/** Round up a number to the nearest power of two. */
-static inline size_t
-small_round(size_t size)
-{
-	if (size < 2)
-		return size;
-	assert(size <= SIZE_MAX / 2 + 1);
-	assert(size - 1 <= ULONG_MAX);
-	size_t r = 1;
-	return r << (sizeof(unsigned long) * CHAR_BIT -
-		     __builtin_clzl((unsigned long) (size - 1)));
-}
-
-/** Binary logarithm of a size. */
-static inline size_t
-small_lb(size_t size)
-{
-	assert(size <= ULONG_MAX);
-	return sizeof(unsigned long) * CHAR_BIT -
-		__builtin_clzl((unsigned long) size) - 1;
-}
-
-
 #if defined(__cplusplus)
 } /* extern "C" */
 #endif

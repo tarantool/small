@@ -32,7 +32,7 @@
  */
 #include <stddef.h>
 #include <string.h>
-#include "slab_arena.h"
+#include "util.h"
 
 enum {
 	/**
