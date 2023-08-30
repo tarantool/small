@@ -30,13 +30,10 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#include "lf_lifo.h"
-#include <sys/mman.h>
 #include <limits.h>
-
-#if defined(__cplusplus)
-extern "C" {
-#endif /* defined(__cplusplus) */
+#include <stddef.h>
+#include <stdint.h>
+#include <sys/mman.h>
 
 enum {
 	/* Smallest possible slab size. */
@@ -68,6 +65,20 @@ enum {
 	/* madvise() flags */
 	SLAB_ARENA_DONTDUMP	= SLAB_ARENA_FLAG(1 << 2)
 };
+
+#include "small_config.h"
+
+#ifdef ENABLE_ASAN
+#  include "slab_arena_asan.h"
+#endif
+
+#ifndef ENABLE_ASAN
+
+#include "lf_lifo.h"
+
+#if defined(__cplusplus)
+extern "C" {
+#endif /* defined(__cplusplus) */
 
 /**
  * slab_arena -- a source of large aligned blocks of memory.
@@ -147,5 +158,7 @@ slab_arena_mprotect(struct slab_arena *arena);
 #if defined(__cplusplus)
 } /* extern "C" */
 #endif
+
+#endif /* ifndef ENABLE_ASAN */
 
 #endif /* INCLUDES_TARANTOOL_SMALL_SLAB_ARENA_H */
