@@ -31,6 +31,22 @@
  * SUCH DAMAGE.
  */
 #include <stddef.h>
+
+struct region;
+
+typedef void (*region_on_alloc_f)(struct region *region,
+			          size_t size, void *cb_arg);
+typedef void (*region_on_truncate_f)(struct region *region,
+			             size_t used, void *cb_arg);
+
+#include "small_config.h"
+
+#ifdef ENABLE_ASAN
+#  include "region_asan.h"
+#endif
+
+#ifndef ENABLE_ASAN
+
 #include <inttypes.h>
 #include <assert.h>
 #include <stdio.h>
@@ -39,7 +55,7 @@
 #include "slab_cache.h"
 #include "util.h"
 
-#ifdef __cplusplus
+#if defined(__cplusplus)
 extern "C" {
 #endif
 
@@ -78,13 +94,6 @@ extern "C" {
  * piece, all memory must be freed at once with region_reset() or
  * region_free().
  */
-
-struct region;
-
-typedef void (*region_on_alloc_f)(struct region *region,
-			          size_t size, void *cb_arg);
-typedef void (*region_on_truncate_f)(struct region *region,
-			             size_t used, void *cb_arg);
 
 struct region
 {
@@ -325,6 +334,11 @@ region_reserve_cb(void *ctx, size_t *size)
 
 #if defined(__cplusplus)
 } /* extern "C" */
+#endif /* defined(__cplusplus) */
+
+#endif /* ifndef ENABLE_ASAN */
+
+#if defined(__cplusplus)
 
 struct RegionGuard {
 	struct region *region;
@@ -341,7 +355,8 @@ struct RegionGuard {
 		region_truncate(region, used);
 	}
 };
-#endif /* __cplusplus */
+
+#endif /* defined(__cplusplus) */
 
 #define region_alloc_object(region, T, size) ({					\
 	*(size) = sizeof(T);							\
