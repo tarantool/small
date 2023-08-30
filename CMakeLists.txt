@@ -64,6 +64,7 @@ set(lib_headers
 # ASAN implementation has extra headers that are included from regular headers.
 if(ENABLE_ASAN)
     list(APPEND lib_headers
+         include/small/obuf_asan.h
          include/small/lsregion_asan.h
          include/small/region_asan.h
          include/small/small_asan.h)
@@ -77,16 +78,17 @@ set(lib_sources
     small/slab_arena.c
     small/matras.c
     small/ibuf.c
-    small/obuf.c
     small/static.c)
 
 if(ENABLE_ASAN)
     list(APPEND lib_sources
+         small/obuf_asan.c
          small/lsregion_asan.c
          small/region_asan.c
          small/small_asan.c)
 else()
     list(APPEND lib_sources
+         small/obuf.c
          small/lsregion.c
          small/region.c
          small/small_class.c
