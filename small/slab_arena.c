@@ -31,6 +31,7 @@
 #include "slab_arena.h"
 #include "small_config.h"
 #include "quota.h"
+#include "util.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>

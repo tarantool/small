@@ -55,6 +55,7 @@ set(lib_headers
     include/small/rlist.h
     include/small/slab_arena.h
     include/small/slab_cache.h
+    include/small/slab_list.h
     include/small/small_class.h
     include/small/small.h
     include/small/lsregion.h

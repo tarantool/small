@@ -38,6 +38,7 @@
 #include "rlist.h"
 #include "quota.h"
 #include "slab_cache.h"
+#include "util.h"
 
 #if defined(__cplusplus)
 extern "C" {
