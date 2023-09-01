@@ -48,10 +48,7 @@ check_simple(tree_t *tree)
 	test_new(tree);
 	ok(test_empty(tree));
 	node_t *nodes = (node_t *)calloc(NUMBER_NODES, sizeof(*nodes));
-	if (!nodes) {
-		printf("can't allocate nodes\n");
-		exit(1);
-	}
+	fail_unless(nodes != NULL);
 	for (int i = 0; i < NUMBER_NODES; i++) {
 		nodes[i].key = i;
 		nodes[i].data = 2 * i;
