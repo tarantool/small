@@ -86,10 +86,6 @@ mempool_basic()
 	for (i = 0; i < ITERATIONS_MAX; i++) {
 		basic_alloc_streak();
 		allocating = ! allocating;
-#if 0
-		printf("%zu %zu\n", mempool_used(&pool),
-		       mempool_total(&pool));
-#endif
 	}
 	ok(true);
 
