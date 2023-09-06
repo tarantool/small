@@ -31,6 +31,8 @@
  * SUCH DAMAGE.
  */
 #include <stddef.h>
+#include "util.h"
+
 #if defined(__cplusplus)
 extern "C" {
 #endif /* defined(__cplusplus) */
@@ -45,9 +47,12 @@ extern "C" {
 #endif
 
 /**
- * list entry and head structure
+ * List entry and head structure.
+ *
+ * All functions has always_inline attribute. This way if caller
+ * has no_sanitize_address attribute then rlist functions are not
+ * ASAN instrumented too.
  */
-
 struct rlist {
 	struct rlist *prev;
 	struct rlist *next;
@@ -56,8 +61,7 @@ struct rlist {
 /**
  * init list head (or list entry as ins't included in list)
  */
-
-inline static void
+static SMALL_ALWAYS_INLINE void
 rlist_create(struct rlist *list)
 {
 	list->next = list;
@@ -67,7 +71,7 @@ rlist_create(struct rlist *list)
 /**
  * add item to list
  */
-inline static void
+static SMALL_ALWAYS_INLINE void
 rlist_add(struct rlist *head, struct rlist *item)
 {
 	item->prev = head;
@@ -79,7 +83,7 @@ rlist_add(struct rlist *head, struct rlist *item)
 /**
  * add item to list tail
  */
-inline static void
+static SMALL_ALWAYS_INLINE void
 rlist_add_tail(struct rlist *head, struct rlist *item)
 {
 	item->next = head;
@@ -91,7 +95,7 @@ rlist_add_tail(struct rlist *head, struct rlist *item)
 /**
  * delete element
  */
-inline static void
+static SMALL_ALWAYS_INLINE void
 rlist_del(struct rlist *item)
 {
 	item->prev->next = item->next;
@@ -99,7 +103,7 @@ rlist_del(struct rlist *item)
 	rlist_create(item);
 }
 
-inline static struct rlist *
+static SMALL_ALWAYS_INLINE struct rlist *
 rlist_shift(struct rlist *head)
 {
         struct rlist *shift = head->next;
@@ -109,7 +113,7 @@ rlist_shift(struct rlist *head)
         return shift;
 }
 
-inline static struct rlist *
+static SMALL_ALWAYS_INLINE struct rlist *
 rlist_shift_tail(struct rlist *head)
 {
         struct rlist *shift = head->prev;
@@ -120,7 +124,7 @@ rlist_shift_tail(struct rlist *head)
 /**
  * return first element
  */
-inline static struct rlist *
+static SMALL_ALWAYS_INLINE struct rlist *
 rlist_first(struct rlist *head)
 {
 	return head->next;
@@ -129,7 +133,7 @@ rlist_first(struct rlist *head)
 /**
  * return last element
  */
-inline static struct rlist *
+static SMALL_ALWAYS_INLINE struct rlist *
 rlist_last(struct rlist *head)
 {
 	return head->prev;
@@ -138,7 +142,7 @@ rlist_last(struct rlist *head)
 /**
  * return next element by element
  */
-inline static struct rlist *
+static SMALL_ALWAYS_INLINE struct rlist *
 rlist_next(struct rlist *item)
 {
 	return item->next;
@@ -147,7 +151,7 @@ rlist_next(struct rlist *item)
 /**
  * return previous element
  */
-inline static struct rlist *
+static SMALL_ALWAYS_INLINE struct rlist *
 rlist_prev(struct rlist *item)
 {
 	return item->prev;
@@ -156,7 +160,7 @@ rlist_prev(struct rlist *item)
 /**
  * return TRUE if list is empty
  */
-inline static int
+static SMALL_ALWAYS_INLINE int
 rlist_empty(struct rlist *item)
 {
 	return item->next == item->prev && item->next == item;
@@ -167,7 +171,7 @@ rlist_empty(struct rlist *item)
 @param to the head that will precede our entry
 @param item the entry to move
 */
-static inline void
+static SMALL_ALWAYS_INLINE void
 rlist_move(struct rlist *to, struct rlist *item)
 {
 	rlist_del(item);
@@ -179,7 +183,7 @@ rlist_move(struct rlist *to, struct rlist *item)
 @param to the head that will precede our entry
 @param item the entry to move
 */
-static inline void
+static SMALL_ALWAYS_INLINE void
 rlist_move_tail(struct rlist *to, struct rlist *item)
 {
 	item->prev->next = item->next;
@@ -190,7 +194,7 @@ rlist_move_tail(struct rlist *to, struct rlist *item)
 	item->next->prev = item;
 }
 
-static inline void
+static SMALL_ALWAYS_INLINE void
 rlist_swap(struct rlist *rhs, struct rlist *lhs)
 {
 	struct rlist tmp = *rhs;
@@ -210,7 +214,7 @@ rlist_swap(struct rlist *rhs, struct rlist *lhs)
 /**
  * move all items of list head2 to the head of list head1
  */
-static inline void
+static SMALL_ALWAYS_INLINE void
 rlist_splice(struct rlist *head1, struct rlist *head2)
 {
 	if (!rlist_empty(head2)) {
@@ -225,7 +229,7 @@ rlist_splice(struct rlist *head1, struct rlist *head2)
 /**
  * move all items of list head2 to the tail of list head1
  */
-static inline void
+static SMALL_ALWAYS_INLINE void
 rlist_splice_tail(struct rlist *head1, struct rlist *head2)
 {
 	if (!rlist_empty(head2)) {
@@ -241,7 +245,7 @@ rlist_splice_tail(struct rlist *head1, struct rlist *head2)
  * move the initial part of list head2, up to but excluding item,
  * to list head1; the old content of head1 is discarded
  */
-static inline void
+static SMALL_ALWAYS_INLINE void
 rlist_cut_before(struct rlist *head1, struct rlist *head2, struct rlist *item)
 {
 	if (head1->next == item) {

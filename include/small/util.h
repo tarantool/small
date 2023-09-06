@@ -50,6 +50,20 @@
 #endif
 
 /**
+ * Add `always_inline` attribute to the function if possible. Add inline too.
+ * Such function will always be inlined.
+ *
+ * Usage example:
+ *
+ * static SMALL_ALWAYS_INLINE void f() {}
+ */
+#if __has_attribute(always_inline) || defined(__GNUC__)
+#  define SMALL_ALWAYS_INLINE inline __attribute__((always_inline))
+#else
+#  define SMALL_ALWAYS_INLINE inline
+#endif
+
+/**
  * Return size of a memory page in bytes.
  */
 static inline long
