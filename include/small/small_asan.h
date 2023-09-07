@@ -102,6 +102,13 @@ small_stats(struct small_alloc *alloc,
 	    struct small_stats *totals,
 	    int (*cb)(const void *, void *), void *cb_ctx);
 
+static inline void
+small_alloc_check(struct small_alloc *alloc)
+{
+	(void)alloc;
+	return;
+}
+
 #if defined(__cplusplus)
 } /* extern "C" */
 #endif /* defined(__cplusplus) */
