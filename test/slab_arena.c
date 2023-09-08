@@ -69,7 +69,7 @@ vma_has_flag(unsigned long vm_start, const char *flag)
 static void
 slab_test_madvise(void)
 {
-	plan(2);
+	plan(1);
 	header();
 
 	struct slab_arena arena;
@@ -80,7 +80,7 @@ slab_test_madvise(void)
 	 * The system doesn't support flags fetching.
 	 */
 	if (access("/proc/self/smaps", F_OK))
-		return;
+		goto finish;
 
 	/*
 	 * If system supports madvise call, test that
@@ -95,7 +95,7 @@ slab_test_madvise(void)
 	 */
 	ptr = slab_map(&arena);
 	fail_unless(ptr != NULL);
-	ok(vma_has_flag((unsigned long)ptr, "dd"));
+	fail_unless(vma_has_flag((unsigned long)ptr, "dd"));
 
 	slab_unmap(&arena, ptr);
 	slab_arena_destroy(&arena);
@@ -112,10 +112,12 @@ slab_test_madvise(void)
 	 */
 	ptr = slab_map(&arena);
 	fail_unless(ptr != NULL);
-	ok(vma_has_flag((unsigned long)ptr, "dd"));
+	fail_unless(vma_has_flag((unsigned long)ptr, "dd"));
 
 	slab_unmap(&arena, ptr);
 	slab_arena_destroy(&arena);
+finish:
+	ok(true);
 
 	footer();
 	check_plan();
