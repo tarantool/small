@@ -62,7 +62,9 @@ int main()
 	plan(1);
 	header();
 
-	srand(time(NULL));
+	unsigned int seed = time(NULL);
+	note("random seed is %u", seed);
+	srand(seed);
 
 	quota_init(&quota, UINT_MAX);
 

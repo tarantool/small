@@ -18,7 +18,7 @@ struct quota quota;
 /* Streak type - allocating or freeing */
 bool allocating = true;
 /** Keep global to easily inspect the core. */
-long seed;
+unsigned int seed;
 
 static int *ptrs[OBJECTS_MAX];
 
@@ -138,7 +138,8 @@ int main()
 	plan(2);
 	header();
 
-	seed = time(0);
+	seed = time(NULL);
+	note("random seed is %u", seed);
 	srand(seed);
 
 	quota_init(&quota, UINT_MAX);

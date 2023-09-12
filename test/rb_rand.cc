@@ -231,7 +231,9 @@ int main()
 	plan(1);
 	header();
 
-	srand (time(NULL));
+	unsigned int seed = time(NULL);
+	note("random seed is %u", seed);
+	srand(seed);
 	tree_t tree;
 	test_new(&tree);
 	my_set stl_tree;

@@ -65,7 +65,9 @@ main()
 	header();
 
 	quota_init(&quota, 0);
-	srand(time(0));
+	unsigned int seed = time(NULL);
+	note("random seed is %u", seed);
+	srand(seed);
 
 	for (size_t i = 0; i < THREAD_CNT; i++) {
 		pthread_create(threads + i, 0, thread_routine, (void *)(datum + i));

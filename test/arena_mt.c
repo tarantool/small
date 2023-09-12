@@ -27,6 +27,7 @@ run(void *p __attribute__((unused)))
 #else
 	unsigned int seed = (intptr_t) pthread_self();
 #endif
+	note("random seed is %u", seed);
 	int iterations = rand_r(&seed) % ITERATIONS;
 	pthread_t **slabs = slab_map(&arena);
 	for (int i = 0; i < iterations; i++) {
