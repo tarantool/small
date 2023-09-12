@@ -85,7 +85,9 @@ main(void)
 	plan(2);
 	header();
 
-	srand(time(0));
+	unsigned int seed = time(NULL);
+	note("random seed is %u", seed);
+	srand(seed);
 	quota_init(&quota, UINT_MAX);
 
 	test_slab_cache();
