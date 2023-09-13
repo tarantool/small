@@ -117,6 +117,16 @@ small_alloc_check(struct small_alloc *alloc)
 	return;
 }
 
+static inline void
+small_alloc_info(struct small_alloc *alloc, void *ptr, size_t size,
+		 struct small_alloc_info *info)
+{
+	(void)alloc;
+	(void)ptr;
+	info->is_large = true;
+	info->real_size = size;
+}
+
 #if defined(__cplusplus)
 } /* extern "C" */
 #endif /* defined(__cplusplus) */
