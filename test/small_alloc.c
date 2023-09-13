@@ -137,6 +137,53 @@ small_alloc_large(void)
 	check_plan();
 }
 
+static inline void
+check_small_alloc_info(struct small_alloc *alloc, size_t size, bool is_large,
+		       size_t real_size)
+{
+	struct small_alloc_info info;
+	small_alloc_info(alloc, NULL, size, &info);
+	fail_unless(info.is_large == is_large);
+	fail_unless(info.real_size == real_size);
+}
+
+static void
+test_small_alloc_info(void)
+{
+	plan(1);
+	header();
+	/*
+	 * Create the following groups of mempools.
+	 * The table is valid for SLAB_MIN_ORDER0_SIZE = [4096, 8192, 16384].
+	 * For 32768 and 65536 the first groups are merged.
+	 *
+	 *  slab  |  mempool
+	 *  size  |  objsize
+	 * -------|----------------------------------------------------------
+	 *  16 KB | 64, 128
+	 *  32 KB | 192, 256
+	 *  64 KB | 384, 512
+	 * 128 KB | 768, 1024
+	 * 256 KB | 1536, 2048
+	 * 512 KB | 3072, 4096
+	 *   1 MB | 6144, 8192
+	 *   2 MB | 12288, 16384
+	 *   4 MB | 24576, 32768, 49152, 65536, 98304, 131072, 196608, 262144
+	 */
+	float actual_alloc_factor;
+	small_alloc_create(&alloc, &cache, 64, 64, 1.5f, &actual_alloc_factor);
+
+	check_small_alloc_info(&alloc, 257, false, 512);
+	check_small_alloc_info(&alloc, 512, false, 512);
+	check_small_alloc_info(&alloc, 16385, false, 262144);
+	check_small_alloc_info(&alloc, 262144, false, 262144);
+	check_small_alloc_info(&alloc, 262145, true, 262145);
+	ok(true);
+
+	small_alloc_destroy(&alloc);
+	footer();
+	check_plan();
+}
 #else /* ifdef ENABLE_ASAN */
 
 static char assert_msg_buf[128];
@@ -213,7 +260,7 @@ int main()
 #ifdef ENABLE_ASAN
 	plan(3);
 #else
-	plan(2);
+	plan(3);
 #endif
 	header();
 
@@ -229,6 +276,7 @@ int main()
 	small_alloc_basic();
 #ifndef ENABLE_ASAN
 	small_alloc_large();
+	test_small_alloc_info();
 #else
 	small_wrong_size_in_free();
 	small_membership();

@@ -30,7 +30,23 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include <stddef.h>
+#include <stdbool.h>
 #include "small_config.h"
+
+/** Information on the memory allocation. */
+struct small_alloc_info {
+	/**
+	 * True if the object is allocated on the large slab (by malloc),
+	 * false if it is allocated on the mempool.
+	 */
+	bool is_large;
+	/**
+	 * Size of the memory block that is actually allocated for the
+	 * requested size.
+	 */
+	size_t real_size;
+};
 
 #ifdef ENABLE_ASAN
 #  include "small_asan.h"
@@ -235,6 +251,16 @@ small_alloc_check(struct small_alloc *alloc)
 {
 	return slab_cache_check(alloc->cache);
 }
+
+/**
+ * Fill `info' with the information about allocation `ptr' of size `size'.
+ * See `struct small_alloc_info' for the description of each field.
+ * Note that this function can return different `info->real_size' for the same
+ * input, depending on the current `small_mempool->used_pool'.
+ */
+void
+small_alloc_info(struct small_alloc *alloc, void *ptr, size_t size,
+		 struct small_alloc_info *info);
 
 #if defined(__cplusplus)
 } /* extern "C" */
