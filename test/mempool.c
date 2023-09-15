@@ -78,18 +78,19 @@ mempool_basic()
 {
 	int i;
 
-	plan(1);
+	plan(2);
 	header();
 
 	mempool_create(&pool, &cache, objsize);
+	ok(mempool_is_initialized(&pool));
 
 	for (i = 0; i < ITERATIONS_MAX; i++) {
 		basic_alloc_streak();
 		allocating = ! allocating;
 	}
-	ok(true);
 
 	mempool_destroy(&pool);
+	ok(!mempool_is_initialized(&pool));
 
 	footer();
 	check_plan();

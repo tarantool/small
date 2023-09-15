@@ -244,6 +244,12 @@ mempool_create(struct mempool *pool, struct slab_cache *cache,
 	return mempool_create_with_order(pool, cache, objsize, order);
 }
 
+/**
+ * Return true after mempool_create and false after mempool_destroy.
+ *
+ * The result of calling before obuf_create is undefined unless buf struct
+ * is zeroed out.
+ */
 static inline bool
 mempool_is_initialized(struct mempool *pool)
 {

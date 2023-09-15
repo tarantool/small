@@ -33,11 +33,12 @@ obuf_basic(struct slab_cache *slabc)
 {
 	int i;
 
-	plan(1);
+	plan(3);
 	header();
 
 	struct obuf buf;
 	obuf_create(&buf, slabc, 16320);
+	ok(obuf_is_initialized(&buf));
 
 	for (i = 0; i < ITERATIONS_MAX; i++) {
 		basic_alloc_streak(&buf);
@@ -46,6 +47,7 @@ obuf_basic(struct slab_cache *slabc)
 		fail_unless(obuf_size(&buf) == 0);
 	}
 	obuf_destroy(&buf);
+	ok(!obuf_is_initialized(&buf));
 	ok(slab_cache_used(slabc) == 0);
 	slab_cache_check(slabc);
 

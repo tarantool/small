@@ -183,6 +183,8 @@ mempool_destroy(struct mempool *pool)
 	rlist_foreach_entry_safe(slab, &pool->slabs.slabs,
 				 next_in_list, tmp)
 		slab_put_with_order(pool->cache, slab);
+	/* Safety and also makes mempool_is_initialized work. */
+	memset(pool, 0, sizeof(*pool));
 }
 
 void *
