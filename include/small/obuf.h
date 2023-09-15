@@ -106,6 +106,18 @@ struct obuf
 void
 obuf_create(struct obuf *buf, struct slab_cache *slabc, size_t start_capacity);
 
+/**
+ * Return true after obuf_create and false after obuf_destroy.
+ *
+ * The result of calling before obuf_create is undefined unless buf struct
+ * is zeroed out.
+ */
+static inline bool
+obuf_is_initialized(const struct obuf *buf)
+{
+	return buf->slabc != NULL;
+}
+
 void
 obuf_destroy(struct obuf *buf);
 

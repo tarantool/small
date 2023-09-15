@@ -95,9 +95,8 @@ obuf_destroy(struct obuf *buf)
 		struct slab *slab = slab_from_data(buf->iov[i].iov_base);
 		slab_put(buf->slabc, slab);
 	}
-#ifndef NDEBUG
-	obuf_create(buf, buf->slabc, buf->start_capacity);
-#endif
+	/* Safety and also makes obuf_is_initialized work. */
+	memset(buf, 0, sizeof(*buf));
 }
 
 /** Add data to the output buffer. Copies the data. */
