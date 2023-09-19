@@ -95,14 +95,35 @@ test_hard_lease()
 	check_plan();
 }
 
+static void
+test_leases_on_destroy()
+{
+	plan(4);
+	header();
+
+	struct quota q;
+	quota_init(&q, QUOTA_MAX);
+	struct quota_lessor l;
+	quota_lessor_create(&l, &q);
+	ok(quota_lease(&l, 100) == 100);
+	quota_lessor_destroy(&l);
+	ok(quota_leased(&l) == 0);
+	ok(quota_available(&l) == 0);
+	ok(quota_used(&q) == 0);
+
+	footer();
+	check_plan();
+}
+
 int
 main()
 {
-	plan(2);
+	plan(3);
 	header();
 
 	test_basic();
 	test_hard_lease();
+	test_leases_on_destroy();
 
 	footer();
 	return check_plan();
