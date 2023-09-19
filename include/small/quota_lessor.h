@@ -96,17 +96,16 @@ quota_lessor_create(struct quota_lessor *lessor, struct quota *source)
 /**
  * Destroy the quota lessor
  * @param lessor quota_lessor
- * @pre quota_leased(lessor) == 0
  */
 static inline void
 quota_lessor_destroy(struct quota_lessor *lessor)
 {
-	assert(lessor->leased == 0);
 	if (lessor->used == 0)
 		return;
 	assert(lessor->used % QUOTA_UNIT_SIZE == 0);
 	quota_release(lessor->source, lessor->used);
 	lessor->used = 0;
+	lessor->leased = 0;
 }
 
 /**
