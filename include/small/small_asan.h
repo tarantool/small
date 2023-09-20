@@ -60,8 +60,6 @@ struct quota_lessor;
  * have same inner structure as regular one (does not consist of mempools).
  */
 struct small_alloc {
-	/** List of active (not yet freed) allocations. */
-	struct rlist objects;
 	/** Number of active (not yet freed) allocations. */
 	size_t objcount;
 	/** Total size of allocations. */
@@ -75,8 +73,6 @@ enum {
 
 /** Extra data associated with each small object allocation. */
 struct small_object {
-	/** Link for objects list in allocator. */
-	struct rlist link;
 	/** Size of allocation. */
 	size_t size;
 };
@@ -88,8 +84,11 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 		   uint32_t objsize_min, unsigned granularity,
 		   float alloc_factor, float *actual_alloc_factor);
 
-void
-small_alloc_destroy(struct small_alloc *alloc);
+static inline void
+small_alloc_destroy(struct small_alloc *alloc)
+{
+	(void)alloc;
+}
 
 void *
 smalloc(struct small_alloc *alloc, size_t size);
