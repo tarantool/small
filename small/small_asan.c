@@ -42,20 +42,9 @@ small_alloc_create(struct small_alloc *alloc, struct slab_cache *cache,
 	(void)granularity;
 	(void)alloc_factor;
 	(void)cache;
-	rlist_create(&alloc->objects);
 	alloc->used = 0;
 	alloc->objcount = 0;
 	*actual_alloc_factor = alloc_factor;
-}
-
-SMALL_NO_SANITIZE_ADDRESS void
-small_alloc_destroy(struct small_alloc *alloc)
-{
-	struct small_object *obj, *tmp;
-	rlist_foreach_entry_safe(obj, &alloc->objects, link, tmp) {
-		small_asan_free(obj);
-	}
-	rlist_create(&alloc->objects);
 }
 
 SMALL_NO_SANITIZE_ADDRESS void *
@@ -65,7 +54,6 @@ smalloc(struct small_alloc *alloc, size_t size)
 				small_asan_alloc(size, SMALL_ASAN_ALIGNMENT,
 						 sizeof(struct small_object));
 	obj->size = size;
-	rlist_add_entry(&alloc->objects, obj, link);
 	alloc->used += size;
 	alloc->objcount++;
 
@@ -77,7 +65,6 @@ smfree(struct small_alloc *alloc, void *ptr, size_t size)
 {
 	struct small_object *obj = small_asan_header_from_payload(ptr);
 	small_asan_assert(obj->size == size && "invalid object size");
-	rlist_del_entry(obj, link);
 	alloc->used -= obj->size;
 	alloc->objcount--;
 
