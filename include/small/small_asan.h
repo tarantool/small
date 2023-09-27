@@ -64,6 +64,8 @@ struct small_alloc {
 	size_t objcount;
 	/** Total size of allocations. */
 	size_t used;
+	/** Unique id among all allocators. */
+	unsigned int id;
 };
 
 enum {
@@ -75,6 +77,8 @@ enum {
 struct small_object {
 	/** Size of allocation. */
 	size_t size;
+	/** id of the allocator that this object belongs to. */
+	unsigned int allocator_id;
 };
 
 struct slab_cache;

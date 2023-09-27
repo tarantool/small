@@ -43,6 +43,17 @@ small_xmalloc_fail(size_t size, const char *filename, int line)
 
 #ifdef ENABLE_ASAN
 
+#include <pmatomic.h>
+
+/** Next runtime unique id. */
+static unsigned int small_asan_id_next;
+
+unsigned int
+small_asan_reserve_id(void)
+{
+	return pm_atomic_fetch_add(&small_asan_id_next, 1);
+}
+
 void
 small_on_assert_failure_default(const char *filename, int line,
 			        const char *funcname, const char *expr)

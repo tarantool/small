@@ -250,4 +250,8 @@ small_asan_header_from_payload(void *payload)
 void
 small_asan_free(void *header);
 
+/** Reserve a runtime unique id. */
+unsigned int
+small_asan_reserve_id(void);
+
 #endif /* ifdef ENABLE_ASAN */
