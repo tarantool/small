@@ -180,11 +180,41 @@ small_wrong_size_in_free(void)
 	check_plan();
 }
 
+static void
+small_membership(void)
+{
+	plan(1);
+	header();
+
+	struct small_alloc alloc1;
+	struct small_alloc alloc2;
+	float dummy;
+
+	small_alloc_create(&alloc1, &cache, OBJSIZE_MIN, sizeof(intptr_t),
+			   1.3, &dummy);
+	small_alloc_create(&alloc2, &cache, OBJSIZE_MIN, sizeof(intptr_t),
+			   1.3, &dummy);
+	void *ptr = smalloc(&alloc1, OBJSIZE_MIN);
+	fail_unless(ptr != NULL);
+	small_on_assert_failure = on_assert_failure;
+	smfree(&alloc2, ptr, OBJSIZE_MIN);
+	small_on_assert_failure = small_on_assert_failure_default;
+	ok(strstr(assert_msg_buf,
+		  "object and allocator id mismatch\" in smfree") != NULL);
+
+	footer();
+	check_plan();
+}
+
 #endif /* ifdef ENABLE_ASAN */
 
 int main()
 {
+#ifdef ENABLE_ASAN
+	plan(3);
+#else
 	plan(2);
+#endif
 	header();
 
 	seed = time(NULL);
@@ -201,6 +231,7 @@ int main()
 	small_alloc_large();
 #else
 	small_wrong_size_in_free();
+	small_membership();
 #endif
 
 	slab_cache_destroy(&cache);
