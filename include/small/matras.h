@@ -173,10 +173,10 @@ struct matras {
 	matras_id_t block_size;
 	/* Extent size (M) */
 	matras_id_t extent_size;
-	/* Numberof allocated extents */
+	/* Number of allocated extents */
 	matras_id_t extent_count;
-	/* binary logarithm  of maximum possible created blocks count */
-	matras_id_t log2_capacity;
+	/* Maximum possible number of created blocks */
+	matras_id_t capacity;
 	/* See "Shifts and masks explanation" below  */
 	matras_id_t shift1, shift2;
 	/* See "Shifts and masks explanation" below  */
@@ -200,7 +200,7 @@ struct matras {
  * Heres is an example block ID bits, high order bits first:
  * ID :   0  0  0  0  N1 N1 N1 N1 N2 N2 N2 N2 N3 N3 N3 N3 N3
  * mask1: 0  0  0  0  0  0  0  0  1  1  1  1  1  1  1  1  1
- * mask1: 0  0  0  0  0  0  0  0  0  0  0  0  1  1  1  1  1
+ * mask2: 0  0  0  0  0  0  0  0  0  0  0  0  1  1  1  1  1
  *                                <---------shift1-------->
  *                                            <---shift2-->
  * When defined in such way, one can simply split ID to N1, N2 and N3:
