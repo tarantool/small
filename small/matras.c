@@ -69,7 +69,17 @@ matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
 	matras_id_t log1 = matras_log2(extent_size);
 	matras_id_t log2 = matras_log2(block_size);
 	matras_id_t log3 = matras_log2(sizeof(void *));
-	m->log2_capacity = log1 * 3 - log2 - log3 * 2;
+	matras_id_t log2_capacity = log1 * 3 - log2 - log3 * 2;
+	/*
+	 * Given extent_size = 16384 and block_size = 16, the capacity is 2^32
+	 * blocks, however this number is 1 more than can be represented by the
+	 * 32-bit matras_view::block_count. To avoid its overflow, the capacity
+	 * is intentionally limited to 2^31 blocks, which ought to be enough for
+	 * anybody.
+	 */
+	if (log2_capacity > 31)
+		log2_capacity = 31;
+	m->capacity = (matras_id_t)1 << log2_capacity;
 	m->shift1 = log1 * 2 - log2 - log3;
 	m->shift2 = log1 - log2;
 	m->mask1 = (((matras_id_t)1) << m->shift1) - ((matras_id_t)1);
@@ -161,20 +171,12 @@ matras_destroy(struct matras *m)
 	assert(m->extent_count == 0);
 }
 
-
-
 /**
- * Allocate a new block. Return both, block pointer and block
- * id.
- *
- * @retval NULL failed to allocate memory
+ * Common part of matras_alloc() and matras_alloc_range().
  */
-void *
-matras_alloc(struct matras *m, matras_id_t *result_id)
+static void *
+matras_alloc_internal(struct matras *m)
 {
-	assert(m->head.block_count == 0 ||
-		matras_log2(m->head.block_count) < m->log2_capacity);
-
 	/* Current block_count is the ID of new block */
 	matras_id_t id = m->head.block_count;
 
@@ -235,8 +237,27 @@ matras_alloc(struct matras *m, matras_id_t *result_id)
 		extent2[n2] = (void *)extent3;
 	}
 
-	*result_id = m->head.block_count++;
 	return (void *)(extent3 + n3 * m->block_size);
+}
+
+/**
+ * Allocate a new block. Return both, block pointer and block id.
+ *
+ * @retval NULL failed to allocate memory
+ */
+void *
+matras_alloc(struct matras *m, matras_id_t *result_id)
+{
+	assert(m->head.block_count <= m->capacity);
+
+	if (m->head.block_count == m->capacity) {
+		/* Matras is completely full. */
+		return NULL;
+	}
+	void *res = matras_alloc_internal(m);
+	if (res != NULL)
+		*result_id = m->head.block_count++;
+	return res;
 }
 
 /*
@@ -287,11 +308,19 @@ matras_dealloc(struct matras *m)
 void *
 matras_alloc_range(struct matras *m, matras_id_t *id, matras_id_t range_count)
 {
+	assert(m->head.block_count <= m->capacity);
 	assert(m->head.block_count % range_count == 0);
 	assert(m->extent_size / m->block_size % range_count == 0);
-	void *res = matras_alloc(m, id);
-	if (res)
-		m->head.block_count += (range_count - 1);
+
+	if (m->head.block_count + range_count > m->capacity) {
+		/* No space left for range_count. */
+		return NULL;
+	}
+	void *res = matras_alloc_internal(m);
+	if (res != NULL) {
+		*id = m->head.block_count;
+		m->head.block_count += range_count;
+	}
 	return res;
 }
 

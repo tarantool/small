@@ -62,7 +62,7 @@ void matras_alloc_test()
 	alloc_err_inj_enabled = false;
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
 		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL, NULL);
-		fail_unless(1u << mat.log2_capacity == maxCapacity);
+		fail_unless(mat.capacity == maxCapacity);
 		AllocatedItems.clear();
 		for (unsigned int j = 0; j < i; j++) {
 			unsigned int res = 0;
@@ -317,16 +317,75 @@ matras_stats_test()
 	check_plan();
 }
 
+void
+matras_alloc_overflow_test()
+{
+	header();
+	plan(2);
+
+	size_t max_capacity = PROV_EXTENT_SIZE / PROV_BLOCK_SIZE;
+	max_capacity *= PROV_EXTENT_SIZE / sizeof(void *);
+	max_capacity *= PROV_EXTENT_SIZE / sizeof(void *);
+
+	matras_id_t id;
+	struct matras mat;
+	matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc,
+		      pta_free, NULL, NULL);
+	for (size_t i = 0; i < max_capacity; i++) {
+		void *data = matras_alloc(&mat, &id);
+		fail_unless(data != NULL);
+		fail_unless(id == i);
+	}
+	/* Try to exceed the maximum capacity. */
+	ok(matras_alloc(&mat, &id) == NULL);
+	ok(id == max_capacity - 1);
+	matras_destroy(&mat);
+
+	footer();
+	check_plan();
+}
+
+void
+matras_alloc_range_overflow_test()
+{
+	header();
+	plan(2);
+
+	const size_t range_count = 4;
+	size_t max_capacity = PROV_EXTENT_SIZE / PROV_BLOCK_SIZE;
+	max_capacity *= PROV_EXTENT_SIZE / sizeof(void *);
+	max_capacity *= PROV_EXTENT_SIZE / sizeof(void *);
+
+	matras_id_t id;
+	struct matras mat;
+	matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc,
+		      pta_free, NULL, NULL);
+	for (size_t i = 0; i < max_capacity; i += range_count) {
+		void *data = matras_alloc_range(&mat, &id, range_count);
+		fail_unless(data != NULL);
+		fail_unless(id == i);
+	}
+	/* Try to exceed the maximum capacity. */
+	ok(matras_alloc_range(&mat, &id, range_count) == NULL);
+	ok(id == max_capacity - range_count);
+	matras_destroy(&mat);
+
+	footer();
+	check_plan();
+}
+
 int
 main(int, const char **)
 {
-	plan(4);
+	plan(6);
 	header();
 
 	matras_alloc_test();
 	matras_vers_test();
 	matras_gh_1145_test();
 	matras_stats_test();
+	matras_alloc_overflow_test();
+	matras_alloc_range_overflow_test();
 
 	footer();
 	return check_plan();
