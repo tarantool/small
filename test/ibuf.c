@@ -136,6 +136,27 @@ test_ibuf_truncate()
 	check_plan();
 }
 
+static void
+test_ibuf_discard(void)
+{
+	plan(4);
+	header();
+
+	struct ibuf ibuf;
+	ibuf_create(&ibuf, &cache, 1024);
+	ibuf_alloc(&ibuf, 512);
+	char *pos = ibuf.rpos;
+	ibuf_discard(&ibuf, 100);
+	ok(ibuf.rpos == pos);
+	ok(ibuf_used(&ibuf) == 412);
+	ibuf_discard(&ibuf, 412);
+	ok(ibuf.rpos == pos);
+	ok(ibuf_used(&ibuf) == 0);
+
+	footer();
+	check_plan();
+}
+
 #ifdef ENABLE_ASAN
 
 static void
@@ -228,6 +249,12 @@ test_ibuf_poison(void)
 	for (char *p = ibuf.wpos; p < ibuf.end; p++)
 		fail_unless(__asan_address_is_poisoned(p));
 
+	/* Test poison on discard. */
+	ibuf_discard(&ibuf, 100);
+	memset(ibuf.buf, 0, ibuf_used(&ibuf));
+	for (char *p = ibuf.wpos; p < ibuf.end; p++)
+		fail_unless(__asan_address_is_poisoned(p));
+
 	/* Test poison on shrink. */
 	ibuf_reset(&ibuf);
 	ptr = ibuf_alloc(&ibuf, 333);
@@ -249,9 +276,9 @@ test_ibuf_poison(void)
 int main()
 {
 #ifdef ENABLE_ASAN
-	plan(4);
+	plan(5);
 #else
-	plan(3);
+	plan(4);
 #endif
 	header();
 
@@ -263,6 +290,7 @@ int main()
 	test_ibuf_basic();
 	test_ibuf_shrink();
 	test_ibuf_truncate();
+	test_ibuf_discard();
 #ifdef ENABLE_ASAN
 	test_ibuf_poison();
 #endif
