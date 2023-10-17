@@ -110,6 +110,13 @@ struct obuf
 	 * (iov_base = NULL, iov_len = 0).
 	 */
 	struct iovec iov[SMALL_OBUF_IOV_MAX + 1];
+#ifndef NDEBUG
+	/**
+	 * The flag is used to check that there is no 2 reservations in a row.
+	 * The same check that has the ASAN version.
+	 */
+	bool reserved;
+#endif
 };
 
 void
@@ -166,10 +173,19 @@ obuf_reserve_slow(struct obuf *buf, size_t size);
 static inline void *
 obuf_reserve(struct obuf *buf, size_t size)
 {
-	if (buf->iov[buf->pos].iov_len + size > buf->capacity[buf->pos])
-		return obuf_reserve_slow(buf, size);
-	struct iovec *iov = &buf->iov[buf->pos];
-	return (char *) iov->iov_base + iov->iov_len;
+	void *ptr = NULL;
+	assert(!buf->reserved);
+	if (buf->iov[buf->pos].iov_len + size > buf->capacity[buf->pos]) {
+		ptr = obuf_reserve_slow(buf, size);
+	} else {
+		struct iovec *iov = &buf->iov[buf->pos];
+		ptr = (char *) iov->iov_base + iov->iov_len;
+	}
+#ifndef NDEBUG
+	if (ptr != NULL)
+		buf->reserved = true;
+#endif
+	return ptr;
 }
 
 /**
@@ -192,6 +208,9 @@ obuf_alloc(struct obuf *buf, size_t size)
 		iov = &buf->iov[buf->pos];
 		assert(iov->iov_len <= buf->capacity[buf->pos]);
 	}
+#ifndef NDEBUG
+	buf->reserved = false;
+#endif
 	iov->iov_len += size;
 	buf->used += size;
 	return ptr;

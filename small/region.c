@@ -65,6 +65,9 @@ region_free(struct region *region)
 	slab_list_create(&region->slabs);
 	if (small_unlikely(region->on_truncate_cb != NULL))
 		region->on_truncate_cb(region, 0, region->cb_arg);
+#ifndef NDEBUG
+	region->reserved = false;
+#endif
 }
 
 /**
@@ -97,6 +100,9 @@ region_truncate(struct region *region, size_t used)
 	}
 	assert(cut_size == 0);
 	region->slabs.stats.used = used;
+#ifndef NDEBUG
+	region->reserved = false;
+#endif
 	if (small_unlikely(region->on_truncate_cb != NULL))
 		region->on_truncate_cb(region, used, region->cb_arg);
 }
@@ -104,10 +110,9 @@ region_truncate(struct region *region, size_t used)
 void *
 region_join(struct region *region, size_t size)
 {
-	if (rlist_empty(&region->slabs.slabs)) {
-		assert(size == 0);
-		return region_alloc(region, 0);
-	}
+	assert(size <= region_used(region));
+	assert(!region->reserved);
+	assert(size > 0);
 	struct rslab *slab = rlist_first_entry(&region->slabs.slabs,
 					       struct rslab,
 					       slab.next_in_list);
