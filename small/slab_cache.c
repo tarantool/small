@@ -322,7 +322,7 @@ slab_get(struct slab_cache *cache, size_t size)
 		slab = slab_get_large(cache, size);
 	else
 		slab = slab_get_with_order(cache, order);
-	assert(slab->size == slab_real_size(cache, size));
+	assert(slab == NULL || slab->size == slab_real_size(cache, size));
 	return slab;
 }
 
