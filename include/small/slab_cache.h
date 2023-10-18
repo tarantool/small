@@ -268,14 +268,14 @@ slab_cache_set_thread(struct slab_cache *cache)
 #endif /* ifndef ENABLE_ASAN */
 
 /** Aligned size of slab meta. */
-static inline uint32_t
-slab_sizeof()
+static inline size_t
+slab_sizeof(void)
 {
 	return small_align(sizeof(struct slab), sizeof(intptr_t));
 }
 
 /** Useful size of a slab. */
-static inline uint32_t
+static inline size_t
 slab_capacity(struct slab *slab)
 {
 	return slab->size - slab_sizeof();
