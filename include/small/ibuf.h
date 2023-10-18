@@ -54,7 +54,7 @@ struct slab_cache;
  * coio_bread(coio, in, request_len);
  * if (ibuf_size(in) >= request_len) {
  *	process_request(in->rpos, request_len);
- *	in->rpos += request_len;
+ *	ibuf_consume(in, request_len);
  * }
  */
 struct ibuf
@@ -123,6 +123,18 @@ static inline void
 ibuf_unpoison_unallocated(const struct ibuf *ibuf)
 {
 	ASAN_UNPOISON_MEMORY_REGION(ibuf->wpos, ibuf->end - ibuf->wpos);
+}
+
+static inline void
+ibuf_poison_consumed(const struct ibuf *ibuf)
+{
+	ASAN_POISON_MEMORY_REGION(ibuf->buf, ibuf->rpos - ibuf->buf);
+}
+
+static inline void
+ibuf_unpoison_consumed(const struct ibuf *ibuf)
+{
+	ASAN_UNPOISON_MEMORY_REGION(ibuf->buf, ibuf->rpos - ibuf->buf);
 }
 
 /** Forget all cached input. */
@@ -194,6 +206,24 @@ ibuf_truncate(struct ibuf *ibuf, size_t used)
 {
 	assert(used <= ibuf_used(ibuf));
 	ibuf_discard(ibuf, ibuf_used(ibuf) - used);
+}
+
+/** Consume size bytes of data from the read end of the buffer. */
+static inline void
+ibuf_consume(struct ibuf *ibuf, size_t size)
+{
+	assert(size <= ibuf_used(ibuf));
+	ibuf->rpos += size;
+	ibuf_poison_consumed(ibuf);
+}
+
+/** Consume bytes before ptr from the read end of the buffer. */
+static inline void
+ibuf_consume_before(struct ibuf *ibuf, char *ptr)
+{
+	assert(ptr >= ibuf->rpos);
+	assert(ptr <= ibuf->wpos);
+	ibuf_consume(ibuf, ptr - ibuf->rpos);
 }
 
 static inline void *

@@ -46,7 +46,7 @@ test_ibuf_shrink(void)
 	/*
 	 * Check that ibuf is not shrunk lower than ibuf_used().
 	 */
-	ibuf.rpos += 70 * 1024;
+	ibuf_consume(&ibuf, 70 * 1024);
 	ibuf_shrink(&ibuf);
 	ok(ibuf_used(&ibuf) == (100 - 70) * 1024);
 	ok(ibuf_capacity(&ibuf) >= ibuf_used(&ibuf));
@@ -62,14 +62,14 @@ test_ibuf_shrink(void)
 	/*
 	 * Check that ibuf is not shrunk lower than start_capacity.
 	 */
-	ibuf.rpos = ibuf.wpos - 1;
+	ibuf_consume(&ibuf, ibuf_used(&ibuf) - 1);
 	ibuf_shrink(&ibuf);
 	ok(ibuf_capacity(&ibuf) >= start_capacity);
 	ok(ibuf_capacity(&ibuf) < start_capacity * 2);
 	/*
 	 * Check that empty ibuf is shrunk to the zero capacity.
 	 */
-	ibuf.rpos = ibuf.wpos;
+	ibuf_consume(&ibuf, ibuf_used(&ibuf));
 	ibuf_shrink(&ibuf);
 	ok(ibuf_capacity(&ibuf) == 0);
 	/*
@@ -78,7 +78,7 @@ test_ibuf_shrink(void)
 	 */
 	ok(ibuf_alloc(&ibuf, 9 * 1024 * 1024) != NULL);
 	ok_no_asan(ibuf_capacity(&ibuf) == 16 * 1024 * 1024);
-	ibuf.rpos += 2 * 1024 * 1024;
+	ibuf_consume(&ibuf, 2 * 1024 * 1024);
 	ibuf_shrink(&ibuf);
 	ok_no_asan(ibuf_capacity(&ibuf) == 7 * 1024 * 1024);
 	/*
@@ -106,7 +106,7 @@ test_ibuf_truncate()
 
 	ibuf_create(&ibuf, &cache, 16 * 1024);
 	ibuf_alloc(&ibuf, 10);
-	ibuf.rpos += 10;
+	ibuf_consume(&ibuf, 10);
 	ptr = ibuf_alloc(&ibuf, strlen(hello) + 1);
 	fail_unless(ptr != NULL);
 	strcpy(ptr, hello);
@@ -151,6 +151,48 @@ test_ibuf_discard(void)
 	ok(ibuf_used(&ibuf) == 412);
 	ibuf_discard(&ibuf, 412);
 	ok(ibuf.rpos == pos);
+	ok(ibuf_used(&ibuf) == 0);
+
+	footer();
+	check_plan();
+}
+
+static void
+test_ibuf_consume(void)
+{
+	plan(4);
+	header();
+
+	struct ibuf ibuf;
+	ibuf_create(&ibuf, &cache, 1024);
+	ibuf_alloc(&ibuf, 512);
+	char *pos = ibuf.wpos;
+	ibuf_consume(&ibuf, 200);
+	ok(ibuf.wpos == pos);
+	ok(ibuf_used(&ibuf) == 312);
+	ibuf_consume(&ibuf, 312);
+	ok(ibuf.wpos == pos);
+	ok(ibuf_used(&ibuf) == 0);
+
+	footer();
+	check_plan();
+}
+
+static void
+test_ibuf_consume_before(void)
+{
+	plan(4);
+	header();
+
+	struct ibuf ibuf;
+	ibuf_create(&ibuf, &cache, 1024);
+	ibuf_alloc(&ibuf, 5000);
+	char *pos = ibuf.wpos;
+	ibuf_consume_before(&ibuf, ibuf.wpos - 1000);
+	ok(ibuf.wpos == pos);
+	ok(ibuf_used(&ibuf) == 1000);
+	ibuf_consume_before(&ibuf, ibuf.wpos);
+	ok(ibuf.wpos == pos);
 	ok(ibuf_used(&ibuf) == 0);
 
 	footer();
@@ -233,7 +275,7 @@ test_ibuf_poison(void)
 		fail_unless(__asan_address_is_poisoned(p));
 
 	size = ibuf_unused(&ibuf) + 221;
-	ibuf.rpos = ibuf.buf + 377;
+	ibuf_consume(&ibuf, 377);
 	ptr = ibuf_reserve(&ibuf, size);
 	fail_unless(ptr != NULL);
 	ok(ibuf_unused(&ibuf) >= size);
@@ -253,6 +295,39 @@ test_ibuf_poison(void)
 	ibuf_discard(&ibuf, 100);
 	memset(ibuf.buf, 0, ibuf_used(&ibuf));
 	for (char *p = ibuf.wpos; p < ibuf.end; p++)
+		fail_unless(__asan_address_is_poisoned(p));
+
+	/* Test poison on consume. */
+	ibuf_consume(&ibuf, 100);
+	memset(ibuf.rpos, 0, ibuf_used(&ibuf));
+	char *poison_end;
+	poison_end = (char *)small_align_down((uintptr_t)ibuf.rpos,
+					      SMALL_POISON_ALIGNMENT);
+	for (char *p = ibuf.buf; p < poison_end; p++)
+		fail_unless(__asan_address_is_poisoned(p));
+
+	/* Test no unpoisoned area left between this and previous consume. */
+	ibuf_consume(&ibuf, 77);
+	memset(ibuf.rpos, 0, ibuf_used(&ibuf));
+	poison_end = (char *)small_align_down((uintptr_t)ibuf.rpos,
+					      SMALL_POISON_ALIGNMENT);
+	for (char *p = ibuf.buf; p < poison_end; p++)
+		fail_unless(__asan_address_is_poisoned(p));
+
+	/* Test poison on consume_before. */
+	ibuf_consume(&ibuf, 150);
+	memset(ibuf.rpos, 0, ibuf_used(&ibuf));
+	poison_end = (char *)small_align_down((uintptr_t)ibuf.rpos,
+					      SMALL_POISON_ALIGNMENT);
+	for (char *p = ibuf.buf; p < poison_end; p++)
+		fail_unless(__asan_address_is_poisoned(p));
+
+	/* Test no unpoisoned area left between this and previous consume. */
+	ibuf_consume(&ibuf, 44);
+	memset(ibuf.rpos, 0, ibuf_used(&ibuf));
+	poison_end = (char *)small_align_down((uintptr_t)ibuf.rpos,
+					      SMALL_POISON_ALIGNMENT);
+	for (char *p = ibuf.buf; p < poison_end; p++)
 		fail_unless(__asan_address_is_poisoned(p));
 
 	/* Test poison on shrink. */
@@ -276,9 +351,9 @@ test_ibuf_poison(void)
 int main()
 {
 #ifdef ENABLE_ASAN
-	plan(5);
+	plan(7);
 #else
-	plan(4);
+	plan(6);
 #endif
 	header();
 
@@ -291,6 +366,8 @@ int main()
 	test_ibuf_shrink();
 	test_ibuf_truncate();
 	test_ibuf_discard();
+	test_ibuf_consume();
+	test_ibuf_consume_before();
 #ifdef ENABLE_ASAN
 	test_ibuf_poison();
 #endif
