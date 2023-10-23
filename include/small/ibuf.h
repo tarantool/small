@@ -219,11 +219,11 @@ ibuf_consume(struct ibuf *ibuf, size_t size)
 
 /** Consume bytes before ptr from the read end of the buffer. */
 static inline void
-ibuf_consume_before(struct ibuf *ibuf, char *ptr)
+ibuf_consume_before(struct ibuf *ibuf, const void *ptr)
 {
-	assert(ptr >= ibuf->rpos);
-	assert(ptr <= ibuf->wpos);
-	ibuf_consume(ibuf, ptr - ibuf->rpos);
+	assert((const char *)ptr >= ibuf->rpos);
+	assert((const char *)ptr <= ibuf->wpos);
+	ibuf_consume(ibuf, (const char *)ptr - ibuf->rpos);
 }
 
 static inline void *
