@@ -3,7 +3,7 @@ add_definitions("-D__STDC_FORMAT_MACROS=1")
 add_definitions("-D__STDC_LIMIT_MACROS=1")
 add_definitions("-D__STDC_CONSTANT_MACROS=1")
 
-add_library(small_unit OBJECT unit.c)
+add_library(small_unit STATIC unit.c)
 
 add_executable(slab_cache.test slab_cache.c)
 target_link_libraries(slab_cache.test small small_unit)
