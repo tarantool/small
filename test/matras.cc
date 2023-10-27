@@ -267,8 +267,8 @@ matras_gh_1145_test()
 	struct matras_view view;
 	matras_create_read_view(&local, &view);
 	matras_id_t id;
-	matras_alloc(&local, &id);
-	matras_touch(&local, id);
+	fail_unless(matras_alloc(&local, &id) != NULL);
+	fail_unless(matras_touch(&local, id) != NULL);
 	matras_destroy_read_view(&local, &view);
 	matras_destroy(&local);
 	ok(extents_in_use == 0);
@@ -295,13 +295,13 @@ matras_stats_test()
 	ok(stats.read_view_extent_count == 0);
 
 	matras_id_t id;
-	matras_alloc(&matras, &id);
+	fail_unless(matras_alloc(&matras, &id) != NULL);
 	ok(stats.extent_count == 3);
 	ok(stats.read_view_extent_count == 0);
 
 	struct matras_view view;
 	matras_create_read_view(&matras, &view);
-	matras_touch(&matras, id);
+	fail_unless(matras_touch(&matras, id) != NULL);
 	ok(stats.extent_count == 6);
 	ok(stats.read_view_extent_count == 3);
 
