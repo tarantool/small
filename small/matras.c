@@ -71,21 +71,17 @@ matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
 	matras_id_t log3 = matras_log2(sizeof(void *));
 	matras_id_t log2_capacity = log1 * 3 - log2 - log3 * 2;
 	/*
-	 * Given extent_size = 16384 and block_size = 16, the capacity is 2^32
-	 * blocks, however this number is 1 more than can be represented by the
-	 * 32-bit matras_view::block_count. To avoid its overflow, the capacity
-	 * is intentionally limited to 2^31 blocks, which ought to be enough for
-	 * anybody.
+	 * Given 32-bit block identifiers, the maximum possible number of
+	 * provided blocks is 2^32.
 	 */
-	if (log2_capacity > 31)
-		log2_capacity = 31;
-	m->capacity = (matras_id_t)1 << log2_capacity;
+	if (log2_capacity > UINT32_WIDTH)
+		log2_capacity = UINT32_WIDTH;
+	m->capacity = (size_t)1 << log2_capacity;
 	m->shift1 = log1 * 2 - log2 - log3;
 	m->shift2 = log1 - log2;
 	m->mask1 = (((matras_id_t)1) << m->shift1) - ((matras_id_t)1);
 	m->mask2 = (((matras_id_t)1) << m->shift2) - ((matras_id_t)1);
 }
-
 
 /**
  * Free all memory used by an instance of matras and

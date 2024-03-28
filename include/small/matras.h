@@ -117,6 +117,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -157,7 +158,7 @@ struct matras_view {
 	/* root extent of the view */
 	void *root;
 	/* block count in the view */
-	matras_id_t block_count;
+	size_t block_count;
 	/* all views are linked into doubly linked list */
 	struct matras_view *prev_view, *next_view;
 };
@@ -176,7 +177,7 @@ struct matras {
 	/* Number of allocated extents */
 	matras_id_t extent_count;
 	/* Maximum possible number of created blocks */
-	matras_id_t capacity;
+	size_t capacity;
 	/* See "Shifts and masks explanation" below  */
 	matras_id_t shift1, shift2;
 	/* See "Shifts and masks explanation" below  */
