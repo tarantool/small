@@ -74,8 +74,8 @@ matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
 	 * Given 32-bit block identifiers, the maximum possible number of
 	 * provided blocks is 2^32.
 	 */
-	if (log2_capacity > UINT32_WIDTH)
-		log2_capacity = UINT32_WIDTH;
+	if (log2_capacity > 32)
+		log2_capacity = 32;
 	m->capacity = (size_t)1 << log2_capacity;
 	m->shift1 = log1 * 2 - log2 - log3;
 	m->shift2 = log1 - log2;
