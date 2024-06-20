@@ -532,13 +532,130 @@ test_aligned(void)
 	check_plan();
 }
 
+static void
+iov_to_data(const struct iovec *iov, int iovcnt, char **data, uint32_t count,
+	    uint32_t size)
+{
+	uint32_t cnt = 0;
+	for (int i = 0; i < iovcnt; i++) {
+		fail_if(iov[i].iov_len % size != 0);
+		for (int j = 0; j * size < iov[i].iov_len; j++) {
+			data[cnt++] = (char *)iov[i].iov_base + j * size;
+		}
+	}
+	fail_if(cnt != count);
+}
+
+static void
+test_to_iovec(void)
+{
+	plan(13);
+	header();
+
+	struct quota quota;
+	struct slab_arena arena;
+	struct lsregion allocator;
+	quota_init(&quota, 8 * SLAB_MIN_SIZE);
+	is(slab_arena_create(&arena, &quota, 0, 0, MAP_PRIVATE), 0, "init");
+	lsregion_create(&allocator, &arena);
+
+	int64_t id = 0;
+	int count = TEST_ARRAY_SIZE;
+	size_t size = 10;
+	char *data[count];
+	struct iovec iov[count];
+	memset(iov, 0, sizeof(iov));
+	int iovcnt = 0;
+	struct lsregion_svp svp;
+	lsregion_svp_create(&svp);
+
+	/* Test multiple allocations using the same slab. */
+	fail_if(count * size >= arena.slab_size);
+	fill_data(data, count, size, id, &allocator);
+	/* Test zero iovcnt. */
+	int64_t rc_id = lsregion_to_iovec(&allocator, iov, &iovcnt, &svp);
+	is(rc_id, LSLAB_NOT_USED_ID);
+	is(iovcnt, 0);
+	is(iov->iov_base, NULL);
+	is(iov->iov_len, 0);
+
+	iovcnt = lengthof(iov);
+	rc_id = lsregion_to_iovec(&allocator, iov, &iovcnt, &svp);
+	/* Check basic return values. */
+	id += count;
+	is(rc_id, id - 1);
+	is(svp.pos, count * size);
+	iov_to_data(iov, iovcnt, data, count, size);
+	test_data(data, count, size);
+	/* Check second flush of the same data */
+	struct lsregion_svp old_svp = svp;
+	int64_t old_id = rc_id;
+	rc_id = lsregion_to_iovec(&allocator, iov, &iovcnt, &svp);
+	is(rc_id, LSLAB_NOT_USED_ID);
+	is(old_svp.slab_id, svp.slab_id);
+	is(old_svp.pos, svp.pos);
+	is(iovcnt, 0);
+	/* Check new alloc and flush without gc. */
+	iovcnt = 10;
+	fill_data(data, count, size, id, &allocator);
+	rc_id = lsregion_to_iovec(&allocator, iov, &iovcnt, &svp);
+	is(rc_id, old_id + count);
+	is(svp.pos, old_svp.pos + count * size);
+	iov_to_data(iov, iovcnt, data, count, size);
+	test_data(data, count, size);
+
+#ifndef ENABLE_ASAN
+	id += count;
+	lsregion_gc(&allocator, id - 1);
+	fail_if(lsregion_used(&allocator) != 0);
+
+	/*
+	 * Check allocation spanning multiple slabs.
+	 * Flush one slab at a time.
+	 *
+	 * The test doesn't make sense for asan build, since there one
+	 * allocation always takes a separate "slab".
+	 */
+	size = arena.slab_size / 4;
+	fill_data(data, count, size, id, &allocator);
+	iovcnt = 1;
+	lsregion_to_iovec(&allocator, iov, &iovcnt, &svp);
+	struct iovec *tmp_iov = iov;
+	while (iovcnt != 0) {
+		tmp_iov += iovcnt;
+		lsregion_to_iovec(&allocator, tmp_iov, &iovcnt, &svp);
+	}
+	iov_to_data(iov, tmp_iov - iov, data, count, size);
+	test_data(data, count, size);
+
+	id += count;
+	lsregion_gc(&allocator, id - 1);
+
+	/*
+	 * Check allocation spanning multiple slabs.
+	 * Flush them all at once.
+	 */
+	iovcnt = lengthof(iov);
+	fill_data(data, count, size, id, &allocator);
+	lsregion_to_iovec(&allocator, iov, &iovcnt, &svp);
+	iov_to_data(iov, iovcnt, data, count, size);
+	test_data(data, count, size);
+#endif
+
+	lsregion_destroy(&allocator);
+	slab_arena_destroy(&arena);
+
+	footer();
+	check_plan();
+}
+
 int
 main()
 {
 #ifndef ENABLE_ASAN
-	plan(6);
+	plan(7);
 #else
-	plan(5);
+	plan(6);
 #endif
 	header();
 
@@ -550,6 +667,7 @@ main()
 	test_reserve();
 #endif
 	test_aligned();
+	test_to_iovec();
 
 	footer();
 	return check_plan();

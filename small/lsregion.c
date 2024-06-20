@@ -67,7 +67,7 @@ lsregion_aligned_reserve_slow(struct lsregion *lsregion, size_t size,
 			quota_release(quota, slab_size);
 			return NULL;
 		}
-		lslab_create(slab, slab_size);
+		lslab_create(slab, slab_size, ++lsregion->slab_id);
 		rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
 				     next_in_list);
 		lsregion->slabs.stats.total += slab_size;
@@ -81,7 +81,7 @@ lsregion_aligned_reserve_slow(struct lsregion *lsregion, size_t size,
 		slab = (struct lslab *) slab_map(arena);
 		if (slab == NULL)
 			return NULL;
-		lslab_create(slab, slab_size);
+		lslab_create(slab, slab_size, ++lsregion->slab_id);
 		rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
 				     next_in_list);
 		lsregion->slabs.stats.total += slab_size;
@@ -90,4 +90,48 @@ lsregion_aligned_reserve_slow(struct lsregion *lsregion, size_t size,
 	pos = (void *)small_align((size_t)*unaligned, alignment);
 	assert((char *)pos + size <= (char *)lslab_end(slab));
 	return pos;
+}
+
+int64_t
+lsregion_to_iovec(const struct lsregion *lsregion, struct iovec *iov,
+		  int *iovcnt, struct lsregion_svp *svp)
+{
+	struct lslab *lslab;
+	int64_t prev_id = svp->slab_id;
+	int64_t max_alloc_id = LSLAB_NOT_USED_ID;
+	size_t prev_pos = svp->pos;
+	int max_iovcnt = *iovcnt;
+	int cnt = 0;
+	rlist_foreach_entry(lslab, &lsregion->slabs.slabs, next_in_list) {
+		/* There might be an unused slab at the end of the list. */
+		if (lslab->max_id == LSLAB_NOT_USED_ID)
+			break;
+		/* An already seen slab with no new allocations. */
+		if (lslab->slab_id < prev_id ||
+		    (lslab->slab_id == prev_id &&
+		     lslab->slab_used - lslab_sizeof() == prev_pos)) {
+			continue;
+		}
+		if (cnt >= max_iovcnt)
+			break;
+		iov->iov_base = (char *)lslab + lslab_sizeof();
+		iov->iov_len = lslab->slab_used - lslab_sizeof();
+		svp->slab_id = lslab->slab_id;
+		svp->pos = iov->iov_len;
+		max_alloc_id = lslab->max_id;
+		if (lslab->slab_id == prev_id) {
+			/*
+			 * We flushed this slab previously,
+			 * shift the already seen contents.
+			 */
+			assert(iov->iov_len > prev_pos);
+			iov->iov_base += prev_pos;
+			iov->iov_len -= prev_pos;
+		}
+
+		iov++;
+		cnt++;
+	}
+	*iovcnt = cnt;
+	return max_alloc_id;
 }
