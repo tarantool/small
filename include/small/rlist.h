@@ -125,7 +125,7 @@ rlist_shift_tail(struct rlist *head)
  * return first element
  */
 static SMALL_ALWAYS_INLINE struct rlist *
-rlist_first(struct rlist *head)
+rlist_first(const struct rlist *head)
 {
 	return head->next;
 }
@@ -134,7 +134,7 @@ rlist_first(struct rlist *head)
  * return last element
  */
 static SMALL_ALWAYS_INLINE struct rlist *
-rlist_last(struct rlist *head)
+rlist_last(const struct rlist *head)
 {
 	return head->prev;
 }
@@ -143,7 +143,7 @@ rlist_last(struct rlist *head)
  * return next element by element
  */
 static SMALL_ALWAYS_INLINE struct rlist *
-rlist_next(struct rlist *item)
+rlist_next(const struct rlist *item)
 {
 	return item->next;
 }
@@ -152,7 +152,7 @@ rlist_next(struct rlist *item)
  * return previous element
  */
 static SMALL_ALWAYS_INLINE struct rlist *
-rlist_prev(struct rlist *item)
+rlist_prev(const struct rlist *item)
 {
 	return item->prev;
 }
@@ -161,7 +161,7 @@ rlist_prev(struct rlist *item)
  * return TRUE if list is empty
  */
 static SMALL_ALWAYS_INLINE int
-rlist_empty(struct rlist *item)
+rlist_empty(const struct rlist *item)
 {
 	return item->next == item->prev && item->next == item;
 }
