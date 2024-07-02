@@ -59,3 +59,36 @@ lsregion_gc(struct lsregion *lsregion, int64_t min_id)
 		small_asan_free(alloc);
 	}
 }
+
+SMALL_NO_SANITIZE_ADDRESS int64_t
+lsregion_to_iovec(const struct lsregion *lsregion, struct iovec *iov,
+		  int *iovcnt, struct lsregion_svp *svp)
+{
+	struct lsregion_allocation *alloc;
+	int64_t prev_id = svp->slab_id;
+	int max_iovcnt = *iovcnt;
+	int64_t max_alloc_id = LSLAB_NOT_USED_ID;
+	int cnt = 0;
+	rlist_foreach_entry(alloc, &lsregion->allocations, link) {
+		/* An already seen allocation. */
+		if (alloc->id <= prev_id)
+			continue;
+		if (cnt >= max_iovcnt)
+			break;
+		iov->iov_base = small_asan_payload_from_header(alloc);
+		iov->iov_len = alloc->size;
+		svp->slab_id = alloc->id;
+		/*
+		 * This isn't correct but will do for tests which span one slab
+		 * in a normal lsregion implementation. pos isn't used to
+		 * determine flush position here anyway, so it's ok.
+		 */
+		svp->pos += alloc->size;
+		max_alloc_id = alloc->id;
+
+		iov++;
+		cnt++;
+	}
+	*iovcnt = cnt;
+	return max_alloc_id;
+}

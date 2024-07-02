@@ -31,6 +31,32 @@
  * SUCH DAMAGE.
  */
 #include "small_config.h"
+#include <stdint.h>
+#include <stddef.h>
+
+#define LSLAB_NOT_USED_ID -1
+
+/**
+ * A helper struct remembering a specific position in the lsregion. Is stable to
+ * lslab reuse.
+ */
+struct lsregion_svp {
+	/**
+	 * The max slab id that was seen during a flush. Using it we can
+	 * find the slab we flushed previously and check if it has any extra
+	 * data to flush.
+	 */
+	int64_t slab_id;
+	/** A position in the last seen slab. */
+	size_t pos;
+};
+
+static inline void
+lsregion_svp_create(struct lsregion_svp *svp)
+{
+	svp->slab_id = LSLAB_NOT_USED_ID;
+	svp->pos = 0;
+}
 
 #ifdef ENABLE_ASAN
 #  include "lsregion_asan.h"
@@ -38,9 +64,9 @@
 
 #ifndef ENABLE_ASAN
 
-#include <stdint.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <sys/uio.h>
 
 #include "rlist.h"
 #include "quota.h"
@@ -49,8 +75,6 @@
 #if defined(__cplusplus)
 extern "C" {
 #endif /* defined(__cplusplus) */
-
-#define LSLAB_NOT_USED_ID -1
 
 /**
  * Wrapper for a slab that tracks a size of used memory and
@@ -68,6 +92,10 @@ struct lslab {
 	 * structure.
 	 */
 	size_t slab_used;
+	/**
+	 * An id given to this slab at creation.
+	 */
+	int64_t slab_id;
 	/**
 	 * Maximal id that was used to alloc data from the slab.
 	 */
@@ -103,6 +131,11 @@ struct lsregion {
 	/** Slabs arena - source for memory slabs. */
 	struct slab_arena *arena;
 	struct lslab *cached;
+	/**
+	 * A monotonically growing id of used slabs. Needed for savepoint
+	 * tracking.
+	 */
+	int64_t slab_id;
 };
 
 /** Aligned size of the struct lslab. */
@@ -114,11 +147,12 @@ lslab_sizeof()
 
 /** Initialize the lslab object. */
 static inline void
-lslab_create(struct lslab *slab, size_t size)
+lslab_create(struct lslab *slab, size_t size, int64_t slab_id)
 {
 	rlist_create(&slab->next_in_list);
 	slab->slab_size = size;
 	slab->slab_used = lslab_sizeof();
+	slab->slab_id = slab_id;
 	slab->max_id = LSLAB_NOT_USED_ID;
 }
 
@@ -177,6 +211,7 @@ lsregion_create(struct lsregion *lsregion, struct slab_arena *arena)
 	slab_list_create(&lsregion->slabs);
 	lsregion->arena = arena;
 	lsregion->cached = NULL;
+	lsregion->slab_id = 0;
 }
 
 /** @sa lsregion_aligned_reserve(). */
@@ -316,11 +351,25 @@ lsregion_gc(struct lsregion *lsregion, int64_t min_id)
 			lsregion->slabs.stats.total -= slab->slab_size;
 			slab_unmap(lsregion->arena, slab);
 		} else {
-			lslab_create(slab, slab->slab_size);
+			lslab_create(slab, slab->slab_size,
+				     ++lsregion->slab_id);
 			lsregion->cached = slab;
 		}
 	}
 }
+
+/**
+ * Flush all the lsregion contents to the provided iovec.
+ * @param iov An array of iovecs to fill
+ * @param[in,out] iovcnt Max iovec count.
+ *			 Returns how many iovecs were actually used.
+ * @param[in,out] svp A savepoint pointing at the end of flushed data.
+ * @return max allocation id that was flushed.
+ *         LSLAB_NOT_USED_ID if nothing was flushed.
+ */
+int64_t
+lsregion_to_iovec(const struct lsregion *lsregion, struct iovec *iov,
+		  int *iovcnt, struct lsregion_svp *svp);
 
 /**
  * Free all resources occupied by the allocator.

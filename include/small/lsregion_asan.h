@@ -30,6 +30,7 @@
  */
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/uio.h>
 
 #include "rlist.h"
 #include "slab_arena.h"
@@ -86,6 +87,10 @@ lsregion_alloc(struct lsregion *lsregion, size_t size, int64_t id)
 
 void
 lsregion_gc(struct lsregion *lsregion, int64_t min_id);
+
+int64_t
+lsregion_to_iovec(const struct lsregion *lsregion, struct iovec *iov,
+		  int *iovcnt, struct lsregion_svp *svp);
 
 static inline void
 lsregion_destroy(struct lsregion *lsregion)
