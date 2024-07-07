@@ -422,28 +422,14 @@ matras_destroy_read_view(struct matras *m, struct matras_view *v)
 }
 
 /*
- * Notify matras that memory at given ID will be changed.
- * Returns (perhaps new) address of memory associated with that block.
- * Returns NULL on memory error
- * Only needed (and does any work) if some versions are used.
+ * Notify matras that memory at given ID will be changed. The result of the
+ * matras_needs_touch must be true for this block ID, otherwise the behavior
+ * is undefined.
  */
 void *
-matras_touch(struct matras *m, matras_id_t id)
+matras_touch_no_check(struct matras *m, matras_id_t id)
 {
-	assert(id < m->head.block_count);
-
-	if (!m->head.prev_view)
-		return matras_get(m, id);
-
-	if (m->head.prev_view->block_count) {
-		matras_id_t extent_id = id >> m->shift2;
-		matras_id_t next_last_id = m->head.prev_view->block_count - 1;
-		matras_id_t next_last_extent_id = next_last_id >> m->shift2;
-		if (extent_id > next_last_extent_id)
-			return matras_get(m, id);
-	} else {
-		return matras_get(m, id);
-	}
+	assert(matras_needs_touch(m, id));
 
 	/* see "Shifts and masks explanation" for details */
 	matras_id_t n1 = id >> m->shift1;
@@ -481,4 +467,21 @@ matras_touch(struct matras *m, matras_id_t id)
 	}
 
 	return &extent3[n3 * m->block_size];
+}
+
+/*
+ * Notify matras that memory at given ID will be changed.
+ * Returns (perhaps new) address of memory associated with that block.
+ * Returns NULL on memory error
+ * Only needed (and does any work) if some versions are used.
+ */
+void *
+matras_touch(struct matras *m, matras_id_t id)
+{
+	assert(id < m->head.block_count);
+
+	if (!matras_needs_touch(m, id))
+		return matras_get(m, id);
+
+	return matras_touch_no_check(m, id);
 }
