@@ -118,6 +118,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -343,6 +344,39 @@ matras_is_read_view_created(struct matras_view *v);
  */
 void *
 matras_touch(struct matras *m, matras_id_t id);
+
+/*
+ * Check if the block must be touched before update. In some conditions, for
+ * example, if the matras has no active views, the block may be used directly.
+ */
+static inline bool
+matras_needs_touch(struct matras *m, matras_id_t id)
+{
+	assert(id < m->head.block_count);
+
+	if (!m->head.prev_view)
+		return false;
+
+	if (m->head.prev_view->block_count) {
+		matras_id_t extent_id = id >> m->shift2;
+		matras_id_t next_last_id = m->head.prev_view->block_count - 1;
+		matras_id_t next_last_extent_id = next_last_id >> m->shift2;
+		if (extent_id > next_last_extent_id)
+			return false;
+	} else {
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Notify matras that memory at given ID will be changed. The result of the
+ * matras_needs_touch must be true for this block ID, otherwise the behavior
+ * is undefined.
+ */
+void *
+matras_touch_no_check(struct matras *m, matras_id_t id);
 
 /*
  * matras_head_read_view implementation.
