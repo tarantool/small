@@ -28,6 +28,7 @@ test_ibuf_basic(void)
 
 	ibuf_reset(&ibuf);
 	ok(ibuf_used(&ibuf) == 0);
+	ibuf_destroy(&ibuf);
 
 	footer();
 	check_plan();
@@ -88,6 +89,7 @@ test_ibuf_shrink(void)
 	prev_buf = ibuf.buf;
 	ibuf_shrink(&ibuf);
 	ok(prev_buf == ibuf.buf);
+	ibuf_destroy(&ibuf);
 
 	footer();
 	check_plan();
@@ -131,6 +133,7 @@ test_ibuf_truncate()
 	ibuf_truncate(&ibuf, svp);
 	ok(ibuf_used(&ibuf) == svp);
 	ok(strcmp(ibuf.rpos, hello) == 0);
+	ibuf_destroy(&ibuf);
 
 	footer();
 	check_plan();
@@ -152,6 +155,7 @@ test_ibuf_discard(void)
 	ibuf_discard(&ibuf, 412);
 	ok(ibuf.rpos == pos);
 	ok(ibuf_used(&ibuf) == 0);
+	ibuf_destroy(&ibuf);
 
 	footer();
 	check_plan();
@@ -173,6 +177,7 @@ test_ibuf_consume(void)
 	ibuf_consume(&ibuf, 312);
 	ok(ibuf.wpos == pos);
 	ok(ibuf_used(&ibuf) == 0);
+	ibuf_destroy(&ibuf);
 
 	footer();
 	check_plan();
@@ -194,6 +199,7 @@ test_ibuf_consume_before(void)
 	ibuf_consume_before(&ibuf, ibuf.wpos);
 	ok(ibuf.wpos == pos);
 	ok(ibuf_used(&ibuf) == 0);
+	ibuf_destroy(&ibuf);
 
 	footer();
 	check_plan();
