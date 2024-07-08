@@ -105,6 +105,13 @@ region_truncate(struct region *region, size_t used)
 	size_t cut_size = region->used - used;
 
 	struct region_allocation *alloc, *tmp;
+	if (region->reserved != 0) {
+		struct region_allocation *alloc =
+			rlist_shift_entry(&region->allocations,
+					  struct region_allocation, link);
+		small_asan_free(alloc);
+		region->reserved = 0;
+	}
 	rlist_foreach_entry_safe(alloc, &region->allocations, link, tmp) {
 		if (cut_size == 0)
 			break;
@@ -118,7 +125,6 @@ region_truncate(struct region *region, size_t used)
 		small_asan_free(alloc);
 	}
 	region->used = used;
-	region->reserved = 0;
 	if (small_unlikely(region->on_truncate_cb != NULL))
 		region->on_truncate_cb(region, used, region->cb_arg);
 }

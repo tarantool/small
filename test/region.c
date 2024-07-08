@@ -322,12 +322,31 @@ region_test_tiny_reserve_size()
 	check_plan();
 }
 
+static void
+region_test_truncate_reserved()
+{
+	plan(1);
+	header();
+
+	struct region region;
+	region_create(&region, &cache);
+
+	size_t used = region_used(&region);
+	region_reserve(&region, 1024);
+	region_truncate(&region, used);
+	ok(rlist_empty(&region.allocations));
+	region_destroy(&region);
+
+	footer();
+	check_plan();
+}
+
 #endif /* ifdef ENABLE_ASAN */
 
 int main()
 {
 #ifdef ENABLE_ASAN
-	plan(7);
+	plan(8);
 #else
 #ifndef NDEBUG
 	plan(6);
@@ -357,6 +376,7 @@ int main()
 #else
 	region_test_poison();
 	region_test_tiny_reserve_size();
+	region_test_truncate_reserved();
 #endif
 
 	slab_cache_destroy(&cache);
