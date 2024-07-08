@@ -104,12 +104,15 @@ mempool_align()
 
 	for (uint32_t size = OBJSIZE_MIN; size < OBJSIZE_MAX; size <<= 1) {
 		mempool_create(&pool, &cache, size);
-		for (uint32_t i = 0; i < 32; i++) {
-			void *ptr = mempool_alloc(&pool);
-			uintptr_t addr = (uintptr_t)ptr;
+		void *ptr[32];
+		for (int i = 0; i < (int)lengthof(ptr); i++) {
+			ptr[i] = mempool_alloc(&pool);
+			uintptr_t addr = (uintptr_t)ptr[i];
 			if (addr % size)
 				fail("aligment", "wrong");
 		}
+		for (int i = 0; i < (int)lengthof(ptr); i++)
+			mempool_free(&pool, ptr[i]);
 		mempool_destroy(&pool);
 	}
 	ok(true);

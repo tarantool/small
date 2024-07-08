@@ -71,6 +71,8 @@ insert(tree_t *tree, my_set& stl_tree)
 	auto res = stl_tree.insert(node->key);
 	if (res.second) {
 		test_insert(tree, node);
+	} else {
+		free(node);
 	}
 }
 
