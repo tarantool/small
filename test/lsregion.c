@@ -421,8 +421,6 @@ test_big_data_small_slabs()
 	check_plan();
 }
 
-#ifndef ENABLE_ASAN
-
 static void
 test_reserve(void)
 {
@@ -438,21 +436,23 @@ test_reserve(void)
 
 	void *p1 = lsregion_reserve(&allocator, 100);
 	is(lsregion_used(&allocator), 0, "reserve does not occupy memory");
-	is(lsregion_total(&allocator), arena.slab_size, "reserve creates slabs");
+	is_no_asan(lsregion_total(&allocator), arena.slab_size,
+		   "reserve creates slabs");
 	void *p2 = lsregion_alloc(&allocator, 80, 1);
 	is(p1, p2, "alloc returns the same as reserve, even if size is less");
 	is(lsregion_used(&allocator), 80, "alloc updated 'used'");
 
-	p1 = lsregion_reserve(&allocator, arena.slab_size - lslab_sizeof());
+	p1 = lsregion_reserve(&allocator,
+			      arena.slab_size - lsregion_used(&allocator));
 	is(lsregion_used(&allocator), 80, "next reserve didn't touch 'used'");
-	is(lsregion_total(&allocator), arena.slab_size * 2, "but changed "
-	   "'total' because second slab is allocated");
-	is(lsregion_slab_count(&allocator), 2, "slab count is 2 now");
+	is_no_asan(lsregion_total(&allocator), arena.slab_size * 2,
+		   "but changed 'total' because second slab is allocated");
+	is_no_asan(lsregion_slab_count(&allocator), 2, "slab count is 2 now");
 	lsregion_gc(&allocator, 1);
 
 	is(lsregion_used(&allocator), 0, "gc works fine with empty reserved "
 	   "slabs");
-	is(lsregion_slab_count(&allocator), 0, "all slabs are removed");
+	is_no_asan(lsregion_slab_count(&allocator), 0, "all slabs are removed");
 
 	lsregion_destroy(&allocator);
 	slab_arena_destroy(&arena);
@@ -460,8 +460,6 @@ test_reserve(void)
 	footer();
 	check_plan();
 }
-
-#endif /* ifndef ENABLE_ASAN */
 
 static void
 test_aligned(void)
@@ -646,20 +644,14 @@ test_to_iovec(void)
 int
 main()
 {
-#ifndef ENABLE_ASAN
 	plan(7);
-#else
-	plan(6);
-#endif
 	header();
 
 	test_basic();
 	test_many_allocs_one_slab();
 	test_many_allocs_many_slabs();
 	test_big_data_small_slabs();
-#ifndef ENABLE_ASAN
 	test_reserve();
-#endif
 	test_aligned();
 	test_to_iovec();
 
