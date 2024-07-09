@@ -63,8 +63,15 @@ struct lsregion_allocation {
 	struct rlist link;
 	/** Allocation size. */
 	size_t size;
+	/**
+	 * Actually used allocation size. May be less than size, if there was no
+	 * alloc() matching a reserve(), or if alloc() uses less memory.
+	 */
+	size_t used;
 	/** Allocation id. */
 	int64_t id;
+	/** Allocation alignment. */
+	size_t alignment;
 };
 
 static inline void
@@ -73,6 +80,16 @@ lsregion_create(struct lsregion *lsregion, struct slab_arena *arena)
 	(void)arena;
 	lsregion->used = 0;
 	rlist_create(&lsregion->allocations);
+}
+
+void *
+lsregion_aligned_reserve(struct lsregion *lsregion, size_t size,
+			 size_t alignment);
+
+static inline void *
+lsregion_reserve(struct lsregion *lsregion, size_t size)
+{
+	return lsregion_aligned_reserve(lsregion, size, 1);
 }
 
 void *

@@ -30,17 +30,56 @@
  */
 #include "lsregion.h"
 
+static SMALL_NO_SANITIZE_ADDRESS struct lsregion_allocation *
+lsregion_reserved_alloc(struct lsregion *lsregion)
+{
+	if (!rlist_empty(&lsregion->allocations)) {
+		struct lsregion_allocation *alloc = NULL;
+		alloc = rlist_last_entry(&lsregion->allocations, typeof(*alloc),
+					 link);
+		if (alloc->id == LSLAB_NOT_USED_ID)
+			return alloc;
+	}
+	return NULL;
+}
+
+static SMALL_NO_SANITIZE_ADDRESS struct lsregion_allocation *
+lsregion_prepare_buf(struct lsregion *lsregion, size_t size, size_t alignment)
+{
+	struct lsregion_allocation *alloc = small_asan_alloc(size, alignment,
+							     sizeof(*alloc));
+	alloc->size = size;
+	alloc->used = 0;
+	alloc->id = LSLAB_NOT_USED_ID;
+	alloc->alignment = alignment;
+	rlist_add_tail_entry(&lsregion->allocations, alloc, link);
+	return alloc;
+}
+
+void *
+lsregion_aligned_reserve(struct lsregion *lsregion, size_t size,
+			 size_t alignment)
+{
+	/* Double reserve is prohibited. */
+	small_asan_assert(lsregion_reserved_alloc(lsregion) == NULL);
+	struct lsregion_allocation *alloc = lsregion_prepare_buf(lsregion, size,
+								 alignment);
+	return small_asan_payload_from_header(alloc);
+}
+
 SMALL_NO_SANITIZE_ADDRESS void *
 lsregion_aligned_alloc(struct lsregion *lsregion, size_t size, size_t alignment,
 		       int64_t id)
 {
-	struct lsregion_allocation *alloc =
-			small_asan_alloc(size, alignment,
-					 sizeof(struct lsregion_allocation));
-	alloc->size = size;
+	struct lsregion_allocation *alloc = lsregion_reserved_alloc(lsregion);
+	if (alloc == NULL)
+		alloc = lsregion_prepare_buf(lsregion, size, alignment);
+	small_asan_assert(alloc->size >= size && alloc->alignment == alignment);
+	alloc->used = size;
 	alloc->id = id;
-	rlist_add_tail_entry(&lsregion->allocations, alloc, link);
 	lsregion->used += size;
+	char *payload = small_asan_payload_from_header(alloc);
+	ASAN_POISON_MEMORY_REGION(payload + size, alloc->size - size);
 
 	return small_asan_payload_from_header(alloc);
 }
@@ -53,8 +92,8 @@ lsregion_gc(struct lsregion *lsregion, int64_t min_id)
 		if (alloc->id > min_id)
 			break;
 
-		small_asan_assert(lsregion->used >= alloc->size);
-		lsregion->used -= alloc->size;
+		small_asan_assert(lsregion->used >= alloc->used);
+		lsregion->used -= alloc->used;
 		rlist_del_entry(alloc, link);
 		small_asan_free(alloc);
 	}
@@ -76,7 +115,7 @@ lsregion_to_iovec(const struct lsregion *lsregion, struct iovec *iov,
 		if (cnt >= max_iovcnt)
 			break;
 		iov->iov_base = small_asan_payload_from_header(alloc);
-		iov->iov_len = alloc->size;
+		iov->iov_len = alloc->used;
 		svp->slab_id = alloc->id;
 		/*
 		 * This isn't correct but will do for tests which span one slab
