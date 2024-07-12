@@ -4,12 +4,6 @@
 #include <string.h>
 #include "unit.h"
 
-
-/* For the sake of lsregion_alloc_object (it demands alignof()) */
-#ifndef offsetof
-#define offsetof(type, member) ((size_t) &((type *)0)->member)
-#endif
-
 #if !defined(alignof) && !defined(__alignof_is_defined)
 #  if __has_feature(c_alignof) || (defined(__GNUC__) && __GNUC__ >= 5)
 #    include <stdalign.h>
