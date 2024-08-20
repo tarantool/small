@@ -4,7 +4,6 @@ add_definitions("-D__STDC_LIMIT_MACROS=1")
 add_definitions("-D__STDC_CONSTANT_MACROS=1")
 
 function(create_test test_name test_executable)
-  message(STATUS ${test_name} ${test_executable})
   add_test(${test_name} ${test_executable})
   set_tests_properties(${test_name} PROPERTIES
     LABELS tarantool_small
