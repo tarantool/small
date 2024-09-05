@@ -281,20 +281,13 @@ small_mempool_create(struct small_alloc *alloc)
 						    pool - 1);
 			cur_order_pool = pool;
 		}
-		/*
-		 * Maximum object size for mempool allocation ==
-		 * alloc->objsize_max. If we have reached this size,
-		 * there will be no more pools - loop will be broken
-		 * at the next iteration. So we need to create the last
-		 * group of pools.
-		 */
-		if (objsize == alloc->objsize_max) {
-			assert(cur_order_pool->pool.slab_ptr_mask ==
-			       pool->pool.slab_ptr_mask);
-			small_mempool_create_groups(alloc, cur_order_pool,
-						    pool);
-		}
 	}
+	int mempool_cache_size = alloc->small_mempool_cache_size;
+	struct small_mempool *last_pool =
+		&alloc->small_mempool_cache[mempool_cache_size - 1];
+	assert(cur_order_pool->pool.slab_ptr_mask ==
+	       last_pool->pool.slab_ptr_mask);
+	small_mempool_create_groups(alloc, cur_order_pool, last_pool);
 	alloc->objsize_max = objsize;
 }
 

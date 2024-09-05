@@ -184,6 +184,63 @@ test_small_alloc_info(void)
 	footer();
 	check_plan();
 }
+
+/**
+ * Make sure allocator works with low alloc_factor and high memory
+ * pressure.
+ *
+ * See https://github.com/tarantool/tarantool/issues/10148
+ */
+static void
+small_alloc_low_alloc_factor()
+{
+	plan(1);
+	header();
+
+	struct slab_arena arena1;
+	struct slab_cache cache1;
+	struct quota quota1;
+
+	quota_init(&quota1, 1024 * 1024);
+	slab_arena_create(&arena1, &quota1, 0, 4000000, MAP_PRIVATE);
+	slab_cache_create(&cache1, &arena1);
+
+	float actual_alloc_factor;
+	small_alloc_create(&alloc, &cache1, OBJSIZE_MIN,
+			   sizeof(intptr_t), 1.001,
+			   &actual_alloc_factor);
+	const unsigned alloc_size = 1024;
+	const int alloc_count = 1024;
+	/* Make sure we in mode when all mempools are used. */
+	fail_unless(alloc.small_mempool_cache_size == SMALL_MEMPOOL_MAX);
+	/* Make sure we allocate from pools. */
+	fail_unless(alloc_size <= alloc.objsize_max);
+
+	void **allocations = calloc(alloc_count, sizeof(void *));
+	fail_unless(allocations != NULL);
+
+	for (int i = 0; i < alloc_count; i++) {
+		void *ptr = smalloc(&alloc, alloc_size);
+		if (ptr == NULL)
+			break;
+		allocations[i] = ptr;
+	}
+	for (int i = 0; i < alloc_count; i++) {
+		if (allocations[i] == NULL)
+			break;
+		smfree(&alloc, allocations[i], alloc_size);
+	}
+
+	small_alloc_destroy(&alloc);
+	slab_cache_destroy(&cache1);
+	slab_arena_destroy(&arena1);
+
+	ok(true);
+
+	footer();
+	check_plan();
+}
+
 #else /* ifdef ENABLE_ASAN */
 
 static char assert_msg_buf[128];
@@ -260,7 +317,7 @@ int main()
 #ifdef ENABLE_ASAN
 	plan(3);
 #else
-	plan(3);
+	plan(4);
 #endif
 	header();
 
@@ -277,6 +334,7 @@ int main()
 #ifndef ENABLE_ASAN
 	small_alloc_large();
 	test_small_alloc_info();
+	small_alloc_low_alloc_factor();
 #else
 	small_wrong_size_in_free();
 	small_membership();
