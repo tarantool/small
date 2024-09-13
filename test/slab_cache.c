@@ -121,12 +121,35 @@ test_slab_membership(void)
 	check_plan();
 }
 
+static void
+test_slab_alignment(void)
+{
+	plan(1);
+	header();
+
+	slab_arena_create(&arena, &quota, 0, 4000000, MAP_PRIVATE);
+	slab_cache_create(&cache, &arena);
+
+	long double *x = (long double *)slab_get(&cache, 1000);
+	*x = 1;
+	ok(true);
+	slab_put(&cache, (struct slab *)x);
+	slab_cache_destroy(&cache);
+
+	footer();
+	check_plan();
+}
+
 #endif
 
 int
 main(void)
 {
+#ifdef ENABLE_ASAN
+	plan(3);
+#else
 	plan(2);
+#endif
 	header();
 
 	unsigned int seed = time(NULL);
@@ -137,6 +160,7 @@ main(void)
 	test_slab_cache();
 #ifdef ENABLE_ASAN
 	test_slab_membership();
+	test_slab_alignment();
 #else
 	test_slab_real_size();
 #endif

@@ -40,7 +40,7 @@ extern "C" {
 
 enum {
 	/** Alignment for slabs from ASAN slab cache. */
-	SMALL_CACHE_SLAB_ALIGNMENT = sizeof(long long),
+	SMALL_CACHE_SLAB_ALIGNMENT = 16,
 };
 
 /**
