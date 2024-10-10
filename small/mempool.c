@@ -76,8 +76,7 @@ mslab_alloc(struct mempool *pool, struct mslab *slab)
 		 * because (void **)slab->free_list has not necessary aligment.
 		 * memcpy can work with misaligned address.
 		 */
-		memcpy(&slab->free_list, (void **)slab->free_list,
-		       sizeof(void *));
+		memcpy(&slab->free_list, slab->free_list, sizeof(void *));
 	} else {
 		/* Use an object from the "untouched" area of the slab. */
 		result = (char *)slab + slab->free_offset;
@@ -106,7 +105,7 @@ mslab_free(struct mempool *pool, struct mslab *slab, void *ptr)
 	 * because ptr has not necessary aligment. memcpy can work
 	 * with misaligned address.
 	 */
-	memcpy((void **)ptr, &slab->free_list, sizeof(void *));
+	memcpy(ptr, &slab->free_list, sizeof(void *));
 	slab->free_list = ptr;
 	VALGRIND_FREELIKE_BLOCK(ptr, 0);
 	VALGRIND_MAKE_MEM_DEFINED(ptr, sizeof(void *));
