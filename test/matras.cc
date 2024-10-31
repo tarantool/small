@@ -5,12 +5,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <limits.h>
 #include "unit.h"
-
-static void *
-pta_alloc(void *ctx);
-static void
-pta_free(void *ctx, void *p);
 
 #define PROV_BLOCK_SIZE 16
 #define PROV_EXTENT_SIZE 64
@@ -25,9 +21,9 @@ unsigned int alloc_err_inj_countdown = 0;
 #define MATRAS_VERSION_COUNT 8
 
 static void *
-pta_alloc(void *ctx)
+pta_alloc(struct matras_allocator *allocator)
 {
-	static_cast<void>(ctx);
+	(void)allocator;
 	if (alloc_err_inj_enabled) {
 		if (alloc_err_inj_countdown == 0)
 			return 0;
@@ -39,14 +35,16 @@ pta_alloc(void *ctx)
 	return p;
 }
 static void
-pta_free(void *ctx, void *p)
+pta_free(struct matras_allocator *allocator, void *p)
 {
-	static_cast<void>(ctx);
+	(void)allocator;
 	fail_unless(AllocatedBlocks.find(p) != AllocatedBlocks.end());
 	AllocatedBlocks.erase(p);
 	delete [] static_cast<char *>(p);
 	AllocatedCount--;
 }
+
+struct matras_allocator pta_allocator;
 
 void matras_alloc_test()
 {
@@ -61,7 +59,7 @@ void matras_alloc_test()
 
 	alloc_err_inj_enabled = false;
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
-		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL, NULL);
+		matras_create(&mat, PROV_BLOCK_SIZE, &pta_allocator, NULL);
 		fail_unless(mat.capacity == maxCapacity);
 		AllocatedItems.clear();
 		for (unsigned int j = 0; j < i; j++) {
@@ -104,7 +102,7 @@ void matras_alloc_test()
 	}
 
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
-		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL, NULL);
+		matras_create(&mat, PROV_BLOCK_SIZE, &pta_allocator, NULL);
 		for (unsigned int j = 0; j < i; j++) {
 			unsigned int res = 0;
 			(void) matras_alloc(&mat, &res);
@@ -120,7 +118,7 @@ void matras_alloc_test()
 
 	alloc_err_inj_enabled = true;
 	for (unsigned int i = 0; i <= maxCapacity; i++) {
-		matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc, pta_free, NULL, NULL);
+		matras_create(&mat, PROV_BLOCK_SIZE, &pta_allocator, NULL);
 
 		alloc_err_inj_countdown = i;
 
@@ -136,6 +134,8 @@ void matras_alloc_test()
 		matras_destroy(&mat);
 		fail_unless(AllocatedCount == 0);
 	}
+
+	alloc_err_inj_enabled = false;
 	ok(true);
 
 	footer();
@@ -144,20 +144,23 @@ void matras_alloc_test()
 
 typedef uint64_t type_t;
 const size_t VER_EXTENT_SIZE = 512;
+long extents_in_use;
 
-void *all(void *ctx)
+void *all(struct matras_allocator *allocator)
 {
-	long *extents_in_use = static_cast<long *>(ctx);
-	++*extents_in_use;
+	(void)allocator;
+	++extents_in_use;
 	return malloc(VER_EXTENT_SIZE);
 }
 
-void dea(void *ctx, void *p)
+void dea(struct matras_allocator *allocator, void *p)
 {
-	long *extents_in_use = static_cast<long *>(ctx);
-	--*extents_in_use;
+	(void)allocator;
+	--extents_in_use;
 	free(p);
 }
+
+struct matras_allocator ver_allocator;
 
 struct matras_view views[MATRAS_VERSION_COUNT];
 int vermask = 1;
@@ -184,8 +187,8 @@ matras_vers_test()
 	int use_mask = 1;
 	int cur_num_or_ver = 1;
 	struct matras local;
-	long extents_in_use = 0;
-	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use, NULL);
+	extents_in_use = 0;
+	matras_create(&local, sizeof(type_t), &ver_allocator, NULL);
 	type_t val = 0;
 	for (int s = 10; s < 8000; s = int(s * 1.5)) {
 		for (int k = 0; k < 800; k++) {
@@ -262,8 +265,8 @@ matras_gh_1145_test()
 	plan(1);
 
 	struct matras local;
-	long extents_in_use = 0;
-	matras_create(&local, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use, NULL);
+	extents_in_use = 0;
+	matras_create(&local, sizeof(type_t), &ver_allocator, NULL);
 	struct matras_view view;
 	matras_create_read_view(&local, &view);
 	matras_id_t id;
@@ -288,9 +291,9 @@ matras_stats_test()
 	ok(stats.extent_count == 0);
 	ok(stats.read_view_extent_count == 0);
 
-	long extents_in_use = 0;
+	extents_in_use = 0;
 	struct matras matras;
-	matras_create(&matras, VER_EXTENT_SIZE, sizeof(type_t), all, dea, &extents_in_use, &stats);
+	matras_create(&matras, sizeof(type_t), &ver_allocator, &stats);
 	ok(stats.extent_count == 0);
 	ok(stats.read_view_extent_count == 0);
 
@@ -329,8 +332,7 @@ matras_alloc_overflow_test()
 
 	matras_id_t id;
 	struct matras mat;
-	matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc,
-		      pta_free, NULL, NULL);
+	matras_create(&mat, PROV_BLOCK_SIZE, &pta_allocator, NULL);
 	for (size_t i = 0; i < max_capacity; i++) {
 		void *data = matras_alloc(&mat, &id);
 		fail_unless(data != NULL);
@@ -358,8 +360,7 @@ matras_alloc_range_overflow_test()
 
 	matras_id_t id;
 	struct matras mat;
-	matras_create(&mat, PROV_EXTENT_SIZE, PROV_BLOCK_SIZE, pta_alloc,
-		      pta_free, NULL, NULL);
+	matras_create(&mat, PROV_BLOCK_SIZE, &pta_allocator, NULL);
 	for (size_t i = 0; i < max_capacity; i += range_count) {
 		void *data = matras_alloc_range(&mat, &id, range_count);
 		fail_unless(data != NULL);
@@ -374,11 +375,133 @@ matras_alloc_range_overflow_test()
 	check_plan();
 }
 
+void
+matras_touch_reserve_test()
+{
+	header();
+	plan(14);
+
+	int random_test_count = 10000;
+	size_t extents_in_use_before_reserve;
+
+	size_t max_capacity = PROV_EXTENT_SIZE / PROV_BLOCK_SIZE;
+	max_capacity *= PROV_EXTENT_SIZE / sizeof(void *);
+	max_capacity *= PROV_EXTENT_SIZE / sizeof(void *);
+
+	matras_id_t id;
+	struct matras mat;
+	matras_create(&mat, PROV_BLOCK_SIZE, &pta_allocator, NULL);
+
+	/* Create an empty matras view. */
+	struct matras_view empty_view;
+	matras_create_read_view(&mat, &empty_view);
+
+	/* Fill the actual matras. */
+	for (size_t i = 0; i < max_capacity; i++) {
+		void *data = matras_alloc(&mat, &id);
+		fail_unless(data != NULL);
+		fail_unless(id == i);
+	}
+	is(matras_alloc(&mat, &id), NULL);
+	is(id, max_capacity - 1);
+
+	/* Nothing reserved with an empty view. */
+	extents_in_use_before_reserve = AllocatedCount;
+	matras_touch_reserve(&mat, 0);
+	is(AllocatedCount, extents_in_use_before_reserve);
+	matras_touch_reserve(&mat, 1);
+	is(AllocatedCount, extents_in_use_before_reserve);
+	matras_touch_reserve(&mat, max_capacity / 2);
+	is(AllocatedCount, extents_in_use_before_reserve);
+	matras_touch_reserve(&mat, max_capacity);
+	is(AllocatedCount, extents_in_use_before_reserve);
+
+	/* Nothing reserved with no view. */
+	matras_destroy_read_view(&mat, &empty_view);
+	extents_in_use_before_reserve = AllocatedCount;
+	matras_touch_reserve(&mat, 0);
+	is(AllocatedCount, extents_in_use_before_reserve);
+	matras_touch_reserve(&mat, 1);
+	is(AllocatedCount, extents_in_use_before_reserve);
+	matras_touch_reserve(&mat, max_capacity / 2);
+	is(AllocatedCount, extents_in_use_before_reserve);
+	matras_touch_reserve(&mat, max_capacity);
+	is(AllocatedCount, extents_in_use_before_reserve);
+
+	/* Create a filled read view. */
+	struct matras_view view;
+	matras_create_read_view(&mat, &view);
+
+	/* Reserve and touch first and last blocks. */
+	extents_in_use_before_reserve = AllocatedCount;
+	matras_touch_reserve(&mat, 2);
+	is(AllocatedCount, extents_in_use_before_reserve + 5);
+	matras_touch(&mat, 0);
+	matras_touch(&mat, id);
+	/* Used reserved blocks, no new allocations. */
+	is(AllocatedCount, extents_in_use_before_reserve + 5);
+
+	/* Recreate the read view. */
+	matras_destroy_read_view(&mat, &view);
+	matras_create_read_view(&mat, &view);
+
+	/*
+	 * Reserve and touch first and last
+	 * blocks after the root is copied.
+	 */
+	matras_touch(&mat, id / 2);
+	extents_in_use_before_reserve = AllocatedCount;
+	matras_touch_reserve(&mat, 2);
+	is(AllocatedCount, extents_in_use_before_reserve + 4);
+	matras_touch(&mat, 0);
+	matras_touch(&mat, id);
+	/* Used reserved blocks, no new allocations. */
+	is(AllocatedCount, extents_in_use_before_reserve + 4);
+
+	/* Reserve and touch random blocks. */
+	for (int i = 0; i < random_test_count; i++) {
+		int touch_count = rand() % max_capacity;
+		matras_touch_reserve(&mat, touch_count);
+		size_t extents_in_use_after_reserve = AllocatedCount;
+		for (int j = 0; j < touch_count; j++)
+			matras_touch(&mat, rand() % max_capacity);
+		/* Used reserved blocks, no new allocations. */
+		fail_unless(AllocatedCount == extents_in_use_after_reserve);
+	}
+
+	/* Reserve and touch random blocks with new read view. */
+	for (int i = 0; i < random_test_count; i++) {
+		/* Recreate the read view. */
+		matras_destroy_read_view(&mat, &view);
+		matras_create_read_view(&mat, &view);
+
+		int touch_count = rand() % max_capacity;
+		matras_touch_reserve(&mat, touch_count);
+		size_t extents_in_use_after_reserve = AllocatedCount;
+		for (int j = 0; j < touch_count; j++)
+			matras_touch(&mat, rand() % max_capacity);
+		/* Used reserved blocks, no new allocations. */
+		fail_unless(AllocatedCount == extents_in_use_after_reserve);
+	}
+
+	/* Clean-up. */
+	matras_destroy_read_view(&mat, &view);
+	matras_destroy(&mat);
+
+	footer();
+	check_plan();
+}
+
 int
 main(int, const char **)
 {
-	plan(6);
+	plan(7);
 	header();
+
+	matras_allocator_create(&pta_allocator,
+				PROV_EXTENT_SIZE,
+				pta_alloc, pta_free);
+	matras_allocator_create(&ver_allocator, VER_EXTENT_SIZE, all, dea);
 
 	matras_alloc_test();
 	matras_vers_test();
@@ -386,6 +509,10 @@ main(int, const char **)
 	matras_stats_test();
 	matras_alloc_overflow_test();
 	matras_alloc_range_overflow_test();
+	matras_touch_reserve_test();
+
+	matras_allocator_destroy(&pta_allocator);
+	matras_allocator_destroy(&ver_allocator);
 
 	footer();
 	return check_plan();

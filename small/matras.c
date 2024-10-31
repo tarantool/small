@@ -42,10 +42,12 @@ matras_log2(matras_id_t val)
  * block allocator. Does not allocate memory.
  */
 void
-matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
-	      matras_alloc_func alloc_func, matras_free_func free_func,
-	      void *alloc_ctx, struct matras_stats *stats)
+matras_create(struct matras *m, matras_id_t block_size,
+	      struct matras_allocator *allocator,
+	      struct matras_stats *stats)
 {
+	size_t extent_size = allocator->extent_size;
+
 	/*extent_size must be power of 2 */
 	assert((extent_size & (extent_size - 1)) == 0);
 	/*block_size must be power of 2 */
@@ -61,9 +63,7 @@ matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
 	m->block_size = block_size;
 	m->extent_size = extent_size;
 	m->extent_count = 0;
-	m->alloc_func = alloc_func;
-	m->free_func = free_func;
-	m->alloc_ctx = alloc_ctx;
+	m->allocator = allocator;
 	m->stats = stats ? stats : &dummy_stats;
 
 	matras_id_t log1 = matras_log2(extent_size);
@@ -101,7 +101,7 @@ matras_reset(struct matras *m)
 static inline void *
 matras_alloc_extent(struct matras *m)
 {
-	void *ext = m->alloc_func(m->alloc_ctx);
+	void *ext = matras_allocator_alloc(m->allocator);
 	if (ext) {
 		m->extent_count++;
 		m->stats->extent_count++;
@@ -112,7 +112,7 @@ matras_alloc_extent(struct matras *m)
 static inline void
 matras_free_extent(struct matras *m, void *ext)
 {
-	m->free_func(m->alloc_ctx, ext);
+	matras_allocator_free(m->allocator, ext);
 	m->extent_count--;
 	m->stats->extent_count--;
 }
@@ -336,6 +336,35 @@ matras_dealloc_range(struct matras *m, matras_id_t range_count)
 }
 
 /**
+ * Reserve the max amount of extents required to successfully touch @p count
+ * blocks. The extents are reserved in the allocator given on construction.
+ */
+int
+matras_touch_reserve(struct matras *m, int count)
+{
+	assert(count >= 0);
+
+	/* No `matras_touch` calls planned. */
+	if (count == 0)
+		return 0;
+
+	/* No view opened, the `matras_touch` will be a no-op. */
+	if (!m->head.prev_view)
+		return 0;
+
+	/* The previous view is empty, the `matras_touch` will be a no-op. */
+	if (m->head.prev_view->block_count == 0)
+		return 0;
+
+	/* The root is only copied once - on the first touch. */
+	bool root_is_to_be_copied = m->head.root == m->head.prev_view->root;
+
+	/* We have extents on 2 levels to possibly be copied after root. */
+	int max_extents_required = count * 2 + root_is_to_be_copied;
+	return matras_allocator_reserve(m->allocator, max_extents_required);
+}
+
+/**
  * Return the number of allocated extents (of size m->extent_size each)
  */
 matras_id_t
@@ -484,4 +513,77 @@ matras_touch(struct matras *m, matras_id_t id)
 		return matras_get(m, id);
 
 	return matras_touch_no_check(m, id);
+}
+
+/**
+ * Create the given matras allocator.
+ */
+void
+matras_allocator_create(struct matras_allocator *allocator,
+			size_t extent_size,
+			matras_alloc_func alloc_func,
+			matras_free_func free_func)
+{
+	allocator->extent_size = extent_size;
+	allocator->alloc_func = alloc_func;
+	allocator->free_func = free_func;
+	allocator->reserved_extents = NULL;
+	allocator->num_reserved_extents = 0;
+}
+
+/**
+ * Destroy the given matras allocator.
+ */
+void
+matras_allocator_destroy(struct matras_allocator *allocator)
+{
+	while (allocator->num_reserved_extents > 0) {
+		void *ext = allocator->reserved_extents;
+		allocator->reserved_extents = *(void **)ext;
+		allocator->free_func(allocator, ext);
+		allocator->num_reserved_extents--;
+	}
+}
+
+/**
+ * Allocate a new extent or take one from the reserved list.
+ */
+void *
+matras_allocator_alloc(struct matras_allocator *allocator)
+{
+	if (allocator->num_reserved_extents > 0) {
+		void *ext = allocator->reserved_extents;
+		allocator->reserved_extents = *(void **)ext;
+		allocator->num_reserved_extents--;
+		return ext;
+	}
+	return allocator->alloc_func(allocator);
+}
+
+/**
+ * Return the given extent to the external allocator.
+ */
+void
+matras_allocator_free(struct matras_allocator *allocator, void *ext)
+{
+	allocator->free_func(allocator, ext);
+}
+
+/**
+ * Request and put into the reserved list new extents until its size is @p
+ * count or greater. Returns 0 on success, -1 on memory error.
+ */
+int
+matras_allocator_reserve(struct matras_allocator *allocator, int count)
+{
+	assert(count >= 0);
+	while (allocator->num_reserved_extents < count) {
+		void *ext = allocator->alloc_func(allocator);
+		if (ext == NULL)
+			return -1;
+		*(void **)ext = allocator->reserved_extents;
+		allocator->reserved_extents = ext;
+		allocator->num_reserved_extents++;
+	}
+	return 0;
 }

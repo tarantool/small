@@ -138,8 +138,26 @@ typedef uint32_t matras_id_t;
  * of size M). Is allowed to return NULL, but is not allowed
  * to throw an exception
  */
-typedef void *(*matras_alloc_func)(void *ctx);
-typedef void (*matras_free_func)(void *ctx, void *ptr);
+struct matras_allocator;
+typedef void *(*matras_alloc_func)(struct matras_allocator *allocator);
+typedef void (*matras_free_func)(struct matras_allocator *allocator, void *ptr);
+
+/**
+ * Matras extent allocator. Wraps the external allocator and allows to
+ * reserve the speciied amount of extents for future use.
+ */
+struct matras_allocator {
+	/** Single extent size. */
+	size_t extent_size;
+	/** External extent allocator */
+	matras_alloc_func alloc_func;
+	/** External extent deallocator */
+	matras_free_func free_func;
+	/** Reserved extents (linked list). */
+	void *reserved_extents;
+	/** Number of reserved extents. */
+	int num_reserved_extents;
+};
 
 /** Matras statistics. */
 struct matras_stats {
@@ -183,12 +201,8 @@ struct matras {
 	matras_id_t shift1, shift2;
 	/* See "Shifts and masks explanation" below  */
 	matras_id_t mask1, mask2;
-	/* External extent allocator */
-	matras_alloc_func alloc_func;
-	/* External extent deallocator */
-	matras_free_func free_func;
-	/* Argument passed to extent allocator */
-	void *alloc_ctx;
+	/* Matras extent allocator */
+	struct matras_allocator *allocator;
 	/* Matras statistics. Can't be NULL (points to dummy if unset). */
 	struct matras_stats *stats;
 };
@@ -236,9 +250,9 @@ matras_stats_create(struct matras_stats *stats)
  * may be used only in the thread that created it.
  */
 void
-matras_create(struct matras *m, matras_id_t extent_size, matras_id_t block_size,
-	      matras_alloc_func alloc_func, matras_free_func free_func,
-	      void *alloc_ctx, struct matras_stats *stats);
+matras_create(struct matras *m, matras_id_t block_size,
+	      struct matras_allocator *allocator,
+	      struct matras_stats *stats);
 
 /**
  * Free all memory used by an instance of matras and
@@ -288,6 +302,13 @@ matras_alloc_range(struct matras *m, matras_id_t *id, matras_id_t range_count);
  */
 void
 matras_dealloc_range(struct matras *m, matras_id_t range_count);
+
+/**
+ * Reserve the max amount of extents required to successfully touch @p count
+ * blocks. The extents are reserved in the allocator given on construction.
+ */
+int
+matras_touch_reserve(struct matras *m, int count);
 
 /**
  * Convert block id into block address.
@@ -432,6 +453,40 @@ matras_get(const struct matras *m, matras_id_t id)
 {
 	return matras_view_get_no_check(m, &m->head, id);
 }
+
+/**
+ * Create the given matras allocator.
+ */
+void
+matras_allocator_create(struct matras_allocator *allocator,
+			size_t extent_size,
+			matras_alloc_func alloc_func,
+			matras_free_func free_func);
+
+/**
+ * Destroy the given matras allocator.
+ */
+void
+matras_allocator_destroy(struct matras_allocator *allocator);
+
+/**
+ * Request a new extent or take one from the reserved list.
+ */
+void *
+matras_allocator_alloc(struct matras_allocator *allocator);
+
+/**
+ * Return the given extent to the external allocator.
+ */
+void
+matras_allocator_free(struct matras_allocator *allocator, void *ext);
+
+/**
+ * Request and put into the reserved list new extents until its size is @p
+ * count or greater. Returns 0 on success, -1 on memory error.
+ */
+int
+matras_allocator_reserve(struct matras_allocator *allocator, int count);
 
 #if defined(__cplusplus)
 } /* extern "C" */
