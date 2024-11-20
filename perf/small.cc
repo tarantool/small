@@ -279,7 +279,8 @@ generate_benchmark_args(benchmark::internal::Benchmark* b)
 
 BENCHMARK(small_workload_benchmark)
 	->Apply(generate_benchmark_args)
-	->ArgNames({"slab_size", "size_min", "size_max", "prealloc"});
+	->ArgNames({"slab_size", "size_min", "size_max", "prealloc", "mask",
+		    "alloc_factor_idx"});
 
 int main(int argc, char** argv)
 {
