@@ -251,6 +251,8 @@ small_workload_benchmark(benchmark::State& state)
 		free_object(v);
 	}
 
+	state.SetItemsProcessed(prealloc_objcount);
+
 finish:
 	free_objects(v);
 	if (! small_is_unused())
