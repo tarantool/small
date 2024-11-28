@@ -20,5 +20,5 @@ endif()
 include_directories("${PROJECT_SOURCE_DIR}")
 
 add_executable(small.perftest small.cc)
-target_link_libraries(small.perftest small ${BENCHMARK_LIBRARIES})
+target_link_libraries(small.perftest small ${BENCHMARK_LIBRARIES} pthread)
 target_include_directories(small.perftest PUBLIC ${BENCHMARK_INCLUDE_DIRS})
