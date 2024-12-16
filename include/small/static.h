@@ -36,11 +36,10 @@
 
 enum {
 	/**
-	 * Two pages (8192) would be too small for arbitrary
-	 * cases, but plus even 1 byte would occupy the whole new
-	 * page anyway, so here it is 3 pages.
+	 * This should be a multiple of the page size (usually 4096).
+	 * Four pages should be enough for most cases.
 	 */
-	SMALL_STATIC_SIZE = 4096 * 3,
+	SMALL_STATIC_SIZE = 4096 * 9,
 };
 
 /**
