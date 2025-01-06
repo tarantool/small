@@ -12,6 +12,8 @@
 #pragma intrinsic (_BitScanReverse)
 #endif
 
+#include "util.h"
+
 /**
  * Dummy thread-local matras_stats struct used if matras_stats wasn't
  * passed to matras_create().
@@ -362,6 +364,30 @@ matras_touch_reserve(struct matras *m, int count)
 	/* We have extents on 2 levels to possibly be copied after root. */
 	int max_extents_required = count * 2 + root_is_to_be_copied;
 	return matras_allocator_reserve(m->allocator, max_extents_required);
+}
+
+/**
+ * Reserve the max amount of extents required to successfully allocate @p count
+ * blocks. The extents are reserved in the allocator given on construction.
+ */
+int
+matras_alloc_reserve(struct matras *m, int count)
+{
+	assert(count >= 0);
+
+	/* No allocations planned. */
+	if (count == 0)
+		return 0;
+
+	/*
+	 * This reserves up to 3 extents more than required, but it should be OK
+	 * since the reserved memory is generic for all matras_allocator users.
+	 */
+	int l3_count = SMALL_DIV_ROUND_UP(m->block_size * count,
+					  m->allocator->extent_size);
+	int l2_count = SMALL_DIV_ROUND_UP(l3_count * sizeof(void *),
+					  m->allocator->extent_size);
+	return matras_allocator_reserve(m->allocator, l3_count + l2_count + 1);
 }
 
 /**
