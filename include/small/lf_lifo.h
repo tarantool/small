@@ -54,16 +54,19 @@ struct lf_lifo {
 	void *next;
 };
 
-static inline unsigned short
+/** LIFO elements alignment. */
+#define SMALL_LIFO_ALIGNMENT 0xffff
+
+static inline intptr_t
 aba_value(void *a)
 {
-	return (intptr_t) a & 0xffff;
+	return (intptr_t) a & SMALL_LIFO_ALIGNMENT;
 }
 
 static inline struct lf_lifo *
 lf_lifo(void *a)
 {
-	return (struct lf_lifo *) ((intptr_t) a & ~0xffff);
+	return (struct lf_lifo *) ((intptr_t) a & ~SMALL_LIFO_ALIGNMENT);
 }
 
 static inline void
@@ -79,11 +82,8 @@ lf_lifo_push(struct lf_lifo *head, void *elem)
 	do {
 		void *tail = head->next;
 		lf_lifo(elem)->next = tail;
-		/*
-		 * Sic: add 1 thus let ABA value overflow, *then*
-		 * coerce to unsigned short
-		 */
-		void *newhead = (char *) elem + aba_value((char *) tail + 1);
+		void *newhead = (char *)elem +
+				((aba_value(tail) + 1) & SMALL_LIFO_ALIGNMENT);
 		if (pm_atomic_compare_exchange_weak(&head->next, &tail, newhead))
 			return head;
 	} while (true);
@@ -104,8 +104,12 @@ lf_lifo_pop(struct lf_lifo *head)
 		 * regardless of the exact sequence of push/pop
 		 * operations.
 		 */
-		void *newhead = ((char *) lf_lifo(elem->next) +
-				 aba_value(tail));
+		void *newhead;
+		void *next = lf_lifo(elem->next);
+		if (next != NULL)
+			newhead = (char *)next + aba_value(tail);
+		else
+			newhead = (void *)aba_value(tail);
 		if (pm_atomic_compare_exchange_weak(&head->next, &tail, newhead))
 			return elem;
 	} while (true);
