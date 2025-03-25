@@ -30,7 +30,8 @@ mmap_aligned(size_t size)
 
 #define MAP_SIZE 0x10000
 
-int main()
+static void
+test_basic(void)
 {
 	plan(8);
 	header();
@@ -65,6 +66,33 @@ int main()
 	munmap(val1, MAP_SIZE);
 	munmap(val2, MAP_SIZE);
 	munmap(val3, MAP_SIZE);
+
+	footer();
+	check_plan();
+}
+
+static void
+test_integer_pointer_conversion(void)
+{
+	plan(1);
+	header();
+
+	for (int i = 0; i < SMALL_LIFO_ALIGNMENT; i++)
+		fail_unless((intptr_t)(void *)(uintptr_t)i == i);
+	ok(true);
+
+	footer();
+	check_plan();
+}
+
+int
+main(void)
+{
+	plan(2);
+	header();
+
+	test_integer_pointer_conversion();
+	test_basic();
 
 	footer();
 	return check_plan();
