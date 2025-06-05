@@ -211,36 +211,6 @@ smalloc(struct small_alloc *alloc, size_t size);
 void
 smfree(struct small_alloc *alloc, void *ptr, size_t size);
 
-/**
- * @brief Return an unique index associated with a chunk allocated
- * by the allocator.
- *
- * This index space is more dense than the pointers space,
- * especially in the least significant bits.  This number is
- * needed because some types of box's indexes (e.g. BITSET) have
- * better performance then they operate on sequential offsets
- * (i.e. dense space) instead of memory pointers (sparse space).
- *
- * The calculation is based on SLAB number and the position of an
- * item within it. Current implementation only guarantees that
- * adjacent chunks from one SLAB will have consecutive indexes.
- * That is, if two chunks were sequentially allocated from one
- * chunk they will have sequential ids. If a second chunk was
- * allocated from another SLAB thеn the difference between indexes
- * may be more than one.
- *
- * @param ptr pointer to memory allocated in small_alloc
- * @return unique index
- */
-size_t
-small_ptr_compress(struct small_alloc *alloc, void *ptr);
-
-/**
- * Perform the opposite action of small_ptr_compress().
- */
-void *
-small_ptr_decompress(struct small_alloc *alloc, size_t val);
-
 void
 small_stats(struct small_alloc *alloc,
 	    struct small_stats *totals,
