@@ -468,12 +468,14 @@ void
 small_alloc_info(struct small_alloc *alloc, void *ptr, size_t size,
 		 struct small_alloc_info *info)
 {
-	(void)ptr;
 	struct small_mempool *small_mempool = small_mempool_search(alloc, size);
 	info->is_large = small_mempool == NULL;
-	if (info->is_large)
+	if (info->is_large) {
 		info->real_size = size;
-	else
-		info->real_size = small_mempool->used_pool->pool.objsize;
+	} else {
+		struct mslab *mslab = (struct mslab *)
+			slab_from_ptr(ptr, small_mempool->pool.slab_ptr_mask);
+		info->real_size = mslab->mempool->objsize;
+	}
 	assert(info->real_size >= size);
 }

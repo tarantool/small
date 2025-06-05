@@ -141,8 +141,10 @@ static inline void
 check_small_alloc_info(struct small_alloc *alloc, size_t size, bool is_large,
 		       size_t real_size)
 {
+	void *ptr = smalloc(alloc, size);
 	struct small_alloc_info info;
-	small_alloc_info(alloc, NULL, size, &info);
+	small_alloc_info(alloc, ptr, size, &info);
+	smfree(alloc, ptr, size);
 	fail_unless(info.is_large == is_large);
 	fail_unless(info.real_size == real_size);
 }
@@ -180,6 +182,48 @@ test_small_alloc_info(void)
 	check_small_alloc_info(&alloc, 262145, true, 262145);
 	ok(true);
 
+	small_alloc_destroy(&alloc);
+	footer();
+	check_plan();
+}
+
+/**
+ * Make sure `info.real_size' is calculated correctly.
+ * See https://github.com/tarantool/tarantool/issues/10217
+ */
+static void
+test_small_alloc_info_gh_10217(void)
+{
+	plan(1);
+	header();
+	/*
+	 * One of the mempool groups consists of two mempools with objsizes
+	 * 3072 and 4096. The largest objsize in the previous group is 2048.
+	 */
+	float actual_alloc_factor;
+	small_alloc_create(&alloc, &cache, 64, 64, 1.5f, &actual_alloc_factor);
+
+	const size_t size = 2240;
+	const size_t count = 200;
+	struct small_alloc_info info;
+
+	for (size_t i = 0; i < count; i++) {
+		ptrs[i] = smalloc(&alloc, size);
+		small_alloc_info(&alloc, ptrs[i], size, &info);
+		fail_unless(info.real_size == (i > 127 ? 3072 : 4096));
+	}
+	/*
+	 * Check that all "real sizes" are still correct after `used_pool' was
+	 * switched.
+	 */
+	for (size_t i = 0; i < count; i++) {
+		small_alloc_info(&alloc, ptrs[i], size, &info);
+		fail_unless(info.real_size == (i > 127 ? 3072 : 4096));
+	}
+	ok(true);
+
+	for (size_t i = 0; i < count; i++)
+		smfree(&alloc, ptrs[i], size);
 	small_alloc_destroy(&alloc);
 	footer();
 	check_plan();
@@ -317,7 +361,7 @@ int main()
 #ifdef ENABLE_ASAN
 	plan(3);
 #else
-	plan(4);
+	plan(5);
 #endif
 	header();
 
@@ -334,6 +378,7 @@ int main()
 #ifndef ENABLE_ASAN
 	small_alloc_large();
 	test_small_alloc_info();
+	test_small_alloc_info_gh_10217();
 	small_alloc_low_alloc_factor();
 #else
 	small_wrong_size_in_free();

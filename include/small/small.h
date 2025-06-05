@@ -225,8 +225,6 @@ small_alloc_check(struct small_alloc *alloc)
 /**
  * Fill `info' with the information about allocation `ptr' of size `size'.
  * See `struct small_alloc_info' for the description of each field.
- * Note that this function can return different `info->real_size' for the same
- * input, depending on the current `small_mempool->used_pool'.
  */
 void
 small_alloc_info(struct small_alloc *alloc, void *ptr, size_t size,
