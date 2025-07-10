@@ -351,8 +351,13 @@ lsregion_gc(struct lsregion *lsregion, int64_t min_id)
 			lsregion->slabs.stats.total -= slab->slab_size;
 			slab_unmap(lsregion->arena, slab);
 		} else {
-			lslab_create(slab, slab->slab_size,
-				     ++lsregion->slab_id);
+			/*
+			 * We have to maintain an invariant that slab ids are
+			 * assigned in the same order as slabs are used, so this
+			 * slab's id will be assigned when it's taken from
+			 * cache.
+			 */
+			lslab_create(slab, slab->slab_size, LSLAB_NOT_USED_ID);
 			lsregion->cached = slab;
 		}
 	}
