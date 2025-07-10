@@ -75,6 +75,7 @@ lsregion_aligned_reserve_slow(struct lsregion *lsregion, size_t size,
 		/* If there is the cached slab then use it. */
 		slab = lsregion->cached;
 		lsregion->cached = NULL;
+		lslab_create(slab, slab->slab_size, ++lsregion->slab_id);
 		rlist_add_tail_entry(&lsregion->slabs.slabs, slab,
 				     next_in_list);
 	} else {

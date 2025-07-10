@@ -622,6 +622,7 @@ test_to_iovec(void)
 
 	id += count;
 	lsregion_gc(&allocator, id - 1);
+	fail_if(lsregion_used(&allocator) != 0);
 
 	/*
 	 * Check allocation spanning multiple slabs.
@@ -630,6 +631,45 @@ test_to_iovec(void)
 	iovcnt = lengthof(iov);
 	fill_data(data, count, size, id, &allocator);
 	lsregion_to_iovec(&allocator, iov, &iovcnt, &svp);
+	iov_to_data(iov, iovcnt, data, count, size);
+	test_data(data, count, size);
+
+	id += count;
+	lsregion_gc(&allocator, id - 1);
+	fail_if(lsregion_used(&allocator) != 0);
+
+	/*
+	 * gh-109: lsregion_to_iovec skips a normal slab after a large one.
+	 * This test also makes no sense for asan build, because the issue is
+	 * specific to cached slabs, which aren't implemented in asan-lsregion.
+	 */
+
+	/* First allocate a normal slab and free it, so that it gets cached. */
+	char *alloc = lsregion_alloc(&allocator, 1, id);
+	fail_if(alloc == NULL);
+	lsregion_gc(&allocator, id);
+	id += 1;
+	fail_if(allocator.cached == NULL);
+
+	/* Now allocate and flush a large slab. */
+	count = 1;
+	size = arena.slab_size + 1;
+	fill_data(data, count, size, id, &allocator);
+	iovcnt = lengthof(iov);
+	rc_id = lsregion_to_iovec(&allocator, iov, &iovcnt, &svp);
+	iov_to_data(iov, iovcnt, data, count, size);
+	test_data(data, count, size);
+	lsregion_gc(&allocator, rc_id);
+	id += count;
+
+	/*
+	 * Try to allocate and flush a normal slab. Lsregion should use a
+	 * previously cached slab.
+	 */
+	iovcnt = lengthof(iov);
+	size = arena.slab_size / 4;
+	fill_data(data, count, size, id, &allocator);
+	rc_id = lsregion_to_iovec(&allocator, iov, &iovcnt, &svp);
 	iov_to_data(iov, iovcnt, data, count, size);
 	test_data(data, count, size);
 #endif
