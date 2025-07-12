@@ -88,6 +88,8 @@
 #  define lengthof(array) (sizeof (array) / sizeof ((array)[0]))
 #endif
 
+#define SMALL_DIV_ROUND_UP(a, b) ((a) + (b) - 1) / (b)
+
 #define small_xmalloc(size)							\
 	({									\
 		void *ret = malloc(size);					\

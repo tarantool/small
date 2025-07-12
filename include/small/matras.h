@@ -311,6 +311,13 @@ int
 matras_touch_reserve(struct matras *m, int count);
 
 /**
+ * Reserve the max amount of extents required to successfully allocate @p count
+ * blocks. The extents are reserved in the allocator given on construction.
+ */
+int
+matras_alloc_reserve(struct matras *m, int count);
+
+/**
  * Convert block id into block address.
  */
 static void *
