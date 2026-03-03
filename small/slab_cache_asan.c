@@ -35,6 +35,7 @@ void
 slab_cache_create(struct slab_cache *cache, struct slab_arena *arena)
 {
 	quota_lessor_create(&cache->quota, arena->quota);
+	cache->used = 0;
 	cache->id = small_asan_reserve_id();
 	slab_cache_set_thread(cache);
 }
