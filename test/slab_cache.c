@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include "unit.h"
 
@@ -19,8 +20,12 @@ test_slab_cache(void)
 	plan(1);
 	header();
 
+	/* Trash the object to check that it's correctly initialized. */
+	memset(&cache, 0xff, sizeof(cache));
+
 	slab_arena_create(&arena, &quota, 0, 4000000, MAP_PRIVATE);
 	slab_cache_create(&cache, &arena);
+	fail_unless(slab_cache_used(&cache) == 0);
 
 	int i = 0;
 
@@ -50,6 +55,7 @@ test_slab_cache(void)
 	 */
 	ok_no_asan(cache.allocated.stats.total == arena.slab_size);
 
+	fail_unless(slab_cache_used(&cache) == 0);
 	slab_cache_destroy(&cache);
 	slab_arena_destroy(&arena);
 
