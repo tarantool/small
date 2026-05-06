@@ -260,9 +260,12 @@ finish:
 	small_alloc_test_finish();
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 static void
 generate_benchmark_args(benchmark::internal::Benchmark* b)
 {
+#pragma GCC diagnostic pop
 	for (unsigned size = SLAB_SIZE_MIN; size <= SLAB_SIZE_MAX; size *= 2) {
 		for (unsigned j = 0; j < objsize_arr.size(); j++) {
 			for (unsigned k = 0; k < alloc_factor_arr.size(); k++) {
