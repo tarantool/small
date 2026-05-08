@@ -211,7 +211,7 @@ slab_test_basic(void)
 
 	quota_init(&quota, 2000000);
 	slab_arena_create(&arena, &quota, 3000000, 1, MAP_PRIVATE);
-	ok_no_asan(arena.prealloc == 2031616);
+	ok_no_asan(arena.prealloc == 3014656);
 	ok(quota_total(&quota) == 2000896);
 	ok_no_asan(arena.used == 0);
 	ok(arena.slab_size == SLAB_MIN_SIZE);

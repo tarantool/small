@@ -190,8 +190,6 @@ slab_arena_create(struct slab_arena *arena, struct quota *quota,
 	arena->slab_size = small_round(MAX(slab_size, SLAB_MIN_SIZE));
 
 	arena->quota = quota;
-	/** Prealloc can not be greater than the quota */
-	prealloc = MIN(prealloc, quota_total(quota));
 	/** Extremely large sizes can not be aligned properly */
 	prealloc = MIN(prealloc, SIZE_MAX - arena->slab_size);
 	/* Align prealloc around a fixed number of slabs. */
